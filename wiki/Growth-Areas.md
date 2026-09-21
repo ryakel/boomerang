@@ -71,7 +71,13 @@ Both reuse the *same* underlying filter (`contextualGrowthAreas()` in `growthAre
 
 ## Management UI
 
-A "Growth areas" entry in the System menu (alongside Settings/Analytics/Done/Suggestions/Activity log). Simple list CRUD:
+**Settings → Tasks → Growth areas** is the canonical home, a `NavRow` carrying a live count summary (`2 areas` / `None`), mirroring Impact dates directly above it — these are standing CONFIGURATION that drives a daily behavior, not content.
+
+A second entry point is the **Notebook** (`NotesModal`), below the notes. Both render the same `GrowthAreasPanel` exported from `GrowthAreasModal.jsx`, which owns its own load and CRUD state, so neither surface has to lift it.
+
+History, because the moves are the point: this started as a System-menu entry, was folded into the Notebook by the 2026-07-19 More/sidebar consolidation (9 rows → 4), and gained the Settings home on 2026-09-21 after the user went looking for "this fucking setting" and could not find it. The consolidation paid for the move with a mobile subtitle (`Notebook · Notes + growth areas`), but the desktop sidebar has no subtitle field — so on desktop the words "growth areas" appeared nowhere in navigation for two months. The legacy-theme System-menu modal still exists and wraps the same panel.
+
+Simple list CRUD:
 
 - Add: title + three timing checkboxes (Morning / Evening / Persistent, default morning+persistent) + a day-scope select (Any day / Weekdays / Weekends, default Any). Copy hint: "Works best with 2-3 active areas... Evening + Weekdays is a good fit for work-life-boundary reminders — they simply won't come up on a Saturday."
 - Edit: title, timing flags, day_scope, active toggle. `energy_affinity` is Quokka-inferred, not a manual field.

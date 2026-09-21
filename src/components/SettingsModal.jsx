@@ -8,7 +8,7 @@ import {
   loadRoutines, saveRoutines, safeSetItem, loadLabels, saveLabels,
   LABEL_COLORS, uuid, localYMD,
 } from '../store'
-import { restoreFromBackup } from '../api'
+import { restoreFromBackup, getGrowthAreas } from '../api'
 import { usePushSubscription } from '../hooks/usePushSubscription'
 import ModalShell from './ModalShell'
 import {
@@ -18,6 +18,7 @@ import {
 import EmptyState from './EmptyState'
 import Toggle from './Toggle'
 import CalendarRulesEditor from './CalendarRulesEditor'
+import { GrowthAreasPanel } from './GrowthAreasModal'
 import AutosaveIndicator from './AutosaveIndicator'
 import { applyTheme } from '../theme'
 import './SettingsModal.css'
@@ -236,6 +237,7 @@ const CATEGORIES = ['General', 'Tasks', 'Labels', 'Integrations', 'Notifications
 // title is just its own name; only the leaves below need naming. Capped at one
 // level of sub-page — §6's rule that anything deeper wants splitting instead.
 const PAGE_TITLES = {
+  'Tasks/growth': 'Growth areas',
   'Tasks/impact': 'Impact dates',
   'Tasks/instructions': 'Custom instructions',
   'Data/devices': 'Devices',
@@ -3155,6 +3157,13 @@ export default function SettingsModal({
   // value is a category page. Component state only — never persisted, because
   // the settings blob is last-writer-wins and UI chrome must not ride it.
   const [page, setPage] = useState('index')
+  // Growth-area count for the Tasks row's summary. Fetched rather than read
+  // from `settings` because growth areas are their own app_data collection
+  // with dedicated endpoints, deliberately outside the whole-blob sync (see
+  // server/growthAreas.js). Refetched whenever the Tasks page is shown, which
+  // covers returning from the sub-page after adding or deleting one. null =
+  // not loaded yet, so the row says nothing rather than lying "None".
+  const [growthCount, setGrowthCount] = useState(null)
   // What the SERVER says is connected, for the Integrations index summary.
   // Deliberately the same two sources IntegrationsPanel reads — env key flags
   // and each integration's own status — so the summary can never disagree
@@ -3199,6 +3208,19 @@ export default function SettingsModal({
   useEffect(() => {
     if (open) setSettings(loadSettings())
   }, [open])
+
+  // Growth-area count for the Tasks row. Keyed on the page so returning from
+  // the sub-page picks up an add or delete; a failed fetch leaves the count
+  // null and the row summary-less rather than claiming "None" — the same
+  // failed-vs-empty distinction the Share Extension's picker got wrong.
+  useEffect(() => {
+    if (!open || page !== 'Tasks') return
+    let alive = true
+    getGrowthAreas()
+      .then(areas => { if (alive) setGrowthCount(areas.length) })
+      .catch(() => { if (alive) setGrowthCount(null) })
+    return () => { alive = false }
+  }, [open, page])
 
   // Detect the dev environment (gates the reseed button). /api/health returns
   // isDev:true only when APP_VERSION is 'dev' or 'dev-<sha>'.
@@ -3612,6 +3634,19 @@ export default function SettingsModal({
               />
             </SettingsGroup>
 
+            <SettingsGroup caption="Growth areas">
+              <NavRow
+                label="Growth areas"
+                summary={growthCount === null
+                  ? ''
+                  : growthCount
+                    ? `${growthCount} area${growthCount === 1 ? '' : 's'}`
+                    : 'None'}
+                onPress={() => setPage('Tasks/growth')}
+                info="Standing reminders about yourself — one is picked each morning and evening, reworded fresh, and shown on Today. Not tasks: they never nag, never count, and can't be completed."
+              />
+            </SettingsGroup>
+
             <SettingsGroup caption="Impact dates">
               <NavRow
                 label="Impact dates"
@@ -3692,6 +3727,21 @@ export default function SettingsModal({
 
         {/* Sub-page: one row per event instead of five inputs crammed into a
             wrapping flexbox. */}
+        {page === 'Tasks/growth' && (
+          <div className="v2-settings-form">
+            <p className="v2-set-page-intro">
+              Standing reminders about yourself — “be patient with the kiddo”, “stop
+              interrupting on calls”. One morning and one evening area is picked each
+              day and reworded fresh, so it never becomes wallpaper you stop seeing.
+              Quokka can add these too — “I want to work on being more patient”.
+            </p>
+            {/* The same panel the Notebook renders. It owns its own load and
+                CRUD state, so both entry points stay in step without either
+                one lifting it. */}
+            <GrowthAreasPanel />
+          </div>
+        )}
+
         {page === 'Tasks/impact' && (
           <div className="v2-settings-form">
             <p className="v2-set-page-intro">
