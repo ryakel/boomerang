@@ -335,7 +335,7 @@ export default function AppV2() {
     }
   }, [hydrateTasks, hydrateRoutines, reloadNotes, reloadLists])
 
-  const { flush: flushSync, checkVersion, syncStatus, queueLength, refetch: refetchFromServer } = useServerSync(tasks, routines, hydrateFromServer, (newVersion) => {
+  const { flush: flushSync, checkVersion, syncStatus, queueLength, clearQueue: clearSyncQueue, refetch: refetchFromServer } = useServerSync(tasks, routines, hydrateFromServer, (newVersion) => {
     setUpdateVersion(newVersion)
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.getRegistrations().then(regs => {
@@ -1825,6 +1825,8 @@ export default function AppV2() {
         open={showActivityLog}
         onClose={() => setShowActivityLog(false)}
         onRestore={handleRestore}
+        queueLength={queueLength}
+        onClearQueue={clearSyncQueue}
       />
 
       <NotificationsModal

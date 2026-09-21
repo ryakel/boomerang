@@ -1286,13 +1286,23 @@ export async function aiDedupGCalEvents(events, tasks) {
 // Per-record Task & Routine API
 // ============================================================
 
+// A failed per-record mutation is classified by the offline queue (terminal vs
+// retryable — see src/mutationQueue.js), so the STATUS has to survive the
+// throw. Without it the queue can only pattern-match the message, and a 404
+// that will never succeed looks exactly like a 503 worth retrying.
+function syncError(what, res) {
+  const err = new Error(`${what} failed: ${res.status}`)
+  err.status = res.status
+  return err
+}
+
 export async function serverCreateTask(task, clientId) {
   const res = await fetch('/api/tasks', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ ...task, _clientId: clientId }),
   })
-  if (!res.ok) throw new Error(`create task failed: ${res.status}`)
+  if (!res.ok) throw syncError('create task', res)
   return res.json()
 }
 
@@ -1302,13 +1312,13 @@ export async function serverUpdateTask(id, updates, clientId) {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ ...updates, _clientId: clientId }),
   })
-  if (!res.ok) throw new Error(`update task failed: ${res.status}`)
+  if (!res.ok) throw syncError('update task', res)
   return res.json()
 }
 
 export async function serverDeleteTask(id) {
   const res = await fetch(`/api/tasks/${id}`, { method: 'DELETE' })
-  if (!res.ok) throw new Error(`delete task failed: ${res.status}`)
+  if (!res.ok) throw syncError('delete task', res)
   return res.json()
 }
 
@@ -1332,7 +1342,7 @@ export async function serverCreateRoutine(routine, clientId) {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ ...routine, _clientId: clientId }),
   })
-  if (!res.ok) throw new Error(`create routine failed: ${res.status}`)
+  if (!res.ok) throw syncError('create routine', res)
   return res.json()
 }
 
@@ -1342,13 +1352,13 @@ export async function serverUpdateRoutine(id, updates, clientId) {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ ...updates, _clientId: clientId }),
   })
-  if (!res.ok) throw new Error(`update routine failed: ${res.status}`)
+  if (!res.ok) throw syncError('update routine', res)
   return res.json()
 }
 
 export async function serverDeleteRoutine(id) {
   const res = await fetch(`/api/routines/${id}`, { method: 'DELETE' })
-  if (!res.ok) throw new Error(`delete routine failed: ${res.status}`)
+  if (!res.ok) throw syncError('delete routine', res)
   return res.json()
 }
 

@@ -597,7 +597,7 @@ Tasks can be sorted via a dropdown in the header. Available sort options:
 
 ## Offline Mutation Queue
 
-When the server is unreachable, mutations (task updates, creates, deletes) are queued in localStorage (`boom_mutation_queue`, 200 cap) and replayed sequentially on reconnect. The header shows a sync status indicator (Cloud/CloudOff icons) with pending queue count.
+When the server is unreachable, mutations (task updates, creates, deletes) are queued in localStorage (`boom_mutation_queue`, 200 cap) and replayed sequentially on reconnect. The queue folds to one entry per task or loop before it replays, a delete always beats the edits queued after it, and anything older than an hour is discarded rather than replayed from a stale copy. The header wordmark turns amber while changes are pending; the activity log lists the count and can discard them.
 
 ## High Priority Tasks
 
