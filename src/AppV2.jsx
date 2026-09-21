@@ -235,7 +235,7 @@ export default function AppV2() {
   } = useTasks()
   const {
     routines, addRoutine, deleteRoutine, togglePause, updateRoutine,
-    completeRoutine, uncompleteRoutine, adjustRoutineHistory, spawnDueTasks, spawnNow, logHabit, skipCycle, pushLoopOut, markRoutineDayDone, unmarkRoutineDayDone, skipRoutineDay, hydrateRoutines,
+    completeRoutine, uncompleteRoutine, adjustRoutineHistory, spawnDueTasks, spawnNow, logHabit, skipCycle, pushLoopOut, deferLoopCycle, markRoutineDayDone, unmarkRoutineDayDone, skipRoutineDay, hydrateRoutines,
   } = useRoutines()
 
   // Background work that must keep running even when v2 is the active shell:
@@ -335,7 +335,7 @@ export default function AppV2() {
     }
   }, [hydrateTasks, hydrateRoutines, reloadNotes, reloadLists])
 
-  const { flush: flushSync, checkVersion, syncStatus, queueLength, refetch: refetchFromServer } = useServerSync(tasks, routines, hydrateFromServer, (newVersion) => {
+  const { flush: flushSync, checkVersion, syncStatus, queueLength, clearQueue: clearSyncQueue, refetch: refetchFromServer } = useServerSync(tasks, routines, hydrateFromServer, (newVersion) => {
     setUpdateVersion(newVersion)
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.getRegistrations().then(regs => {
@@ -856,12 +856,23 @@ export default function AppV2() {
     })
   }, [])
 
+  // Deferring a routine-spawned task (backlog / cancelled / project) closes its
+  // cycle without doing it, so the loop's schedule has to move on — otherwise
+  // the cadence grid, which only advances past a slot a COMPLETION satisfied,
+  // hands the loop the identical cycle again on the next spawn pass.
+  // deferLoopCycle sets the `resume_at` floor and nothing else; it no-ops for
+  // stacks and habit loops. See DEFERRED_STATUSES in src/loopSpawnStatus.js.
+  const deferLoopForTask = useCallback((task) => {
+    if (task?.routine_id) deferLoopCycle(task.routine_id)
+  }, [deferLoopCycle])
+
   const handleStatusChange = useCallback((id, newStatus) => {
     if (newStatus === 'done') { handleComplete(id); return }
     const task = tasks.find(t => t.id === id)
     const chainBreaking = ['cancelled', 'backlog', 'project'].includes(newStatus)
     const proceed = () => {
       changeStatus(id, newStatus)
+      if (chainBreaking) deferLoopForTask(task)
       if (task?.trello_card_id) pushStatusToTrello(task, newStatus)
     }
     if (chainBreaking) {
@@ -869,21 +880,21 @@ export default function AppV2() {
     } else {
       proceed()
     }
-  }, [handleComplete, changeStatus, tasks, pushStatusToTrello, gateOnChainBreak])
+  }, [handleComplete, changeStatus, tasks, pushStatusToTrello, gateOnChainBreak, deferLoopForTask])
 
   const handleBacklog = useCallback((id, toBacklog) => {
     const apply = () => updateTask(id, { status: toBacklog ? 'backlog' : 'not_started', last_touched: new Date().toISOString() })
     if (!toBacklog) { apply(); return }
     const task = tasks.find(t => t.id === id)
-    gateOnChainBreak(task, 'Moving to backlog', 'Stop chain & move', apply)
-  }, [updateTask, tasks, gateOnChainBreak])
+    gateOnChainBreak(task, 'Moving to backlog', 'Stop chain & move', () => { apply(); deferLoopForTask(task) })
+  }, [updateTask, tasks, gateOnChainBreak, deferLoopForTask])
 
   const handleProject = useCallback((id, toProject) => {
     const apply = () => updateTask(id, { status: toProject ? 'project' : 'not_started', last_touched: new Date().toISOString() })
     if (!toProject) { apply(); return }
     const task = tasks.find(t => t.id === id)
-    gateOnChainBreak(task, 'Moving to projects', 'Stop chain & move', apply)
-  }, [updateTask, tasks, gateOnChainBreak])
+    gateOnChainBreak(task, 'Moving to projects', 'Stop chain & move', () => { apply(); deferLoopForTask(task) })
+  }, [updateTask, tasks, gateOnChainBreak, deferLoopForTask])
 
   // Pin a project to the main list (or unpin). Pinning is a visibility
   // toggle only — nags and child-spawn behavior unchanged. The pinned
@@ -1814,6 +1825,8 @@ export default function AppV2() {
         open={showActivityLog}
         onClose={() => setShowActivityLog(false)}
         onRestore={handleRestore}
+        queueLength={queueLength}
+        onClearQueue={clearSyncQueue}
       />
 
       <NotificationsModal

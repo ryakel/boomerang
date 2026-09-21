@@ -69,7 +69,7 @@ function dayLabel(ymd) {
   return new Date(yy, mm - 1, dd).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
 }
 
-export default function ActivityLog({ open, onRestore, onClose }) {
+export default function ActivityLog({ open, onRestore, onClose, queueLength = 0, onClearQueue }) {
   const [log, setLog] = useState(loadActivityLog)
   const [filter, setFilter] = useState('all')
   const [searchQuery, setSearchQuery] = useState('')
@@ -171,6 +171,34 @@ export default function ActivityLog({ open, onRestore, onClose }) {
 
   return (
     <ModalShell open={open} onClose={onClose} title="Activity log" width="wide">
+      {/* Changes that failed to reach the server and are waiting to retry.
+        * This lives here because a held queue is a RECOVERY fact — it is the
+        * answer to "why did my change not stick" — and because it was
+        * previously invisible from inside the app: the only tell was the
+        * wordmark turning yellow, with no way to see what was pending or to
+        * let it go. A queue that cannot drain then stays forever. */}
+      {queueLength > 0 && (
+        <div className="v2-activity-pending">
+          <AlertTriangle size={15} className="v2-activity-pending-icon" />
+          <div className="v2-activity-pending-text">
+            <strong>{queueLength} change{queueLength === 1 ? '' : 's'} waiting to sync</strong>
+            <span>Retried on every reconnect. Stale entries expire on their own.</span>
+          </div>
+          {onClearQueue && (
+            <button
+              className="v2-activity-pending-clear"
+              onClick={() => {
+                if (window.confirm(`Discard ${queueLength} pending change${queueLength === 1 ? '' : 's'}? Anything that never reached the server is lost.`)) {
+                  onClearQueue()
+                }
+              }}
+            >
+              Discard
+            </button>
+          )}
+        </div>
+      )}
+
       {/* Search bar */}
       <div className="v2-smart-search">
         <Search size={15} className="v2-smart-search-icon" />
