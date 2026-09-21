@@ -3,6 +3,7 @@ import { saveTasks, saveRoutines, saveSettings, saveLabels, loadSettings, uuid, 
 import { serverCreateTask, serverUpdateTask, serverDeleteTask,
   serverCreateRoutine, serverUpdateRoutine, serverDeleteRoutine } from '../api'
 import { isNativeShell } from '../apiConfig'
+import { prepareQueue, compactQueue, isTerminalFailure, QUEUE_MAX } from '../mutationQueue'
 
 const DEBOUNCE_MS = 300
 
@@ -28,12 +29,17 @@ function saveQueue(queue) {
   safeSetItem(MUTATION_QUEUE_KEY, JSON.stringify(queue))
 }
 
+// Stamp and fold on the way IN, so the queue can never grow into the state
+// that caused this: 124 ops that were the same ~19-op batch six times over,
+// holding a delete and four later updates of one row. Compacting here means a
+// record contributes one op no matter how many rounds fail.
 function enqueueMutations(ops) {
-  const queue = loadQueue()
-  queue.push(...ops)
-  // Cap at 200 entries to avoid unbounded growth
-  if (queue.length > 200) queue.splice(0, queue.length - 200)
+  const now = Date.now()
+  const stamped = ops.map(op => ({ ...op, queued_at: now }))
+  const queue = compactQueue([...loadQueue(), ...stamped])
+  if (queue.length > QUEUE_MAX) queue.splice(0, queue.length - QUEUE_MAX)
   saveQueue(queue)
+  return queue.length
 }
 
 // Buffer log lines and send to server in batches
@@ -73,6 +79,10 @@ export function useServerSync(tasks, routines, onHydrate, onVersionMismatch) {
   const latestState = useRef({ tasks, routines })
   const serverVersion = useRef(0)
   const [syncStatus, setSyncStatus] = useState(null) // null | 'saving' | 'saved' | 'offline'
+  // Reactive, because it drives the wordmark's `degraded` (yellow) state. Read
+  // straight from localStorage during render, it only changed when something
+  // ELSE re-rendered the header — so a drained queue could stay yellow.
+  const [queueLength, setQueueLength] = useState(() => loadQueue().length)
   const savedTimer = useRef(null)
   const versionMismatchFired = useRef(false)
 
@@ -117,6 +127,27 @@ export function useServerSync(tasks, routines, onHydrate, onVersionMismatch) {
   useEffect(() => {
     latestState.current = { tasks, routines }
   }, [tasks, routines])
+
+  // Every queue write goes through one of these two, so the badge and the
+  // wordmark can never disagree with what is actually stored.
+  const commitQueue = useCallback((next) => {
+    saveQueue(next)
+    setQueueLength(next.length)
+  }, [])
+
+  const enqueue = useCallback((ops) => {
+    setQueueLength(enqueueMutations(ops))
+  }, [])
+
+  // Operator escape hatch for a queue that is stuck or simply unwanted. Wired
+  // to the pending-sync banner in the activity log — from inside the app a
+  // held queue is otherwise invisible and uncorrectable.
+  const clearQueue = useCallback(() => {
+    const dropped = loadQueue().length
+    commitQueue([])
+    if (dropped) remoteLog(`queue: cleared ${dropped} pending mutation(s) by hand`)
+    return dropped
+  }, [commitQueue])
 
   // Bulk push helper — settings/labels only. Tasks and routines never travel
   // through this path (per-record APIs handle them).
@@ -186,6 +217,10 @@ export function useServerSync(tasks, routines, onHydrate, onVersionMismatch) {
       return
     }
 
+    // Each op carries BOTH how to run it and how to describe it for the queue.
+    // These were two parallel loops building two arrays that had to stay in
+    // lockstep by index — and the queue-fallback path indexed into the wrong
+    // one the moment either loop changed.
     const ops = []
 
     // Diff tasks
@@ -196,15 +231,15 @@ export function useServerSync(tasks, routines, onHydrate, onVersionMismatch) {
     for (const [id, task] of currMap) {
       const old = prevMap.get(id)
       if (!old) {
-        ops.push(() => serverCreateTask(task, clientId))
+        ops.push({ run: () => serverCreateTask(task, clientId), desc: { type: 'createTask', data: task } })
       } else if (JSON.stringify(old) !== JSON.stringify(task)) {
-        ops.push(() => serverUpdateTask(id, task, clientId))
+        ops.push({ run: () => serverUpdateTask(id, task, clientId), desc: { type: 'updateTask', id, data: task } })
       }
     }
     // Deleted tasks
     for (const id of prevMap.keys()) {
       if (!currMap.has(id)) {
-        ops.push(() => serverDeleteTask(id))
+        ops.push({ run: () => serverDeleteTask(id), desc: { type: 'deleteTask', id } })
       }
     }
 
@@ -215,14 +250,14 @@ export function useServerSync(tasks, routines, onHydrate, onVersionMismatch) {
     for (const [id, routine] of currRMap) {
       const old = prevRMap.get(id)
       if (!old) {
-        ops.push(() => serverCreateRoutine(routine, clientId))
+        ops.push({ run: () => serverCreateRoutine(routine, clientId), desc: { type: 'createRoutine', data: routine } })
       } else if (JSON.stringify(old) !== JSON.stringify(routine)) {
-        ops.push(() => serverUpdateRoutine(id, routine, clientId))
+        ops.push({ run: () => serverUpdateRoutine(id, routine, clientId), desc: { type: 'updateRoutine', id, data: routine } })
       }
     }
     for (const id of prevRMap.keys()) {
       if (!currRMap.has(id)) {
-        ops.push(() => serverDeleteRoutine(id))
+        ops.push({ run: () => serverDeleteRoutine(id), desc: { type: 'deleteRoutine', id } })
       }
     }
 
@@ -236,66 +271,97 @@ export function useServerSync(tasks, routines, onHydrate, onVersionMismatch) {
     remoteLog(`push: ${ops.length} per-record operation(s)`)
     setSyncStatus('saving')
 
-    // Build serializable descriptions for queue fallback
-    const opDescriptions = []
-    for (const [id, task] of currMap) {
-      const old = prevMap.get(id)
-      if (!old) opDescriptions.push({ type: 'createTask', data: task })
-      else if (JSON.stringify(old) !== JSON.stringify(task)) opDescriptions.push({ type: 'updateTask', id, data: task })
-    }
-    for (const id of prevMap.keys()) {
-      if (!currMap.has(id)) opDescriptions.push({ type: 'deleteTask', id })
-    }
-    for (const [id, routine] of currRMap) {
-      const old = prevRMap.get(id)
-      if (!old) opDescriptions.push({ type: 'createRoutine', data: routine })
-      else if (JSON.stringify(old) !== JSON.stringify(routine)) opDescriptions.push({ type: 'updateRoutine', id, data: routine })
-    }
-    for (const id of prevRMap.keys()) {
-      if (!currRMap.has(id)) opDescriptions.push({ type: 'deleteRoutine', id })
-    }
-
     // Returned so callers (fetchAndHydrate) can AWAIT a flush of pending local
     // mutations before pulling server state — otherwise a refetch can clobber a
     // change the user just made but that hasn't been pushed yet.
-    return Promise.all(ops.map(op => op()))
+    //
+    // allSettled, not all: `all` rejects on the FIRST failure while the other
+    // ops are still in flight, and the catch then queued the whole batch —
+    // ops that had already applied server-side included. Replaying those is
+    // what re-created deleted tasks and reverted completed ones. Only an op
+    // that actually rejected is pending; only a RETRYABLE rejection is worth
+    // keeping (a 404 or a 422 will fail the same way forever).
+    return Promise.allSettled(ops.map(op => op.run()))
       .then(results => {
-        for (const r of results) {
-          if (r?.version) serverVersion.current = r.version
-        }
+        const retryable = []
+        let deduped = false
+        let lastError = null
+        let terminal = 0
+
+        results.forEach((result, i) => {
+          if (result.status === 'fulfilled') {
+            if (result.value?.version) serverVersion.current = result.value.version
+            if (result.value?.deduped) deduped = true
+            return
+          }
+          lastError = result.reason
+          if (isTerminalFailure(result.reason)) terminal++
+          else retryable.push(ops[i].desc)
+        })
+
         prevTasks.current = currentTasks
         prevRoutines.current = currentRoutines
-        remoteLog(`push: success, ${ops.length} ops, v${serverVersion.current}`)
+
+        if (retryable.length) enqueue(retryable)
+
+        if (lastError) {
+          const applied = ops.length - retryable.length - terminal
+          remoteLog(
+            `push: per-record FAILED: ${lastError.message} —`,
+            `${applied} applied, ${retryable.length} queued,`,
+            `${terminal} dropped (terminal)`,
+          )
+          // A batch that failed ONLY on terminal errors has nothing pending;
+          // calling that offline leaves the wordmark lying about the state.
+          setSyncStatus(retryable.length ? 'offline' : 'saved')
+        } else {
+          remoteLog(`push: success, ${ops.length} ops, v${serverVersion.current}`)
+          setSyncStatus('saved')
+        }
+
         // Server refused a create as a duplicate routine spawn (another
         // client won the race). Local state still holds our phantom copy —
         // rehydrate so it's replaced by the surviving twin before anything
         // (auto-sizer, the user) touches the dead id.
-        if (results.some(r => r?.deduped)) {
+        if (deduped) {
           remoteLog('push: spawn deduped by server — rehydrating')
           setTimeout(() => hydrateRef.current?.('spawn-dedupe'), 50)
         }
-        setSyncStatus('saved')
         if (savedTimer.current) clearTimeout(savedTimer.current)
         savedTimer.current = setTimeout(() => setSyncStatus(null), 2000)
         flushLogs()
       })
-      .catch(err => {
-        remoteLog('push: per-record FAILED:', err.message, '— queueing mutations')
-        enqueueMutations(opDescriptions)
-        setSyncStatus('offline')
-        // Still update prev so we don't re-diff the same changes
-        prevTasks.current = currentTasks
-        prevRoutines.current = currentRoutines
-        flushLogs()
-      })
-  }, [clientId, pushBulkState])
+  }, [clientId, pushBulkState, enqueue])
 
-  // Replay queued mutations
-  const replayQueue = useCallback(() => {
-    const queue = loadQueue()
-    if (queue.length === 0) return Promise.resolve()
+  // Replay queued mutations.
+  //
+  // This used to be one promise chain that cleared the queue only on TOTAL
+  // success, which made a single unsatisfiable op permanent: the desktop's
+  // queue held a deleteTask and four later updateTasks for one row, so every
+  // replay 404'd partway through and kept everything — re-running the creates
+  // ahead of the 404 on every SSE reconnect. Now the queue is prepared before
+  // a single request goes out (expire, then fold, so a delete beats the writes
+  // that follow it), each op is judged on its own, and whatever is left is
+  // persisted after every step. The queue can only shrink.
+  const replayQueue = useCallback(async () => {
+    const raw = loadQueue()
+    if (raw.length === 0) return
 
-    remoteLog(`replay: ${queue.length} queued mutation(s)`)
+    const { ops, expired, folded, overflowed } = prepareQueue(raw)
+    if (expired || folded || overflowed) {
+      remoteLog(
+        `replay: prepared ${raw.length} → ${ops.length}`,
+        `(${expired} expired, ${folded} folded, ${overflowed} over cap)`,
+      )
+    }
+    if (ops.length === 0) {
+      commitQueue([])
+      remoteLog('replay: nothing replayable left, queue cleared')
+      flushLogs()
+      return
+    }
+
+    remoteLog(`replay: ${ops.length} queued mutation(s)`)
     setSyncStatus('saving')
 
     const executors = {
@@ -307,32 +373,60 @@ export function useServerSync(tasks, routines, onHydrate, onVersionMismatch) {
       deleteRoutine: (op) => serverDeleteRoutine(op.id),
     }
 
-    // Execute sequentially to preserve order
-    let chain = Promise.resolve()
-    for (const op of queue) {
+    // Sequential, to preserve order. `remaining` always holds the ops still
+    // owed; its head is the one being tried, so resolving or terminally
+    // failing it is a shift.
+    const remaining = ops.slice()
+    let replayed = 0
+    let dropped = 0
+    let heldBy = null
+
+    for (const op of ops) {
       const exec = executors[op.type]
-      if (exec) {
-        chain = chain.then(() => exec(op)).then(r => {
-          if (r?.version) serverVersion.current = r.version
-        })
+      if (!exec) {
+        remaining.shift()
+        dropped++
+        continue
+      }
+      try {
+        const r = await exec(op)
+        if (r?.version) serverVersion.current = r.version
+        remaining.shift()
+        replayed++
+      } catch (err) {
+        if (isTerminalFailure(err)) {
+          // Will fail identically forever. Drop it and keep going rather than
+          // letting it hold the whole queue hostage.
+          remoteLog(`replay: dropping ${op.type} — ${err.message}`)
+          remaining.shift()
+          dropped++
+          continue
+        }
+        // Retryable (network, 5xx, auth mid-rotation). Stop here: the rest
+        // would almost certainly fail the same way, and order still matters.
+        heldBy = err
+        break
+      } finally {
+        // Persist after every step, so a tab closed mid-replay resumes from
+        // where it got to instead of re-running what already landed. The
+        // React state is left alone until the loop ends — setting it here
+        // would re-render the whole app once per op.
+        saveQueue(remaining)
       }
     }
 
-    return chain
-      .then(() => {
-        saveQueue([])
-        remoteLog(`replay: success, ${queue.length} ops replayed`)
-        setSyncStatus('saved')
-        if (savedTimer.current) clearTimeout(savedTimer.current)
-        savedTimer.current = setTimeout(() => setSyncStatus(null), 2000)
-        flushLogs()
-      })
-      .catch(err => {
-        remoteLog(`replay: FAILED: ${err.message} — keeping queue`)
-        setSyncStatus('offline')
-        flushLogs()
-      })
-  }, [clientId])
+    commitQueue(remaining)
+    if (heldBy) {
+      remoteLog(`replay: held at ${remaining.length} op(s) — ${heldBy.message}`)
+      setSyncStatus('offline')
+    } else {
+      remoteLog(`replay: done, ${replayed} replayed, ${dropped} dropped`)
+      setSyncStatus('saved')
+      if (savedTimer.current) clearTimeout(savedTimer.current)
+      savedTimer.current = setTimeout(() => setSyncStatus(null), 2000)
+    }
+    flushLogs()
+  }, [clientId, commitQueue])
 
   // Fetch server data and hydrate local state
   const runHydrate = useCallback((reason) => {
@@ -458,6 +552,8 @@ export function useServerSync(tasks, routines, onHydrate, onVersionMismatch) {
 
           fetchAndHydrate('initial').then(() => {
             return replayQueue()
+          }).catch(err => {
+            remoteLog(`replay: aborted unexpectedly: ${err.message}`)
           }).finally(() => {
             hydrated.current = true
             remoteLog('SSE: hydrated, ready for sync')
@@ -509,7 +605,7 @@ export function useServerSync(tasks, routines, onHydrate, onVersionMismatch) {
     const handleOnline = () => {
       remoteLog('network: back online, replaying queue')
       setSyncStatus(null)
-      replayQueue()
+      replayQueue().catch(err => remoteLog(`replay: aborted unexpectedly: ${err.message}`))
     }
     const handleOffline = () => {
       remoteLog('network: went offline')
@@ -608,9 +704,7 @@ export function useServerSync(tasks, routines, onHydrate, onVersionMismatch) {
       .catch(() => {})
   }, [fireVersionMismatch])
 
-  const queueLength = loadQueue().length
-
-  return { flush, checkVersion, syncStatus, queueLength, refetch: () => fetchAndHydrate('pull-refresh') }
+  return { flush, checkVersion, syncStatus, queueLength, clearQueue, refetch: () => fetchAndHydrate('pull-refresh') }
 }
 
 // Bulk PUT carries settings + labels only. Tasks and routines have their own
