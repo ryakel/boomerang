@@ -1296,11 +1296,35 @@ function syncError(what, res) {
   return err
 }
 
+// The data version this client last saw, declared on every per-record write so
+// the server can refuse a write from a client that is BEHIND (guardStaleWrite
+// in server.js). Module-level and read at call time, never captured by the
+// caller: the version is a property of the session, not of the call, and a
+// stale copy pinned at call-construction time is precisely the bug this
+// exists to stop. `useServerSync` owns the writes via noteDataVersion().
+let dataVersion = null
+export function setDataVersion(v) {
+  if (typeof v === 'number' && Number.isFinite(v)) dataVersion = v
+}
+export function getDataVersion() {
+  return dataVersion
+}
+// Spread into a per-record body. Omitted entirely while unknown, which is what
+// keeps Quokka / Share Extension / App Intents / watch writes unguarded rather
+// than rejected.
+function versionClaim() {
+  return dataVersion == null ? {} : { _version: dataVersion }
+}
+// Same claim for DELETE, which has no body.
+function versionQuery() {
+  return dataVersion == null ? '' : `?_version=${dataVersion}`
+}
+
 export async function serverCreateTask(task, clientId) {
   const res = await fetch('/api/tasks', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ ...task, _clientId: clientId }),
+    body: JSON.stringify({ ...task, ...versionClaim(), _clientId: clientId }),
   })
   if (!res.ok) throw syncError('create task', res)
   return res.json()
@@ -1310,14 +1334,14 @@ export async function serverUpdateTask(id, updates, clientId) {
   const res = await fetch(`/api/tasks/${id}`, {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ ...updates, _clientId: clientId }),
+    body: JSON.stringify({ ...updates, ...versionClaim(), _clientId: clientId }),
   })
   if (!res.ok) throw syncError('update task', res)
   return res.json()
 }
 
 export async function serverDeleteTask(id) {
-  const res = await fetch(`/api/tasks/${id}`, { method: 'DELETE' })
+  const res = await fetch(`/api/tasks/${id}${versionQuery()}`, { method: 'DELETE' })
   if (!res.ok) throw syncError('delete task', res)
   return res.json()
 }
@@ -1340,7 +1364,7 @@ export async function serverCreateRoutine(routine, clientId) {
   const res = await fetch('/api/routines', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ ...routine, _clientId: clientId }),
+    body: JSON.stringify({ ...routine, ...versionClaim(), _clientId: clientId }),
   })
   if (!res.ok) throw syncError('create routine', res)
   return res.json()
@@ -1350,14 +1374,14 @@ export async function serverUpdateRoutine(id, updates, clientId) {
   const res = await fetch(`/api/routines/${id}`, {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ ...updates, _clientId: clientId }),
+    body: JSON.stringify({ ...updates, ...versionClaim(), _clientId: clientId }),
   })
   if (!res.ok) throw syncError('update routine', res)
   return res.json()
 }
 
 export async function serverDeleteRoutine(id) {
-  const res = await fetch(`/api/routines/${id}`, { method: 'DELETE' })
+  const res = await fetch(`/api/routines/${id}${versionQuery()}`, { method: 'DELETE' })
   if (!res.ok) throw syncError('delete routine', res)
   return res.json()
 }
