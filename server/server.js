@@ -46,6 +46,7 @@ import { startWeatherSync, refreshWeather, geocodeLocation, getWeatherCache, get
 import { buildDigest } from './digestBuilder.js'
 import { startPatternDetection, runPatternScan } from './patternDetection.js'
 import { startTagSuggestions, runTagScan, listPendingTagSuggestions, dismissTagSuggestion } from './tagSuggestions.js'
+import { isStaleWrite, claimedVersion } from './syncGuards.js'
 import { startGrowthAreaSync, listGrowthAreas, createGrowthArea, updateGrowthArea, deleteGrowthArea, ensureTodayGrowthArea, contextualGrowthAreas } from './growthAreas.js'
 import { listPendingSuggestions, getPatternSuggestion, updateSuggestionStatus, snoozeSuggestion, countPendingSuggestions } from './db.js'
 import { runBackup } from '../scripts/backup-db.js'
@@ -585,6 +586,41 @@ function guardStaleClient(req, res) {
   return false
 }
 
+// The data-version half of guardStaleClient, for the PER-RECORD write paths.
+//
+// THE BUG THIS CLOSES (2026-09-22, "still a problem" — completions reverting)
+//
+// guardStaleClient has rejected behind-the-version pushes for a long time, but
+// it is wired to PUT/POST /api/data only. Task and routine sync LEFT that path
+// for these per-record routes, and the guard stayed behind on a road that now
+// carries nothing but settings and labels. A client whose hydrate had rewound
+// its version could therefore re-push freely: two clients ping-ponged ~50
+// version bumps in 19 seconds and reverted a completed task four times.
+//
+// Kept separate from guardStaleClient rather than reusing it: that one also
+// requires `_clientId`, and DELETE has no body to carry one.
+//
+// OPT-IN BY DESIGN. No declared version means no check, because Quokka's
+// staged executions, the iOS Share Extension, App Intents and the watch proxy
+// all create tasks with no notion of a data version — requiring it would break
+// every one of them to fix a bug none of them have. The gap that leaves (a
+// caller that simply forgets to declare) is closed by a test pinning the web
+// sync client as declaring one, not by breaking the other callers.
+function guardStaleWrite(req, res) {
+  const claimed = claimedVersion(req)
+  const serverVer = getVersion()
+  if (isStaleWrite(claimed, serverVer)) {
+    const clientVersion = Number(claimed)
+    console.log(`[SYNC] REJECTED stale per-record ${req.method} ${req.path} — client at data v${clientVersion}, server at v${serverVer}`)
+    // 409, not a 200 lie: the client has to be able to tell "rejected because
+    // I am behind" from "applied", so it can rehydrate and re-diff instead of
+    // recording a write that never happened.
+    res.status(409).json({ error: 'stale_client', version: serverVer })
+    return true
+  }
+  return false
+}
+
 // Refuse a bulk PUT/POST that includes tasks/routines/packages keys at all.
 // The bulk path is settings + labels only — tasks/routines/packages have
 // dedicated per-record APIs (/api/tasks, /api/routines, /api/packages).
@@ -822,6 +858,7 @@ app.get('/api/tasks/:id', (req, res) => {
 })
 
 app.post('/api/tasks', (req, res) => {
+  if (guardStaleWrite(req, res)) return
   const task = req.body
   if (!task.id) return res.status(400).json({ error: 'Task must have an id' })
   const invalid = applyTaskModelValidation(task)
@@ -917,9 +954,11 @@ app.post('/api/tasks/dedupe-imports', (req, res) => {
 })
 
 app.patch('/api/tasks/:id', (req, res) => {
+  if (guardStaleWrite(req, res)) return
   const clientId = req.body._clientId
   const updates = { ...req.body }
   delete updates._clientId
+  delete updates._version
   const invalid = applyTaskModelValidation(updates)
   if (invalid) return res.status(422).json({ error: invalid })
   const task = updateTaskPartial(req.params.id, updates)
@@ -930,6 +969,7 @@ app.patch('/api/tasks/:id', (req, res) => {
 })
 
 app.delete('/api/tasks/:id', (req, res) => {
+  if (guardStaleWrite(req, res)) return
   deleteTask(req.params.id)
   const newVersion = bumpVersion()
   broadcast(newVersion, null)
@@ -1307,6 +1347,7 @@ app.get('/api/routines/:id', (req, res) => {
 })
 
 app.post('/api/routines', (req, res) => {
+  if (guardStaleWrite(req, res)) return
   const routine = req.body
   if (!routine.id) return res.status(400).json({ error: 'Routine must have an id' })
   upsertRoutine(routine)
@@ -1316,9 +1357,11 @@ app.post('/api/routines', (req, res) => {
 })
 
 app.patch('/api/routines/:id', (req, res) => {
+  if (guardStaleWrite(req, res)) return
   const clientId = req.body._clientId
   const updates = { ...req.body }
   delete updates._clientId
+  delete updates._version
   const routine = updateRoutinePartial(req.params.id, updates)
   if (!routine) return res.status(404).json({ error: 'Routine not found' })
   const newVersion = bumpVersion()
@@ -1327,6 +1370,7 @@ app.patch('/api/routines/:id', (req, res) => {
 })
 
 app.delete('/api/routines/:id', (req, res) => {
+  if (guardStaleWrite(req, res)) return
   deleteRoutine(req.params.id)
   const newVersion = bumpVersion()
   broadcast(newVersion, null)
