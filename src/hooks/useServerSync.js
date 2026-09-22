@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { saveTasks, saveRoutines, saveSettings, saveLabels, loadSettings, uuid, safeSetItem } from '../store'
 import { serverCreateTask, serverUpdateTask, serverDeleteTask,
-  serverCreateRoutine, serverUpdateRoutine, serverDeleteRoutine } from '../api'
+  serverCreateRoutine, serverUpdateRoutine, serverDeleteRoutine, setDataVersion } from '../api'
 import { isNativeShell } from '../apiConfig'
 import { prepareQueue, compactQueue, isTerminalFailure, QUEUE_MAX } from '../mutationQueue'
 
@@ -128,6 +128,31 @@ export function useServerSync(tasks, routines, onHydrate, onVersionMismatch) {
     latestState.current = { tasks, routines }
   }, [tasks, routines])
 
+  // THE ONE PLACE the client's idea of the server's data version moves.
+  //
+  // It used to be assigned in nine places and compared in none — tracked, never
+  // used as a guard — so a /api/data response that resolved AFTER this client's
+  // own later writes rewound it, and `prevTasks` with it. The next diff then
+  // re-detected changes already pushed and pushed them again: two clients
+  // ping-ponged ~50 version bumps in 19 seconds and reverted a completed task
+  // four times (2026-09-22).
+  //
+  // The server's version only ever counts UP, so a lower number is always a
+  // stale read and is ignored. The one exception is a reconnect: `authoritative`
+  // lets the SSE hello move it DOWN, because a restore-from-backup or a fresh
+  // database legitimately resets the counter, and without that escape every
+  // client would sit permanently ahead of the server and have every write
+  // rejected by guardStaleWrite until it was reloaded by hand.
+  const noteVersion = useCallback((v, { authoritative = false } = {}) => {
+    const n = Number(v)
+    if (!Number.isFinite(n)) return serverVersion.current
+    if (n > serverVersion.current || authoritative) {
+      serverVersion.current = n
+      setDataVersion(n) // declared on every per-record write (api.js)
+    }
+    return serverVersion.current
+  }, [])
+
   // Every queue write goes through one of these two, so the badge and the
   // wordmark can never disagree with what is actually stored.
   const commitQueue = useCallback((next) => {
@@ -178,7 +203,7 @@ export function useServerSync(tasks, routines, onHydrate, onVersionMismatch) {
           remoteLog('push: server responded', res.status)
           setSyncStatus('offline')
         } else return res.json().then(r => {
-          serverVersion.current = r.version
+          noteVersion(r.version)
           // Bulk push carries settings/labels ONLY — it must never claim
           // tasks/routines as pushed. Overwriting the per-record snapshots
           // here swallowed any task added in the last ~300ms (the debounced
@@ -200,7 +225,7 @@ export function useServerSync(tasks, routines, onHydrate, onVersionMismatch) {
         setSyncStatus('offline')
         flushLogs()
       })
-  }, [clientId])
+  }, [clientId, noteVersion])
 
   // Per-record change detection and push
   const pushChanges = useCallback(function pushChanges(currentTasks, currentRoutines) {
@@ -285,16 +310,22 @@ export function useServerSync(tasks, routines, onHydrate, onVersionMismatch) {
       .then(results => {
         const retryable = []
         let deduped = false
+        let staleRejected = false
         let lastError = null
         let terminal = 0
 
         results.forEach((result, i) => {
           if (result.status === 'fulfilled') {
-            if (result.value?.version) serverVersion.current = result.value.version
+            if (result.value?.version) noteVersion(result.value.version)
             if (result.value?.deduped) deduped = true
             return
           }
           lastError = result.reason
+          // 409 is the server refusing the write because we are behind the data
+          // version (guardStaleWrite). Being told that is itself the signal to
+          // re-read: the op is correctly dropped rather than queued, and the
+          // re-diff after hydrating regenerates whatever is genuinely pending.
+          if (result.reason?.status === 409) staleRejected = true
           if (isTerminalFailure(result.reason)) terminal++
           else retryable.push(ops[i].desc)
         })
@@ -326,12 +357,15 @@ export function useServerSync(tasks, routines, onHydrate, onVersionMismatch) {
         if (deduped) {
           remoteLog('push: spawn deduped by server — rehydrating')
           setTimeout(() => hydrateRef.current?.('spawn-dedupe'), 50)
+        } else if (staleRejected) {
+          remoteLog('push: rejected as stale by server — rehydrating')
+          setTimeout(() => hydrateRef.current?.('stale-rejected'), 50)
         }
         if (savedTimer.current) clearTimeout(savedTimer.current)
         savedTimer.current = setTimeout(() => setSyncStatus(null), 2000)
         flushLogs()
       })
-  }, [clientId, pushBulkState, enqueue])
+  }, [clientId, pushBulkState, enqueue, noteVersion])
 
   // Replay queued mutations.
   //
@@ -390,7 +424,7 @@ export function useServerSync(tasks, routines, onHydrate, onVersionMismatch) {
       }
       try {
         const r = await exec(op)
-        if (r?.version) serverVersion.current = r.version
+        if (r?.version) noteVersion(r.version)
         remaining.shift()
         replayed++
       } catch (err) {
@@ -426,7 +460,7 @@ export function useServerSync(tasks, routines, onHydrate, onVersionMismatch) {
       savedTimer.current = setTimeout(() => setSyncStatus(null), 2000)
     }
     flushLogs()
-  }, [clientId, commitQueue])
+  }, [clientId, commitQueue, noteVersion])
 
   // Fetch server data and hydrate local state
   const runHydrate = useCallback((reason) => {
@@ -456,7 +490,23 @@ export function useServerSync(tasks, routines, onHydrate, onVersionMismatch) {
       })
       .then(data => {
         if (data && Object.keys(data).length > 0) {
-          serverVersion.current = data._version || 0
+          // A snapshot OLDER than what we already know is a read that lost a
+          // race with our own writes. Applying it rewinds local state (the
+          // completion you just made disappears) and rewinds `prevTasks`, so
+          // the next diff re-pushes what was already pushed — which broadcasts,
+          // which makes the other client hydrate, which does the same. Drop it.
+          //
+          // Nothing is lost by dropping: the snapshot being behind us is
+          // exactly what makes our own state the newer of the two. No re-fetch
+          // either — SSE delivers the next version on its own, and retrying
+          // here would spin against a server that kept serving stale reads.
+          const incoming = Number(data._version) || 0
+          if (incoming < serverVersion.current) {
+            remoteLog(`${reason}: DROPPED stale snapshot v${incoming} — already at v${serverVersion.current}`)
+            flushLogs()
+            return
+          }
+          noteVersion(incoming)
           remoteLog(`${reason}: got v${serverVersion.current}, tasks=${taskSummary(data.tasks)}`)
           skipPushUntil.current = Date.now() + 2000
           onHydrate(data)
@@ -494,7 +544,7 @@ export function useServerSync(tasks, routines, onHydrate, onVersionMismatch) {
         remoteLog(`${reason}: fetch failed: ${err.message}`)
       })
     })
-  }, [onHydrate, pushBulkState, pushChanges])
+  }, [onHydrate, pushBulkState, pushChanges, noteVersion])
 
   // Public entry point — serializes runHydrate (see inFlight above). A hydrate
   // requested while one is running does NOT start a second fetch; it reserves
@@ -539,7 +589,9 @@ export function useServerSync(tasks, routines, onHydrate, onVersionMismatch) {
         try { msg = JSON.parse(event.data) } catch { return }
 
         if (msg.type === 'connected') {
-          serverVersion.current = msg.version
+          // Authoritative: a reconnect is a resync point, and the server may
+          // legitimately be BEHIND us after a restore or a fresh database.
+          noteVersion(msg.version, { authoritative: true })
           remoteLog(`SSE: connected, server v${msg.version}, appVersion=${msg.appVersion}`)
 
           const clientVersion = typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : 'dev'
@@ -561,12 +613,12 @@ export function useServerSync(tasks, routines, onHydrate, onVersionMismatch) {
           })
         } else if (msg.type === 'update') {
           if (msg.sourceClientId === clientId) {
-            serverVersion.current = msg.version
+            noteVersion(msg.version)
             remoteLog(`SSE: own write confirmed v${msg.version}`)
             return
           }
           remoteLog(`SSE: update from another client v${msg.version}`)
-          serverVersion.current = msg.version
+          noteVersion(msg.version)
           fetchAndHydrate('sse-update')
         }
       }
@@ -586,7 +638,7 @@ export function useServerSync(tasks, routines, onHydrate, onVersionMismatch) {
       if (es) es.close()
       if (reconnectTimer) clearTimeout(reconnectTimer)
     }
-  }, [clientId, fetchAndHydrate, fireVersionMismatch, replayQueue])
+  }, [clientId, fetchAndHydrate, fireVersionMismatch, replayQueue, noteVersion])
 
   // Re-sync when app becomes visible
   useEffect(() => {
@@ -635,6 +687,11 @@ export function useServerSync(tasks, routines, onHydrate, onVersionMismatch) {
 
     if (debounceTimer.current) clearTimeout(debounceTimer.current)
     debounceTimer.current = setTimeout(() => {
+      // Clear BEFORE pushing: a spent timer id left in place makes the next
+      // hydrate's `if (debounceTimer.current)` believe a push is still pending,
+      // so it runs a redundant flush — which is why every sse-update in the
+      // 2026-09-22 logs read "flushing pending local changes before hydrate".
+      debounceTimer.current = null
       pushChanges(latestState.current.tasks, latestState.current.routines)
     }, delay)
 
