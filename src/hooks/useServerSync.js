@@ -4,6 +4,7 @@ import { serverCreateTask, serverUpdateTask, serverDeleteTask,
   serverCreateRoutine, serverUpdateRoutine, serverDeleteRoutine, setDataVersion } from '../api'
 import { isNativeShell } from '../apiConfig'
 import { prepareQueue, compactQueue, isTerminalFailure, QUEUE_MAX } from '../mutationQueue'
+import { runPushOps, holdBaseline, keyId } from '../pushOps'
 
 const DEBOUNCE_MS = 300
 
@@ -256,15 +257,15 @@ export function useServerSync(tasks, routines, onHydrate, onVersionMismatch) {
     for (const [id, task] of currMap) {
       const old = prevMap.get(id)
       if (!old) {
-        ops.push({ run: () => serverCreateTask(task, clientId), desc: { type: 'createTask', data: task } })
+        ops.push({ key: `task:${id}`, run: () => serverCreateTask(task, clientId), desc: { type: 'createTask', data: task } })
       } else if (JSON.stringify(old) !== JSON.stringify(task)) {
-        ops.push({ run: () => serverUpdateTask(id, task, clientId), desc: { type: 'updateTask', id, data: task } })
+        ops.push({ key: `task:${id}`, run: () => serverUpdateTask(id, task, clientId), desc: { type: 'updateTask', id, data: task } })
       }
     }
     // Deleted tasks
     for (const id of prevMap.keys()) {
       if (!currMap.has(id)) {
-        ops.push({ run: () => serverDeleteTask(id), desc: { type: 'deleteTask', id } })
+        ops.push({ key: `task:${id}`, run: () => serverDeleteTask(id), desc: { type: 'deleteTask', id } })
       }
     }
 
@@ -275,14 +276,14 @@ export function useServerSync(tasks, routines, onHydrate, onVersionMismatch) {
     for (const [id, routine] of currRMap) {
       const old = prevRMap.get(id)
       if (!old) {
-        ops.push({ run: () => serverCreateRoutine(routine, clientId), desc: { type: 'createRoutine', data: routine } })
+        ops.push({ key: `routine:${id}`, run: () => serverCreateRoutine(routine, clientId), desc: { type: 'createRoutine', data: routine } })
       } else if (JSON.stringify(old) !== JSON.stringify(routine)) {
-        ops.push({ run: () => serverUpdateRoutine(id, routine, clientId), desc: { type: 'updateRoutine', id, data: routine } })
+        ops.push({ key: `routine:${id}`, run: () => serverUpdateRoutine(id, routine, clientId), desc: { type: 'updateRoutine', id, data: routine } })
       }
     }
     for (const id of prevRMap.keys()) {
       if (!currRMap.has(id)) {
-        ops.push({ run: () => serverDeleteRoutine(id), desc: { type: 'deleteRoutine', id } })
+        ops.push({ key: `routine:${id}`, run: () => serverDeleteRoutine(id), desc: { type: 'deleteRoutine', id } })
       }
     }
 
@@ -300,66 +301,62 @@ export function useServerSync(tasks, routines, onHydrate, onVersionMismatch) {
     // mutations before pulling server state — otherwise a refetch can clobber a
     // change the user just made but that hasn't been pushed yet.
     //
-    // allSettled, not all: `all` rejects on the FIRST failure while the other
-    // ops are still in flight, and the catch then queued the whole batch —
-    // ops that had already applied server-side included. Replaying those is
-    // what re-created deleted tasks and reverted completed ones. Only an op
-    // that actually rejected is pending; only a RETRYABLE rejection is worth
-    // keeping (a 404 or a 422 will fail the same way forever).
-    return Promise.allSettled(ops.map(op => op.run()))
-      .then(results => {
-        const retryable = []
-        let deduped = false
-        let staleRejected = false
-        let lastError = null
-        let terminal = 0
+    // SEQUENTIAL, threading the version. This used to be Promise.allSettled
+    // over every op at once, each carrying the same version claim — and once
+    // the first op landed and bumped the server, every other op in the batch
+    // was one behind and refused by guardStaleWrite as stale. Then the
+    // baseline advanced as if it had landed and a rehydrate overwrote the
+    // local edit. The completion vanished; the user tapped again. Four
+    // COMPLETED entries for one task, on one client (2026-09-24). The
+    // sequencing, the one retry on 409 and the outcome classes live in
+    // src/pushOps.js so a test can drive them with ops that refuse.
+    return runPushOps(ops, { onVersion: noteVersion, isTerminal: isTerminalFailure })
+      .then(r => {
+        // The baseline advances for what landed (and for what is now the
+        // queue's problem, or will never succeed). A HELD record — refused
+        // twice — keeps its server-side copy in the baseline so the next diff
+        // regenerates the write. The local edit is untouched: nothing here
+        // rehydrates, because a hydrate would overwrite exactly the change we
+        // are trying to land.
+        const heldTasks = new Set(r.held.filter(k => k.startsWith('task:')).map(keyId))
+        const heldRoutines = new Set(r.held.filter(k => k.startsWith('routine:')).map(keyId))
+        prevTasks.current = holdBaseline(prev, currentTasks, heldTasks)
+        prevRoutines.current = holdBaseline(prevR, currentRoutines, heldRoutines)
 
-        results.forEach((result, i) => {
-          if (result.status === 'fulfilled') {
-            if (result.value?.version) noteVersion(result.value.version)
-            if (result.value?.deduped) deduped = true
-            return
-          }
-          lastError = result.reason
-          // 409 is the server refusing the write because we are behind the data
-          // version (guardStaleWrite). Being told that is itself the signal to
-          // re-read: the op is correctly dropped rather than queued, and the
-          // re-diff after hydrating regenerates whatever is genuinely pending.
-          if (result.reason?.status === 409) staleRejected = true
-          if (isTerminalFailure(result.reason)) terminal++
-          else retryable.push(ops[i].desc)
-        })
+        if (r.queued.length) enqueue(r.queued)
 
-        prevTasks.current = currentTasks
-        prevRoutines.current = currentRoutines
-
-        if (retryable.length) enqueue(retryable)
-
-        if (lastError) {
-          const applied = ops.length - retryable.length - terminal
+        if (r.lastError) {
           remoteLog(
-            `push: per-record FAILED: ${lastError.message} —`,
-            `${applied} applied, ${retryable.length} queued,`,
-            `${terminal} dropped (terminal)`,
+            `push: per-record FAILED: ${r.lastError.message} —`,
+            `${r.applied.length} applied, ${r.held.length} held, ${r.queued.length} queued,`,
+            `${r.dropped.length} dropped (terminal)`,
           )
-          // A batch that failed ONLY on terminal errors has nothing pending;
-          // calling that offline leaves the wordmark lying about the state.
-          setSyncStatus(retryable.length ? 'offline' : 'saved')
+          // Only genuinely pending work reads as offline. A batch that failed
+          // only on terminal errors has nothing pending.
+          setSyncStatus(r.queued.length || r.held.length ? 'offline' : 'saved')
         } else {
           remoteLog(`push: success, ${ops.length} ops, v${serverVersion.current}`)
           setSyncStatus('saved')
+        }
+
+        // A held write is re-pushed on the normal debounce. The version it
+        // will claim is whatever the last response taught us, which is the
+        // freshest we have; if the server keeps moving faster than we can
+        // write, each round costs one retry and one debounce, never a loop.
+        if (r.held.length && !debounceTimer.current) {
+          debounceTimer.current = setTimeout(() => {
+            debounceTimer.current = null
+            pushChanges(latestState.current.tasks, latestState.current.routines)
+          }, DEBOUNCE_MS * 4)
         }
 
         // Server refused a create as a duplicate routine spawn (another
         // client won the race). Local state still holds our phantom copy —
         // rehydrate so it's replaced by the surviving twin before anything
         // (auto-sizer, the user) touches the dead id.
-        if (deduped) {
+        if (r.deduped) {
           remoteLog('push: spawn deduped by server — rehydrating')
           setTimeout(() => hydrateRef.current?.('spawn-dedupe'), 50)
-        } else if (staleRejected) {
-          remoteLog('push: rejected as stale by server — rehydrating')
-          setTimeout(() => hydrateRef.current?.('stale-rejected'), 50)
         }
         if (savedTimer.current) clearTimeout(savedTimer.current)
         savedTimer.current = setTimeout(() => setSyncStatus(null), 2000)
@@ -423,7 +420,19 @@ export function useServerSync(tasks, routines, onHydrate, onVersionMismatch) {
         continue
       }
       try {
-        const r = await exec(op)
+        let r
+        try {
+          r = await exec(op)
+        } catch (first) {
+          // Behind the server: take the version the 409 carries and try once
+          // more with a fresh claim — same rule as the live push (pushOps.js).
+          // A second refusal falls through to the terminal branch below and
+          // drops the op: replayed ops are older snapshots, and the queue's
+          // TTL is the backstop, so dropping is the safe default here.
+          if (first?.status !== 409) throw first
+          if (Number.isFinite(first.version)) noteVersion(first.version)
+          r = await exec(op)
+        }
         if (r?.version) noteVersion(r.version)
         remaining.shift()
         replayed++
