@@ -1290,9 +1290,18 @@ export async function aiDedupGCalEvents(events, tasks) {
 // retryable — see src/mutationQueue.js), so the STATUS has to survive the
 // throw. Without it the queue can only pattern-match the message, and a 404
 // that will never succeed looks exactly like a 503 worth retrying.
-function syncError(what, res) {
+async function syncError(what, res) {
   const err = new Error(`${what} failed: ${res.status}`)
   err.status = res.status
+  // A 409 from guardStaleWrite carries the server's current version. The push
+  // loop (src/pushOps.js) takes it and retries the op ONCE with a fresh claim —
+  // that is how a client that fell behind (SSE dropped, app backgrounded)
+  // lands a genuine edit instead of losing it. Read best-effort: a body that
+  // isn't JSON just leaves `version` unset and the op is held for re-push.
+  try {
+    const body = await res.json()
+    if (body && Number.isFinite(Number(body.version))) err.version = Number(body.version)
+  } catch { /* no body, or not JSON */ }
   return err
 }
 
@@ -1326,7 +1335,7 @@ export async function serverCreateTask(task, clientId) {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ ...task, ...versionClaim(), _clientId: clientId }),
   })
-  if (!res.ok) throw syncError('create task', res)
+  if (!res.ok) throw await syncError('create task', res)
   return res.json()
 }
 
@@ -1336,13 +1345,13 @@ export async function serverUpdateTask(id, updates, clientId) {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ ...updates, ...versionClaim(), _clientId: clientId }),
   })
-  if (!res.ok) throw syncError('update task', res)
+  if (!res.ok) throw await syncError('update task', res)
   return res.json()
 }
 
 export async function serverDeleteTask(id) {
   const res = await fetch(`/api/tasks/${id}${versionQuery()}`, { method: 'DELETE' })
-  if (!res.ok) throw syncError('delete task', res)
+  if (!res.ok) throw await syncError('delete task', res)
   return res.json()
 }
 
@@ -1366,7 +1375,7 @@ export async function serverCreateRoutine(routine, clientId) {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ ...routine, ...versionClaim(), _clientId: clientId }),
   })
-  if (!res.ok) throw syncError('create routine', res)
+  if (!res.ok) throw await syncError('create routine', res)
   return res.json()
 }
 
@@ -1376,13 +1385,13 @@ export async function serverUpdateRoutine(id, updates, clientId) {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ ...updates, ...versionClaim(), _clientId: clientId }),
   })
-  if (!res.ok) throw syncError('update routine', res)
+  if (!res.ok) throw await syncError('update routine', res)
   return res.json()
 }
 
 export async function serverDeleteRoutine(id) {
   const res = await fetch(`/api/routines/${id}${versionQuery()}`, { method: 'DELETE' })
-  if (!res.ok) throw syncError('delete routine', res)
+  if (!res.ok) throw await syncError('delete routine', res)
   return res.json()
 }
 
