@@ -4,6 +4,16 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ---
 
+## 2026-10-05
+
+- feat(tasks): build a checklist while creating a task [S]
+  - User, from the iPhone app: *"I lost the ability to add checklists to tasks."* Narrowed to: **no way to add a checklist while creating a task.** Adding to an existing task was reproduced working on current `dev` in both the phone quick editor and the desktop full editor (headless Chromium against a seeded DB; the PATCH lands and the server row carries the items).
+  - **Never existed rather than lost.** No creation surface ever had a checklist builder — the Throw sheet is title + day/reminder, and the full `AddTaskModal` behind its *More options* had none, down to telling the user a Polish-suggested checklist had to be applied by "save and re-open this task" (`git log -S` on both files finds no checklist UI ever removed).
+  - `AddTaskModal` gains a **Checklist** section: type + return adds an item, items are editable and removable, and an item still sitting in the box when *Add task* is tapped is kept rather than dropped. One list named "Checklist", the same `{ id, name, items, hideCompleted }` shape the editors write; more lists stay an editor job. The Polish suggestion now has **Add / Dismiss** in place.
+  - `useTasks.addTask` accepts `checklists` — the same silent-drop shape `remind_at` had: a key missing from that destructured signature never reaches the task.
+  - Throw sheet unchanged — quick capture stays one line; *More options* is the route.
+  - Verified in the built app at phone width: throw → More options → two entered items + one pending → *Add task* → the POST and the server row carry all three. `npm test` 559/559 + smoke; eslint clean on touched files; `npm audit` unchanged, no dependencies added. **Web-only — OTA, no rebuild, no migration.**
+
 ## 2026-09-24
 
 - fix(sync): the stale-version guard refused the second write of every batch — regression from 09-22 [M]
