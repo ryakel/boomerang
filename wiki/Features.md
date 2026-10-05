@@ -45,7 +45,7 @@ Reached from More → Settings. It opens on an **index of six categories, each s
 - **Delete tasks** — delete any task via swipe gesture or from the expanded card actions
 - **Expanded actions** — tap a task to expand it and reveal Done, Snooze, Extend, Edit, Backlog, and Delete buttons
 - **Statuses** — not started, doing, waiting, done (plus backlog and project as separate concepts). Change status directly from the expanded task card.
-- **Checklists** — add checklist items to any task. Toggle items directly from the expanded card without opening the edit modal. Progress shown as "2/5 items".
+- **Checklists** — add checklist items to any task, including while creating it (the full new-task form — the Throw sheet's *More options* on the phone — has a Checklist section, and a Polish-suggested checklist can be added right there). Toggle items directly from the expanded card without opening the edit modal. Progress shown as "2/5 items".
 - **Comments** — append timestamped notes/comments to tasks from the edit modal. Useful for tracking updates on longer-running tasks.
 - **Due dates** — with overdue detection and visual indicators (days overdue, due today, due tomorrow, etc.)
 - **Default due dates** — configurable number of days from now (default: 7), applied automatically to new tasks. Set to 0 to disable.

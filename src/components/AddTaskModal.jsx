@@ -1,10 +1,11 @@
-import { useEffect, useRef } from 'react'
-import { Sparkles } from 'lucide-react'
-import { loadLabels, getDefaultDueDate, ENERGY_TYPES, localYMD } from '../store'
+import { useEffect, useRef, useState } from 'react'
+import { Sparkles, X as XIcon } from 'lucide-react'
+import { loadLabels, getDefaultDueDate, ENERGY_TYPES, localYMD, uuid } from '../store'
 import { useTaskForm } from '../hooks/useTaskForm'
 import ModalShell from './ModalShell'
 import DateField from './DateField'
 import './AddTaskModal.css'
+import './EditTaskModal.css'
 
 const ENERGY_LEVEL_LABELS = [
   { lvl: 1, label: 'Low' },
@@ -29,6 +30,33 @@ export default function AddTaskModal({ open, onAdd, onClose, parentProject = nul
   })
   const titleRef = useRef(null)
 
+  // Checklist built at CREATE time. Both editors could add one to an existing
+  // task, but no creation surface could — so a multi-step task had to be
+  // thrown, then reopened, before its steps could be written down (and a
+  // Polish-suggested checklist said "save and re-open this task to apply").
+  // One list, same item shape the editors use; more lists stay an editor job.
+  const [checkItems, setCheckItems] = useState([])
+  const [newCheckItem, setNewCheckItem] = useState('')
+  const addCheckItem = () => {
+    const text = newCheckItem.trim()
+    if (!text) return
+    setCheckItems(prev => [...prev, { id: uuid(), text, completed: false }])
+    setNewCheckItem('')
+  }
+  const renameCheckItem = (id, text) => setCheckItems(prev => prev.map(i => (i.id === id ? { ...i, text } : i)))
+  const removeCheckItem = (id) => setCheckItems(prev => prev.filter(i => i.id !== id))
+  const applySuggestedChecklist = () => {
+    const cl = form.consumeSuggestedChecklist()
+    if (!cl) return
+    setCheckItems(prev => [
+      ...prev,
+      ...cl.items
+        .map(it => (it.text || '').trim())
+        .filter(Boolean)
+        .map(text => ({ id: uuid(), text, completed: false })),
+    ])
+  }
+
   useEffect(() => {
     if (open) {
       // Wait one tick for the modal to mount before focusing the title input.
@@ -41,7 +69,19 @@ export default function AddTaskModal({ open, onAdd, onClose, parentProject = nul
 
   const handleSubmit = () => {
     if (!form.title.trim()) return
-    onAdd(form.getFormData())
+    // An item typed but not yet entered is still an item — tapping "Add task"
+    // with it sitting in the box must not drop it.
+    const pending = newCheckItem.trim()
+    const items = [
+      ...checkItems.map(i => ({ ...i, text: i.text.trim() })).filter(i => i.text),
+      ...(pending ? [{ id: uuid(), text: pending, completed: false }] : []),
+    ]
+    onAdd({
+      ...form.getFormData(),
+      checklists: items.length > 0
+        ? [{ id: uuid(), name: 'Checklist', items, hideCompleted: false }]
+        : [],
+    })
     onClose()
   }
 
@@ -108,9 +148,44 @@ export default function AddTaskModal({ open, onAdd, onClose, parentProject = nul
         )}
         {form.suggestedChecklist && (
           <div className="v2-edit-polish-applied">
-            <span>Checklist suggested ({form.suggestedChecklist.items.length} items). Save and re-open this task to apply.</span>
+            <span>Checklist suggested ({form.suggestedChecklist.items.length} items).</span>
+            <button type="button" className="v2-edit-polish-apply" onClick={applySuggestedChecklist}>Add</button>
+            <button type="button" className="v2-edit-polish-dismiss" onClick={() => form.consumeSuggestedChecklist()}>Dismiss</button>
           </div>
         )}
+      </div>
+
+      <div className="v2-form-section">
+        <label className="v2-form-label">Checklist</label>
+        {checkItems.length > 0 && (
+          <ul className="v2-edit-checklist-items">
+            {checkItems.map(item => (
+              <li key={item.id} className="v2-edit-checklist-item">
+                <input
+                  className="v2-edit-checklist-text"
+                  value={item.text}
+                  onChange={e => renameCheckItem(item.id, e.target.value)}
+                  aria-label="Checklist item"
+                />
+                <button
+                  type="button"
+                  className="v2-edit-checklist-item-remove"
+                  onClick={() => removeCheckItem(item.id)}
+                  aria-label="Remove item"
+                >
+                  <XIcon size={12} strokeWidth={2} />
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+        <input
+          className="v2-edit-checklist-add-input"
+          placeholder="Add checklist item…"
+          value={newCheckItem}
+          onChange={e => setNewCheckItem(e.target.value)}
+          onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addCheckItem() } }}
+        />
       </div>
 
       <div className="v2-form-row v2-form-row-due-priority">
