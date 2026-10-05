@@ -134,6 +134,23 @@
 /* Section label → quiet card eyebrow. */
 [data-theme^="kept"] .v2-form-label { color: var(--bm-text-meta); font-weight: 700; }
 
+/* A checklist inside the Checklist card: the card IS the container, so the
+ * list's own boxed panel (from the flat pre-Kept page) would be a card in a
+ * card. Flatten it; a second list is separated by a hairline instead. */
+[data-theme^="kept"] .v2-edit-checklists .v2-edit-checklist {
+  background: transparent;
+  border: none;
+  border-radius: 0;
+  padding: 0;
+  margin-bottom: 0;
+}
+[data-theme^="kept"] .v2-edit-checklists .v2-edit-checklist + .v2-edit-checklist {
+  border-top: 1px solid var(--bm-hairline);
+  margin-top: 12px;
+  padding-top: 12px;
+}
+[data-theme^="kept"] .v2-edit-checklists .v2-edit-checklist-new { margin-top: 10px; }
+
 /* Inputs/textareas/selects → INSET on the page bg so they contrast with the
  * card they sit in (the earlier rule put them on --wb-card = the card color,
  * so they vanished card-on-card). */

@@ -6,6 +6,12 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-10-05
 
+- fix(edit): the checklist was buried below a dozen cards in a card-less leftover row [S]
+  - User, with an iPhone screenshot of the full editor: *"It's just buried. This fits an old UI that no longer exists."* The real report behind "I lost the ability to add checklists" — the feature was there, just unfindable.
+  - `EditTaskModal` rendered checklists after status, notes, weather, due/reminder, nag, critical, size, energy, DIY, impact and energy type. Empty, it was `v2-form-section-compact` — which the Kept card rule (`.v2-form-section:not(.v2-form-section-compact)`) deliberately leaves FLAT, so it read as a bare dashed "+ Add checklist" pill with no card and no heading: the one section on the page still drawn in the pre-Kept flat language.
+  - Now a full card **directly under Notes** (where the phone quick editor already puts subtasks), always headed "Checklist". Empty, the card is an **Add checklist item…** field and the first entry creates the list — no separate "add checklist" step. *Add another checklist* appears once one exists. In Kept the list's own boxed panel is flattened inside the card (`.v2-edit-checklists` in `src/kept/forms.css`), with a hairline between multiple lists.
+  - Verified at phone width in `kept-dark`: Tasks → task → Edit → More options → card under Notes → two items entered → autosave PATCH and server row carry both.
+
 - feat(tasks): build a checklist while creating a task [S]
   - User, from the iPhone app: *"I lost the ability to add checklists to tasks."* Narrowed to: **no way to add a checklist while creating a task.** Adding to an existing task was reproduced working on current `dev` in both the phone quick editor and the desktop full editor (headless Chromium against a seeded DB; the PATCH lands and the server row carries the items).
   - **Never existed rather than lost.** No creation surface ever had a checklist builder — the Throw sheet is title + day/reminder, and the full `AddTaskModal` behind its *More options* had none, down to telling the user a Polish-suggested checklist had to be applied by "save and re-open this task" (`git log -S` on both files finds no checklist UI ever removed).
