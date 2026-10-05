@@ -28,6 +28,9 @@ const STATUS_OPTIONS = ['not_started', 'doing', 'waiting']
 
 const CADENCE_OPTIONS = ['daily', 'weekly', 'monthly', 'quarterly', 'annually', 'custom']
 
+// newCheckItems key for the empty checklist card's field (no list id yet).
+const NEW_CHECKLIST = '__new__'
+
 export default function EditTaskModal({
   task, onSave, onClose, onDelete, onBacklog, onProject, onStatusChange,
   onConvertToRoutine, weather,
@@ -461,6 +464,13 @@ export default function EditTaskModal({
       c.id === clId ? { ...c, items: c.items.filter(i => i.id !== itemId) } : c
     )))
   }
+  // The empty card's field: its first entry creates the first list.
+  const addFirstItem = () => {
+    const text = (newCheckItems[NEW_CHECKLIST] || '').trim()
+    if (!text) return
+    setChecklists(prev => [...prev, { id: uuid(), name: 'Checklist', items: [{ id: uuid(), text, completed: false }], hideCompleted: false }])
+    setNewCheckItems(prev => ({ ...prev, [NEW_CHECKLIST]: '' }))
+  }
   const addItem = (clId) => {
     const text = (newCheckItems[clId] || '').trim()
     if (!text) return
@@ -720,6 +730,123 @@ export default function EditTaskModal({
               {researching ? '…' : 'Go'}
             </button>
           </div>
+        )}
+      </div>
+
+      {/* Checklists — multi-list, directly under Notes (where the phone quick
+          editor puts subtasks). Always a full card with its heading: the old
+          empty state was a compact, card-less "+ Add checklist" pill a dozen
+          sections down — a leftover from the pre-Kept flat page, and the one
+          section the Kept card rule skips (2026-10-05, "it's just buried").
+          With nothing yet, the card is an item field: the first entry makes
+          the first list, no separate "add checklist" step. */}
+      <div className="v2-form-section v2-edit-checklists">
+        <div className="v2-edit-checklist-head">
+          <label className="v2-form-label">{checklists.length > 1 ? 'Checklists' : 'Checklist'}</label>
+          {checklists.reduce((n, c) => n + c.items.length, 0) > 0 && (
+            <span className="v2-edit-checklist-summary">
+              {checklists.reduce((n, c) => n + c.items.filter(i => i.completed).length, 0)}/{checklists.reduce((n, c) => n + c.items.length, 0)} done
+            </span>
+          )}
+        </div>
+        {checklists.length === 0 && (
+          <input
+            className="v2-edit-checklist-add-input"
+            placeholder="Add checklist item…"
+            value={newCheckItems[NEW_CHECKLIST] || ''}
+            onChange={e => setNewCheckItems(prev => ({ ...prev, [NEW_CHECKLIST]: e.target.value }))}
+            onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addFirstItem() } }}
+          />
+        )}
+        {checklists.map(cl => {
+          const completed = cl.items.filter(i => i.completed).length
+          const total = cl.items.length
+          const pct = total ? Math.round((completed / total) * 100) : 0
+          const visible = cl.hideCompleted ? cl.items.filter(i => !i.completed) : cl.items
+          const hidden = cl.hideCompleted ? cl.items.filter(i => i.completed).length : 0
+          return (
+            <div key={cl.id} className="v2-edit-checklist">
+              <div className="v2-edit-checklist-header">
+                <input
+                  className="v2-edit-checklist-name"
+                  value={cl.name}
+                  onChange={e => renameChecklist(cl.id, e.target.value)}
+                />
+                {total > 0 && completed > 0 && (
+                  <button
+                    type="button"
+                    className="v2-edit-checklist-toggle"
+                    onClick={() => toggleHideCompleted(cl.id)}
+                  >
+                    {cl.hideCompleted ? 'Show completed' : 'Hide completed'}
+                  </button>
+                )}
+                {confirmDeleteChecklist === cl.id ? (
+                  <span className="v2-edit-checklist-confirm">
+                    Delete?
+                    <button type="button" onClick={() => removeChecklist(cl.id)}>Yes</button>
+                    <button type="button" onClick={() => setConfirmDeleteChecklist(null)}>No</button>
+                  </span>
+                ) : (
+                  <button
+                    type="button"
+                    className="v2-edit-checklist-delete"
+                    onClick={() => setConfirmDeleteChecklist(cl.id)}
+                    aria-label="Delete checklist"
+                  >
+                    <Trash2 size={13} strokeWidth={1.75} />
+                  </button>
+                )}
+              </div>
+              {total > 0 && (
+                <div className="v2-edit-checklist-progress">
+                  <div className="v2-edit-checklist-progress-fill" style={{ width: `${pct}%` }} />
+                </div>
+              )}
+              <ul className="v2-edit-checklist-items">
+                {visible.map(item => (
+                  <li key={item.id} className="v2-edit-checklist-item">
+                    <input
+                      type="checkbox"
+                      className="v2-edit-checklist-check"
+                      checked={item.completed}
+                      onChange={() => toggleItem(cl.id, item.id)}
+                    />
+                    <input
+                      className={`v2-edit-checklist-text${item.completed ? ' v2-edit-checklist-text-done' : ''}`}
+                      value={item.text}
+                      onChange={e => renameItem(cl.id, item.id, e.target.value)}
+                    />
+                    <button
+                      type="button"
+                      className="v2-edit-checklist-item-remove"
+                      onClick={() => removeItem(cl.id, item.id)}
+                      aria-label="Remove item"
+                    >
+                      <XIcon size={12} strokeWidth={2} />
+                    </button>
+                  </li>
+                ))}
+              </ul>
+              {hidden > 0 && (
+                <div className="v2-edit-checklist-hidden">{hidden} completed item{hidden > 1 ? 's' : ''} hidden</div>
+              )}
+              <div className="v2-edit-checklist-add">
+                <input
+                  className="v2-edit-checklist-add-input"
+                  placeholder="Add item…"
+                  value={newCheckItems[cl.id] || ''}
+                  onChange={e => setNewCheckItems(prev => ({ ...prev, [cl.id]: e.target.value }))}
+                  onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addItem(cl.id) } }}
+                />
+              </div>
+            </div>
+          )
+        })}
+        {checklists.length > 0 && (
+          <button type="button" className="v2-edit-checklist-new" onClick={addChecklist}>
+            <Plus size={13} strokeWidth={2} /> Add another checklist
+          </button>
         )}
       </div>
 
@@ -1032,109 +1159,6 @@ export default function EditTaskModal({
             </div>
           </>
         )}
-      </div>
-
-      {/* Checklists — multi-list. Empty state shows just the "+ Add checklist"
-          pill below; CHECKLISTS label only renders when at least one exists. */}
-      <div className={`v2-form-section${checklists.length === 0 ? ' v2-form-section-compact' : ''}`}>
-        {checklists.length > 0 && (
-          <div className="v2-edit-checklist-head">
-            <label className="v2-form-label">Checklists</label>
-            {checklists.reduce((n, c) => n + c.items.length, 0) > 0 && (
-              <span className="v2-edit-checklist-summary">
-                {checklists.reduce((n, c) => n + c.items.filter(i => i.completed).length, 0)}/{checklists.reduce((n, c) => n + c.items.length, 0)} done
-              </span>
-            )}
-          </div>
-        )}
-        {checklists.map(cl => {
-          const completed = cl.items.filter(i => i.completed).length
-          const total = cl.items.length
-          const pct = total ? Math.round((completed / total) * 100) : 0
-          const visible = cl.hideCompleted ? cl.items.filter(i => !i.completed) : cl.items
-          const hidden = cl.hideCompleted ? cl.items.filter(i => i.completed).length : 0
-          return (
-            <div key={cl.id} className="v2-edit-checklist">
-              <div className="v2-edit-checklist-header">
-                <input
-                  className="v2-edit-checklist-name"
-                  value={cl.name}
-                  onChange={e => renameChecklist(cl.id, e.target.value)}
-                />
-                {total > 0 && completed > 0 && (
-                  <button
-                    type="button"
-                    className="v2-edit-checklist-toggle"
-                    onClick={() => toggleHideCompleted(cl.id)}
-                  >
-                    {cl.hideCompleted ? 'Show completed' : 'Hide completed'}
-                  </button>
-                )}
-                {confirmDeleteChecklist === cl.id ? (
-                  <span className="v2-edit-checklist-confirm">
-                    Delete?
-                    <button type="button" onClick={() => removeChecklist(cl.id)}>Yes</button>
-                    <button type="button" onClick={() => setConfirmDeleteChecklist(null)}>No</button>
-                  </span>
-                ) : (
-                  <button
-                    type="button"
-                    className="v2-edit-checklist-delete"
-                    onClick={() => setConfirmDeleteChecklist(cl.id)}
-                    aria-label="Delete checklist"
-                  >
-                    <Trash2 size={13} strokeWidth={1.75} />
-                  </button>
-                )}
-              </div>
-              {total > 0 && (
-                <div className="v2-edit-checklist-progress">
-                  <div className="v2-edit-checklist-progress-fill" style={{ width: `${pct}%` }} />
-                </div>
-              )}
-              <ul className="v2-edit-checklist-items">
-                {visible.map(item => (
-                  <li key={item.id} className="v2-edit-checklist-item">
-                    <input
-                      type="checkbox"
-                      className="v2-edit-checklist-check"
-                      checked={item.completed}
-                      onChange={() => toggleItem(cl.id, item.id)}
-                    />
-                    <input
-                      className={`v2-edit-checklist-text${item.completed ? ' v2-edit-checklist-text-done' : ''}`}
-                      value={item.text}
-                      onChange={e => renameItem(cl.id, item.id, e.target.value)}
-                    />
-                    <button
-                      type="button"
-                      className="v2-edit-checklist-item-remove"
-                      onClick={() => removeItem(cl.id, item.id)}
-                      aria-label="Remove item"
-                    >
-                      <XIcon size={12} strokeWidth={2} />
-                    </button>
-                  </li>
-                ))}
-              </ul>
-              {hidden > 0 && (
-                <div className="v2-edit-checklist-hidden">{hidden} completed item{hidden > 1 ? 's' : ''} hidden</div>
-              )}
-              <div className="v2-edit-checklist-add">
-                <input
-                  className="v2-edit-checklist-add-input"
-                  placeholder="Add item…"
-                  value={newCheckItems[cl.id] || ''}
-                  onChange={e => setNewCheckItems(prev => ({ ...prev, [cl.id]: e.target.value }))}
-                  onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addItem(cl.id) } }}
-                />
-              </div>
-            </div>
-          )
-        })}
-        <button type="button" className="v2-edit-checklist-new" onClick={addChecklist}>
-          <Plus size={13} strokeWidth={2} /> {checklists.length === 0 ? 'Add checklist' : 'Add another checklist'}
-        </button>
       </div>
 
       <FormDisclosure label="Attachments" summary={form.attachments.length > 0 ? String(form.attachments.length) : undefined} defaultOpen={form.attachments.length > 0}>
