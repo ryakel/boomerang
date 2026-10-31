@@ -4,6 +4,17 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ---
 
+## 2026-10-31
+
+- feat(capture): scan a schedule photo or PDF into dated tasks [M]
+  - User, sharing a Threads post for another planner app whose "Scan schedule" turns a timetable / shift rota / calendar screenshot / PDF into entries: *"Excuse me sir. Puhleeze?"* Ticket BOOM-21. (The same post's drag-to-lighter-days timeline is out of scope.)
+  - New pure module `src/scheduleScan.js`: the vision prompt (carries today's date and weekday so a missing year or "Tomorrow" resolves), `parseScanResponse` (drops untitled rows and rows with no resolvable date rather than guessing today; weekday-only grids resolve to the next occurrence on or after today; bad times become null; past rows are flagged), and `entryToTask` (time and place into notes, `remindAt` only when asked AND the entry has a start time). Pinned by `scripts/scheduleScan.test.mjs`.
+  - `scanSchedule()` in `api.js` rides the Anthropic-pinned `/api/messages` vision path like attachment OCR, tagged `_feature: 'schedule_scan'` for the usage dashboard. Images go through the existing canvas compressor first.
+  - `ScanScheduleModal`: Take a photo / Choose an image / Choose a PDF → preview with per-entry tick and inline title edit, past entries unticked, an opt-in "Remind me at each start time" → `addTask` per entry. **User-reviewed import, not a background path** — nothing exists until Add is tapped, the same shape as Markdown import, so it doesn't route through the Review section.
+  - Entry points: a scan icon beside *Throw it* in the Throw sheet (Task mode, only while the title is empty so nothing typed is dropped) and *Scan a schedule instead* under the title in the full `AddTaskModal`.
+  - UI copy says the file is sent to the AI provider — the inspiration's "read on your iPhone, never uploaded" is not true here and isn't claimed.
+  - Verified in the built app at phone width against a seeded DB with `/api/messages` mocked: throw sheet → scan → choose image → 5 entries (one weekday-only, one past and unticked) → reminders on → Add 4 → server rows carry the right due dates, notes and `remind_at`. Not verified against a live Anthropic call (no key in the sandbox). **Web-only — OTA, no rebuild, no migration.**
+
 ## 2026-10-05
 
 - fix(edit): the checklist was buried below a dozen cards in a card-less leftover row [S]

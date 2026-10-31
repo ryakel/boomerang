@@ -1,0 +1,77 @@
+.v2-scan-hero {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 18px 16px;
+  border: 1px dashed var(--v2-hairline);
+  border-radius: 12px;
+}
+.v2-scan-hero strong {
+  font: 600 15px/1.3 var(--v2-font-body);
+  color: var(--v2-text);
+}
+.v2-scan-hero span {
+  font: 400 12px/1.5 var(--v2-font-body);
+  color: var(--v2-text-meta);
+}
+
+.v2-scan-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.v2-scan-actions .v2-md-import-primary {
+  flex: none;
+  height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+.v2-scan-secondary {
+  display: flex;
+  gap: 8px;
+}
+.v2-scan-secondary > button {
+  flex: 1;
+  justify-content: center;
+}
+
+.v2-scan-busy {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 20px 0;
+  font: 400 13px/1.4 var(--v2-font-body);
+  color: var(--v2-text-meta);
+}
+
+.v2-scan-title {
+  width: 100%;
+  border: none;
+  background: transparent;
+  padding: 0;
+  font: 400 14px/1.3 var(--v2-font-body);
+  color: var(--v2-text);
+  outline: none;
+}
+.v2-scan-title:focus { text-decoration: underline dotted var(--v2-text-faint); }
+
+.v2-scan-meta {
+  font: 400 12px/1.3 var(--v2-font-body);
+  color: var(--v2-text-meta);
+}
+
+.v2-scan-past .v2-scan-title,
+.v2-scan-past .v2-scan-meta { opacity: 0.55; }
+
+.v2-scan-remind {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font: 400 13px/1.4 var(--v2-font-body);
+  color: var(--v2-text);
+  cursor: pointer;
+}
+.v2-scan-remind input { accent-color: var(--v2-accent); }
