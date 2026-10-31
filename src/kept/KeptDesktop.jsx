@@ -22,7 +22,7 @@ export default function KeptDesktop({
   onCompleteTask, onOpenTask, onToggleHabit, onRescheduleTask, onDeleteTask,
   onLogSession, onGmailKeep, onGmailDismiss, onWhatNow, onToggleItem, onUnsnooze,
   onCycleImpact,
-  onThrow, onThrowNote, onOpenFullAdd, onEditLoop, onAddLoop, onSpawnNow, onSkipCycle, onMarkLoopDay, onUnmarkLoopDay, onSkipLoopDay, onPushLoopOut,
+  onThrow, onThrowNote, onOpenFullAdd, onScanSchedule, onEditLoop, onAddLoop, onSpawnNow, onSkipCycle, onMarkLoopDay, onUnmarkLoopDay, onSkipLoopDay, onPushLoopOut,
   onOpenQuokka, onOpenSettings, onOpenPackages, onOpenAnalytics,
   onOpenProjects, onOpenSuggestions,
   onOpenNotes, onOpenLists, pinnedNotes = [], onUnpinNote,
@@ -148,6 +148,7 @@ export default function KeptDesktop({
         onThrow={onThrow}
         onThrowNote={onThrowNote}
         onMoreOptions={onOpenFullAdd}
+        onScanSchedule={onScanSchedule}
       />
     </div>
   )

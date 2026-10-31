@@ -1,6 +1,7 @@
 import { loadSettings, localYMD } from './store'
 import { readJson } from './apiConfig'
 import { SONNET_MODEL, claudeText, NO_THINKING } from '../server/aiModels.js'
+import { scanSystemPrompt, parseScanResponse } from './scheduleScan.js'
 
 const PROXY_URL = '/api/messages'
 
@@ -521,6 +522,39 @@ export async function extractAttachmentText(attachments = []) {
   if (!match) throw new Error('Could not parse extraction')
   const aiText = (JSON.parse(match[0]).text || '').trim()
   return [...textParts, aiText].filter(Boolean).join('\n\n')
+}
+
+// --- Scan a schedule ---
+// One image or PDF → schedule entries (see src/scheduleScan.js). Vision, so
+// it rides the Anthropic-pinned /api/messages path like attachment OCR.
+export async function scanSchedule(attachment, today) {
+  const isImage = (attachment.type || '').startsWith('image/')
+  const res = await fetch(PROXY_URL, {
+    method: 'POST',
+    headers: getApiHeaders(),
+    body: JSON.stringify({
+      model: SONNET_MODEL,
+      max_tokens: 8192,
+      ...NO_THINKING,
+      _feature: 'schedule_scan',
+      system: scanSystemPrompt(today),
+      messages: [{
+        role: 'user',
+        content: [
+          {
+            type: isImage ? 'image' : 'document',
+            source: { type: 'base64', media_type: attachment.type, data: attachment.data },
+          },
+          { type: 'text', text: 'Extract the schedule entries. JSON only.' },
+        ],
+      }],
+    }),
+  })
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}))
+    throw new Error(data.error?.message || data.error || `Scan failed (${res.status})`)
+  }
+  return parseScanResponse(claudeText(await res.json()), today)
 }
 
 // --- Reframe ---

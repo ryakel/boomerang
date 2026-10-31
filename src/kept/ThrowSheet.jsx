@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { SlidersHorizontal } from 'lucide-react'
+import { SlidersHorizontal, ScanLine } from 'lucide-react'
 import { localYMD, addDays, localDateTimeValue, nextHalfHour } from '../dates'
 import useSheetSwipeDown from '../hooks/useSheetSwipeDown'
 import './shell.css'
@@ -36,7 +36,7 @@ function resolve(id) {
 // SHAPE of the capture, not a different kind of record. And a reminder with no
 // due date lands on Today: TodayView reads remind_at as the day when there is
 // no due date, so nothing here needs to set one.
-export default function ThrowSheet({ open, onClose, onThrow, onThrowNote, onMoreOptions }) {
+export default function ThrowSheet({ open, onClose, onThrow, onThrowNote, onMoreOptions, onScanSchedule }) {
   const [title, setTitle] = useState('')
   const [dateId, setDateId] = useState('none')
   const [mode, setMode] = useState('task')
@@ -208,6 +208,14 @@ export default function ThrowSheet({ open, onClose, onThrow, onThrowNote, onMore
           </button>
           {/* A reminder is still a task, so the full editor is just as valid a
               destination for one as it is for a plain capture. */}
+          {/* Scan a schedule — a photo or PDF in, several dated tasks out.
+              Only offered before anything is typed: a half-written title
+              would be dropped on the way. */}
+          {mode === 'task' && onScanSchedule && !title.trim() && (
+            <button className="bm-btn bm-btn-ghost" onClick={() => { closeAndBlur(); onScanSchedule() }} aria-label="Scan a schedule">
+              <ScanLine size={15} strokeWidth={2} />
+            </button>
+          )}
           {mode !== 'note' && (
             <button className="bm-btn bm-btn-ghost" onClick={openMoreOptions} aria-label="More options">
               <SlidersHorizontal size={15} strokeWidth={2} />

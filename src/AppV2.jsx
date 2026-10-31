@@ -40,6 +40,7 @@ import ProjectPinnedSection from './components/ProjectPinnedSection'
 import StackSection from './components/StackSection'
 import TaskListToolbar from './components/TaskListToolbar'
 import MarkdownImportModal from './components/MarkdownImportModal'
+import ScanScheduleModal from './components/ScanScheduleModal'
 import WeekStrip from './components/WeekStrip'
 import Toast from './components/Toast'
 import FloatingCapture from './components/FloatingCapture'
@@ -115,6 +116,7 @@ export default function AppV2() {
   const [showActivityLog, setShowActivityLog] = useState(false)
   const [showNotifications, setShowNotifications] = useState(false)
   const [showMarkdownImport, setShowMarkdownImport] = useState(false)
+  const [showScanSchedule, setShowScanSchedule] = useState(false)
   const [updateVersion, setUpdateVersion] = useState(null)
   // SpacesHub is the destination for the Spaces tab. Opens a picker
   // for Projects / Routines / Knowledge; tapping a row closes the hub
@@ -348,10 +350,10 @@ export default function AppV2() {
   // Check app version whenever a view/modal opens — same cadence v1 uses.
   // Catches stale clients without waiting for the next SSE/sync round-trip.
   useEffect(() => {
-    if (showSettings || showDone || showAnalytics || showRoutines || showActivityLog || showPackages || showProjects || showAdviser || showSuggestions || showGrowthAreas || showNotes || showLists || editTarget || showAdd || showWhatNow || showMarkdownImport) {
+    if (showSettings || showDone || showAnalytics || showRoutines || showActivityLog || showPackages || showProjects || showAdviser || showSuggestions || showGrowthAreas || showNotes || showLists || editTarget || showAdd || showWhatNow || showMarkdownImport || showScanSchedule) {
       checkVersion()
     }
-  }, [showSettings, showDone, showAnalytics, showRoutines, showActivityLog, showPackages, showProjects, showAdviser, showSuggestions, showGrowthAreas, showNotes, showLists, editTarget, showAdd, showWhatNow, showMarkdownImport, checkVersion])
+  }, [showSettings, showDone, showAnalytics, showRoutines, showActivityLog, showPackages, showProjects, showAdviser, showSuggestions, showGrowthAreas, showNotes, showLists, editTarget, showAdd, showWhatNow, showMarkdownImport, showScanSchedule, checkVersion])
 
   // Deep-link handler. Notifications come in as `/?task=<id>` (task tap),
   // `/?suggestions=1` (routine_suggestion push), or `/?adviser=...` (plan
@@ -1555,6 +1557,7 @@ export default function AppV2() {
           onDeleteTask={(task) => handleDelete(task.id)}
           onThrow={({ title, dueDate, remindAt }) => scrollTaskIntoView(handleAddTask({ title, dueDate, remindAt }))}
           onOpenFullAdd={(draft) => openAddModal(draft)}
+          onScanSchedule={() => setShowScanSchedule(true)}
           onEditLoop={(r) => { setEditRoutineId(r.id); setShowRoutines(true) }}
           onAddLoop={() => { setRoutinesOpenToForm(true); setShowRoutines(true) }}
           onSpawnNow={handleSpawnLoop}
@@ -1616,6 +1619,7 @@ export default function AppV2() {
           onDeleteTask={(task) => handleDelete(task.id)}
           onThrow={({ title, dueDate, remindAt }) => scrollTaskIntoView(handleAddTask({ title, dueDate, remindAt }))}
           onOpenFullAdd={(draft) => openAddModal(draft)}
+          onScanSchedule={() => setShowScanSchedule(true)}
           onEditLoop={(r) => { setEditRoutineId(r.id); setShowRoutines(true) }}
           onAddLoop={() => { setRoutinesOpenToForm(true); setShowRoutines(true) }}
           onSpawnNow={handleSpawnLoop}
@@ -1678,6 +1682,15 @@ export default function AppV2() {
         parentProject={addChildOfProject}
         createAsProject={createAsProject}
         initialDraft={addInitialDraft}
+        onScanSchedule={() => setShowScanSchedule(true)}
+      />
+
+      <ScanScheduleModal
+        open={showScanSchedule}
+        onClose={() => setShowScanSchedule(false)}
+        onImport={(tasks) => {
+          for (const t of tasks) addTask(t)
+        }}
       />
 
       {editTarget && useQuickEditor && (

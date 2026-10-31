@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { Sparkles, X as XIcon } from 'lucide-react'
+import { Sparkles, ScanLine, X as XIcon } from 'lucide-react'
 import { loadLabels, getDefaultDueDate, ENERGY_TYPES, localYMD, uuid } from '../store'
 import { useTaskForm } from '../hooks/useTaskForm'
 import ModalShell from './ModalShell'
@@ -15,7 +15,7 @@ const ENERGY_LEVEL_LABELS = [
 
 const SIZE_OPTIONS = ['XS', 'S', 'M', 'L', 'XL']
 
-export default function AddTaskModal({ open, onAdd, onClose, parentProject = null, createAsProject = false, initialDraft = null }) {
+export default function AddTaskModal({ open, onAdd, onClose, parentProject = null, createAsProject = false, initialDraft = null, onScanSchedule = null }) {
   // AppV2 remounts this component (via a `key` bump) every time it's freshly
   // opened, so `initial` only ever needs to be read once here — no reset
   // logic required. `initialDraft` seeds a title/date handed off from
@@ -119,6 +119,11 @@ export default function AddTaskModal({ open, onAdd, onClose, parentProject = nul
         onChange={e => form.setTitle(e.target.value)}
         onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) handleSubmit() }}
       />
+      {onScanSchedule && !parentProject && !createAsProject && (
+        <button type="button" className="v2-form-ai-pill v2-form-ai-pill-inline v2-form-scan-pill" onClick={() => { onClose(); onScanSchedule() }}>
+          <ScanLine size={12} strokeWidth={1.75} /> Scan a schedule instead
+        </button>
+      )}
 
       <div className="v2-form-section">
         <label className="v2-form-label">Notes</label>
