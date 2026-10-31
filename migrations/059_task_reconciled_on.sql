@@ -1,0 +1,15 @@
+-- Last night list answers (2026-10-31, BOOM-23).
+--
+-- The Last night list on Today asks, for each task that was on yesterday's
+-- plate, whether it was really done last night. "Did it yesterday" needs no
+-- record — it moves completed_at, and the task stops qualifying on its own.
+-- "Keep today" / "Still open" changes nothing about the task, so without a
+-- marker the list would ask the same question on every open of the app and on
+-- every other device.
+--
+-- `reconciled_on` is the local 'YYYY-MM-DD' the user answered. The list skips a
+-- task whose value equals today, so an answer holds for exactly one day and a
+-- stale value is harmless. A task column rather than a localStorage key: the
+-- answer must hold on the phone after it was given on the desktop, and a
+-- client-side "already asked" ledger is the thing iOS evicts.
+ALTER TABLE tasks ADD COLUMN reconciled_on TEXT;

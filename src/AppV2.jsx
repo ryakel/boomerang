@@ -66,7 +66,7 @@ import { useGCalSync } from './hooks/useGCalSync'
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts'
 import { inferSize, trelloUpdateCard, serverSkipAdvanceTask, gmailApprove, gmailDismiss, mergeTasks as apiMergeTasks, addTombstones, remoteLinksOf } from './api'
 import { loadLabels, loadSettings, saveSettings, saveLabels, sortTasks, computeDailyStats, computeStreak, logActivity, localYMD, uuid, LABEL_COLORS, isCrisisTask } from './store'
-import { canCreditYesterday, creditYesterday } from './creditYesterday'
+import { canCreditYesterday, creditYesterday, completeAsYesterday } from './creditYesterday'
 import { TERMINAL_STATUSES } from './loopSpawnStatus'
 import { localDateTimeValue, nextHalfHour } from './dates'
 import { computeRecords, calculateTaskPoints } from './scoring'
@@ -1022,22 +1022,61 @@ export default function AppV2() {
   // goes, the stack exception) live in creditYesterday.js; this only applies
   // the result. Reads the CURRENT task and routine, because the tick that
   // raised the toast has already rewritten both.
+  // Shared by the toast and the Last night list: the task's routine and, for
+  // a stack, the rest of its cycle — what the pure repair needs to decide
+  // whether a loop stamp moves. Writes back only the fields that changed.
+  const yesterdayContext = useCallback((task) => {
+    const routine = task.routine_id ? routines.find(r => r.id === task.routine_id) || null : null
+    const siblings = routine ? tasks.filter(t => t.routine_id === task.routine_id && t.due_date === task.due_date) : []
+    return { routine, siblings }
+  }, [tasks, routines])
+  const applyRoutineRepair = useCallback((routine, nextRoutine) => {
+    if (!routine || nextRoutine === routine) return
+    const updates = {}
+    for (const k of ['completed_history', 'skipped_days', 'resume_at']) {
+      if (nextRoutine[k] !== routine[k]) updates[k] = nextRoutine[k]
+    }
+    if (Object.keys(updates).length) updateRoutine(routine.id, updates)
+  }, [updateRoutine])
+
   const handleCreditYesterday = useCallback((id) => {
     const task = tasks.find(t => t.id === id)
     if (!canCreditYesterday(task)) { setToast(null); return }
-    const routine = task.routine_id ? routines.find(r => r.id === task.routine_id) || null : null
-    const siblings = routine ? tasks.filter(t => t.routine_id === task.routine_id && t.due_date === task.due_date) : []
+    const { routine, siblings } = yesterdayContext(task)
     const { taskUpdates, routine: nextRoutine } = creditYesterday({ task, routine, siblings })
     if (!taskUpdates) { setToast(null); return }
     updateTask(id, taskUpdates)
-    if (routine && nextRoutine !== routine) {
-      const updates = { completed_history: nextRoutine.completed_history }
-      if (nextRoutine.skipped_days !== routine.skipped_days) updates.skipped_days = nextRoutine.skipped_days
-      updateRoutine(routine.id, updates)
-    }
+    applyRoutineRepair(routine, nextRoutine)
     logActivity('credited_yesterday', task)
     setToast({ task: { ...task, ...taskUpdates }, variant: 'yesterday' })
-  }, [tasks, routines, updateTask, updateRoutine])
+  }, [tasks, yesterdayContext, applyRoutineRepair, updateTask])
+
+  // The Last night list's two answers. "Yesterday" credits a morning tick or
+  // completes a still-open task as of last night — both through the pure
+  // module. The other answer only records that the question was answered, so
+  // no device asks it again today.
+  const handleReconcileYesterday = useCallback((t) => {
+    const task = tasks.find(x => x.id === t.id)
+    if (!task) return
+    const { routine, siblings } = yesterdayContext(task)
+    if (task.status === 'done') {
+      const { taskUpdates, routine: nextRoutine } = creditYesterday({ task, routine, siblings })
+      if (!taskUpdates) return
+      updateTask(task.id, taskUpdates)
+      applyRoutineRepair(routine, nextRoutine)
+    } else {
+      const { taskUpdates, routine: nextRoutine } = completeAsYesterday({ task, routine, siblings })
+      if (!taskUpdates) return
+      updateTask(task.id, taskUpdates)
+      applyRoutineRepair(routine, nextRoutine)
+      logActivity('completed', task)
+      if (task.trello_card_id) pushStatusToTrello(task, 'done')
+    }
+    logActivity('credited_yesterday', task)
+  }, [tasks, yesterdayContext, applyRoutineRepair, updateTask, pushStatusToTrello])
+  const handleReconcileKeep = useCallback((t) => {
+    updateTask(t.id, { reconciled_on: localYMD() })
+  }, [updateTask])
 
   // Single shortcut into the canonical routine-completion path, shared by the
   // the Kept shells. Routes through the real surfaced task so
@@ -1583,6 +1622,8 @@ export default function AppV2() {
             try { await gmailApprove(t.id) } catch { /* refetch reverts */ }
           }}
           onGmailDismiss={handleDismissPending}
+          onReconcileYesterday={handleReconcileYesterday}
+          onReconcileKeep={handleReconcileKeep}
           onWhatNow={() => setShowWhatNow(true)}
           onToggleItem={(task, clId, itemId) => {
             const checklists = (task.checklists || []).map(cl =>
@@ -1645,6 +1686,8 @@ export default function AppV2() {
             try { await gmailApprove(t.id) } catch { /* refetch reverts */ }
           }}
           onGmailDismiss={handleDismissPending}
+          onReconcileYesterday={handleReconcileYesterday}
+          onReconcileKeep={handleReconcileKeep}
           onWhatNow={() => setShowWhatNow(true)}
           onToggleItem={(task, clId, itemId) => {
             const checklists = (task.checklists || []).map(cl =>

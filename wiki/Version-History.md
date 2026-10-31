@@ -6,6 +6,15 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-10-31
 
+- feat(today): a last night list for what you did and didn't tick [M]
+  - Ticket BOOM-23, option 2 of the two agreed with the user, built on BOOM-22's repair. The open question (list only ticked items, or open ones too?) was settled by assumption: both.
+  - A **Last night** section at the top of Today. Rows are tasks from yesterday's plate that were either ticked this morning (*ticked this morning*) or are still open (*still open*). **Yesterday** credits the tick, or completes the open task as of last night. **✕** answers *keep it on today* / *still open*. **Not now** hides the section for the rest of the day on that device.
+  - "Yesterday's plate" is narrow on purpose (`wasOnYesterdaysPlate`): existed before today, and due yesterday, committed for yesterday, rolled over last night, or a loop instance due yesterday / auto-rolled to today. Not "everything overdue".
+  - Never asks twice: crediting moves `completed_at`, so the row drops out by itself; the ✕ answer stamps the new **`reconciled_on`** task column (migration 059) with today's date, so it holds on every device. Ignoring the list changes no data.
+  - Pure additions in `src/creditYesterday.js` — `wasOnYesterdaysPlate`, `reconcileCandidates`, `canCompleteAsYesterday`, `completeAsYesterday` — 37 tests, passing in Chicago, Auckland and UTC.
+  - **Rule change in the shared repair:** crediting a loop task now always records YESTERDAY on the loop, and takes today's stamp off only if there is one. A watch tick goes through the server's complete route, which never stamps the loop, so the old "only move what the tick wrote" rule left watch-ticked loops unrecorded.
+  - Verified in the built app on a fresh scratch DB (migration 059 ran): a loop completed through the server's complete route, two open tasks and one more listed; Yesterday on the loop → task 10/30 8 PM and history gains 10/30; Yesterday on an open task → done 10/30 8 PM; ✕ → `reconciled_on` saved; a second browser context showed the ✕'d row gone and the Not-now'd row still present. **Web + migration — the server picks up 059 on restart; no iOS rebuild.**
+
 - fix(toast): undo on the completion banner un-checks the loop too [S]
   - Ticket BOOM-24, found while building BOOM-22. The banner's Undo called `uncompleteTask()` directly, so a loop task reopened but its `completed_history` stamp stayed: the loop card read done, the rally counted the day, and the next spawn was held back a cycle. It also skipped moving a linked Trello card back.
   - Undo now goes through `handleUncomplete()` like every other reopen path, with a `quiet` option so the banner just closes instead of being replaced by a "back on the list" one. It passes the completed row, not the toast's pre-tick copy, because that row's `completed_at` decides which day's stamp comes off.

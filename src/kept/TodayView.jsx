@@ -1,11 +1,12 @@
 import { useMemo, useState, useEffect } from 'react'
-import { Check, Repeat2, Flame, FolderKanban, Inbox, X, Compass, Sprout, StickyNote } from 'lucide-react'
+import { Check, Repeat2, Flame, FolderKanban, Inbox, X, Compass, Sprout, StickyNote, Moon } from 'lucide-react'
 import { getTodayGrowthArea } from '../api'
 import DayArc from './DayArc'
 import FlightTrail from './FlightTrail'
 import { localYMD, parseLocalDate } from '../dates'
 import { historyByDay, currentStreak } from './heatmapUtils'
-import { isSnoozed, isStale, formatSnoozeLabel, getNextDueDate, loadSettings, isCrisisTask, isRoutineEnded } from '../store'
+import { isSnoozed, isStale, formatSnoozeLabel, getNextDueDate, loadSettings, isCrisisTask, isRoutineEnded, safeSetItem } from '../store'
+import { reconcileCandidates } from '../creditYesterday'
 import { calculateTaskPoints, impactRank } from '../scoring'
 import { buildImpactCtx } from '../impactContext'
 import ImpactDots from './ImpactDots'
@@ -17,6 +18,8 @@ import WeatherBadge from '../components/WeatherBadge'
 import { resolveWeatherVisibility } from '../components/WeatherSection'
 import './shell.css'
 
+const RECONCILE_HIDDEN_KEY = 'boom_lastnight_hidden_on'
+
 const ACTIVE = ['not_started', 'doing', 'waiting', 'in_progress']
 
 // Kept "Today" — Day Arc hero + today's tasks (hairline rows) + loops rows
@@ -27,6 +30,7 @@ export default function TodayView({
   dailyStats = {}, pointsGoal = 15, streak = 0,
   onCompleteTask, onOpenTask, onToggleHabit, onDeleteTask, onEditLoop,
   onLogSession, onGmailKeep, onGmailDismiss, onWhatNow, onCycleImpact,
+  onReconcileYesterday, onReconcileKeep,
   pinnedNotes = [], onOpenNotes, onUnpinNote,
 }) {
   const todayKey = localYMD()
@@ -43,6 +47,20 @@ export default function TodayView({
       : { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })
   }
   const [collapsed, toggleSection] = useCollapsedSections()
+
+  // Last night list: tasks from yesterday's plate that were ticked this
+  // morning (was it really last night?) or are still open (did you do it and
+  // never tick it?). Rules in creditYesterday.js. "Not now" hides it for the
+  // rest of the day on this device only — it answers nothing, so it is
+  // cosmetic and fine in localStorage; the per-task answers live on the server.
+  const reconcileRows = useMemo(() => reconcileCandidates(tasks), [tasks])
+  const [reconcileHiddenOn, setReconcileHiddenOn] = useState(() => {
+    try { return localStorage.getItem(RECONCILE_HIDDEN_KEY) } catch { return null }
+  })
+  const hideReconcile = () => {
+    safeSetItem(RECONCILE_HIDDEN_KEY, todayKey)
+    setReconcileHiddenOn(todayKey)
+  }
   const [showBreakdown, setShowBreakdown] = useState(false)
   // Breakdown day selection lives here so the hero arc + counts follow it
   // (prod report: "slider and counts should change with the date selection").
@@ -389,6 +407,34 @@ export default function TodayView({
                 </RowSwipe>
               )
             })}
+          </div>
+        </Section>
+      )}
+
+      {reconcileRows.length > 0 && reconcileHiddenOn !== todayKey && (
+        <Section id="lastnight" label="Last night" count={reconcileRows.length} collapsed={!!collapsed.lastnight} onToggle={toggleSection}>
+          <div className="bm-rows">
+            {reconcileRows.map(({ task: t, kind }) => (
+              <div key={t.id} className="bm-row bm-review-row">
+                <span className="bm-review-icon"><Moon size={14} strokeWidth={2} /></span>
+                <button className="bm-row-body" onClick={() => onOpenTask?.(t)}>
+                  <span className="bm-row-title">{t.title}</span>
+                  <span className="bm-row-meta"><span>{kind === 'ticked' ? 'ticked this morning' : 'still open'}</span></span>
+                </button>
+                <button className="bm-btn bm-btn-tonal bm-review-keep" onClick={() => onReconcileYesterday?.(t)}>
+                  <Check size={13} strokeWidth={2.6} /> Yesterday
+                </button>
+                <button
+                  className="bm-review-dismiss"
+                  onClick={() => onReconcileKeep?.(t)}
+                  aria-label={kind === 'ticked' ? 'Keep it on today' : 'Still open'}
+                  title={kind === 'ticked' ? 'Keep it on today' : 'Still open'}
+                >
+                  <X size={15} strokeWidth={2.2} />
+                </button>
+              </div>
+            ))}
+            <button className="bm-reconcile-later" onClick={hideReconcile}>Not now</button>
           </div>
         </Section>
       )}

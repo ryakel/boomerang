@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { canCreditYesterday, creditYesterday, creditedCompletionIso } from '../src/creditYesterday.js'
+import { canCreditYesterday, creditYesterday, creditedCompletionIso, wasOnYesterdaysPlate, reconcileCandidates, completeAsYesterday, canCompleteAsYesterday } from '../src/creditYesterday.js'
 import { localYMD } from '../src/dates.js'
 
 // All clocks are LOCAL, built with the Date(y, m, d, h) constructor, so the
@@ -106,8 +106,14 @@ test('loop: crediting yesterday clears a skip recorded for it', () => {
   assert.deepEqual(out.skipped_days, [])
 })
 
-test('loop: no stamp today — nothing invented, same reference back', () => {
+test('loop: a tick that wrote no stamp (the watch) still gets yesterday recorded', () => {
   const routine = loop([iso(29, 20)])
+  const out = creditYesterday({ task: doneThisMorning({ routine_id: 'r1' }), routine, now: NOW }).routine
+  assert.deepEqual(out.completed_history.map(ts => localYMD(new Date(ts))), ['2026-10-29', YESTERDAY])
+})
+
+test('loop: yesterday already stamped and nothing today — same reference back', () => {
+  const routine = loop([iso(30, 19)])
   const out = creditYesterday({ task: doneThisMorning({ routine_id: 'r1' }), routine, now: NOW }).routine
   assert.equal(out, routine)
 })
@@ -151,4 +157,113 @@ test('stack: an open member keeps the stamp where it is', () => {
 
 test('the day keys used are local', () => {
   assert.equal(localYMD(NOW), TODAY)
+})
+
+// --- The Last night list ----------------------------------------------------
+
+const openTask = (over = {}) => ({
+  id: 'o1', title: 'Fold laundry', status: 'not_started',
+  created_at: iso(29, 9), due_date: YESTERDAY, ...over,
+})
+
+test('plate: due yesterday, committed yesterday, or rolled over last night', () => {
+  assert.equal(wasOnYesterdaysPlate(openTask(), NOW), true)
+  assert.equal(wasOnYesterdaysPlate(openTask({ due_date: null, committed_on: YESTERDAY }), NOW), true)
+  assert.equal(wasOnYesterdaysPlate(openTask({ due_date: null, last_boomeranged_at: iso(31, 0, 30) }), NOW), true)
+})
+
+test('plate: not for things merely overdue, undated, or created today', () => {
+  assert.equal(wasOnYesterdaysPlate(openTask({ due_date: '2026-10-25' }), NOW), false)
+  assert.equal(wasOnYesterdaysPlate(openTask({ due_date: null }), NOW), false)
+  assert.equal(wasOnYesterdaysPlate(openTask({ created_at: iso(31, 6) }), NOW), false)
+})
+
+test('plate: a loop instance due yesterday, or auto-rolled to today', () => {
+  assert.equal(wasOnYesterdaysPlate(openTask({ routine_id: 'r1' }), NOW), true)
+  assert.equal(wasOnYesterdaysPlate(openTask({ routine_id: 'r1', due_date: TODAY }), NOW), true)
+  assert.equal(wasOnYesterdaysPlate(openTask({ routine_id: 'r1', due_date: '2026-10-27' }), NOW), false)
+})
+
+test('candidates: ticked rows first, then open rows', () => {
+  const tasks = [
+    openTask(),
+    doneThisMorning({ id: 't1', due_date: YESTERDAY }),
+  ]
+  const rows = reconcileCandidates(tasks, NOW)
+  assert.deepEqual(rows.map(r => [r.task.id, r.kind]), [['t1', 'ticked'], ['o1', 'open']])
+})
+
+test('candidates: an answered row is never asked again today', () => {
+  const rows = reconcileCandidates([openTask({ reconciled_on: TODAY })], NOW)
+  assert.equal(rows.length, 0)
+  const yesterdaysAnswer = reconcileCandidates([openTask({ reconciled_on: YESTERDAY })], NOW)
+  assert.equal(yesterdaysAnswer.length, 1, 'an answer from another day does not carry over')
+})
+
+test('candidates: a toast-credited task drops out on its own', () => {
+  const task = doneThisMorning({ due_date: YESTERDAY })
+  const { taskUpdates } = creditYesterday({ task, now: NOW })
+  assert.equal(reconcileCandidates([{ ...task, ...taskUpdates }], NOW).length, 0)
+})
+
+test('candidates: a watch tick at 7am of last night\'s loop is offered', () => {
+  const watchTick = doneThisMorning({ routine_id: 'r1', due_date: YESTERDAY, completed_at: iso(31, 7) })
+  assert.deepEqual(reconcileCandidates([watchTick], NOW).map(r => r.kind), ['ticked'])
+})
+
+test('candidates: skips review proposals, deliberate snoozes and set-asides', () => {
+  const rows = reconcileCandidates([
+    openTask({ id: 'a', gmail_pending: true }),
+    openTask({ id: 'b', snoozed_until: iso(31, 18) }),
+    openTask({ id: 'c', snooze_indefinite: true }),
+    openTask({ id: 'd', status: 'backlog' }),
+  ], NOW)
+  assert.equal(rows.length, 0)
+})
+
+test('candidates: a loop parked until tonight\'s trigger still counts', () => {
+  const rows = reconcileCandidates([openTask({ routine_id: 'r1', due_date: TODAY, snoozed_until: iso(31, 20) })], NOW)
+  assert.equal(rows.length, 1)
+})
+
+test('completeAsYesterday: done, completed last evening', () => {
+  const { taskUpdates } = completeAsYesterday({ task: openTask(), now: NOW })
+  assert.equal(taskUpdates.status, 'done')
+  assert.equal(localYMD(new Date(taskUpdates.completed_at)), YESTERDAY)
+})
+
+test('completeAsYesterday: only for open tasks that existed before today', () => {
+  assert.equal(canCompleteAsYesterday(openTask({ status: 'done' }), NOW), false)
+  assert.equal(canCompleteAsYesterday(openTask({ created_at: iso(31, 6) }), NOW), false)
+  assert.equal(completeAsYesterday({ task: openTask({ status: 'cancelled' }), now: NOW }).taskUpdates, null)
+})
+
+test('completeAsYesterday: reverses last night\'s rollover', () => {
+  const task = openTask({ due_date: null, boomerang_count: 1, last_boomeranged_at: iso(31, 0, 30) })
+  const { taskUpdates } = completeAsYesterday({ task, now: NOW })
+  assert.equal(taskUpdates.boomerang_count, 0)
+  assert.equal(taskUpdates.committed_on, YESTERDAY)
+})
+
+test('completeAsYesterday: a loop gets yesterday stamped and its floor cleared', () => {
+  const routine = loop([iso(29, 20)], { resume_at: iso(31, 0) })
+  const out = completeAsYesterday({ task: openTask({ routine_id: 'r1' }), routine, now: NOW }).routine
+  assert.deepEqual(out.completed_history.map(ts => localYMD(new Date(ts))), ['2026-10-29', YESTERDAY])
+  assert.equal(out.resume_at, null)
+})
+
+test('completeAsYesterday: yesterday already stamped — same routine back', () => {
+  const routine = loop([iso(30, 19)])
+  const out = completeAsYesterday({ task: openTask({ routine_id: 'r1' }), routine, now: NOW }).routine
+  assert.equal(out, routine)
+})
+
+test('completeAsYesterday: a stack stamps only when the rest of the cycle was done by yesterday', () => {
+  const routine = stack([])
+  const me = openTask({ id: 'm1', routine_id: 'r1' })
+  const doneLastNight = { id: 'm2', routine_id: 'r1', due_date: YESTERDAY, status: 'done', completed_at: iso(30, 21) }
+  const stillOpen = { ...doneLastNight, status: 'not_started', completed_at: null }
+  assert.equal(completeAsYesterday({ task: me, routine, siblings: [me, stillOpen], now: NOW }).routine, routine)
+  const out = completeAsYesterday({ task: me, routine, siblings: [me, doneLastNight], now: NOW }).routine
+  assert.deepEqual(out.completed_history.map(ts => localYMD(new Date(ts))), [YESTERDAY])
 })
