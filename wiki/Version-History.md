@@ -6,6 +6,14 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-10-31
 
+- feat(toast): offer "did it yesterday" on a morning tick of last night's work [M]
+  - User: *"I also have done the tasks so I check them off in the morning. And the counts are all screwed up and then the loops are screwed up."* Ticket BOOM-22. Option 1 of two agreed; the morning reconcile list is the follow-up and reuses the same core.
+  - New pure module `src/creditYesterday.js` (`canCreditYesterday`, `creditYesterday`, `creditedCompletionIso`), 21 tests in `scripts/creditYesterday.test.mjs`, passing under Chicago, Auckland and UTC. Moves `completed_at` to yesterday evening, undoes last night's rollover bump, and moves a loop's stamp from today to yesterday through `stampLoopDay`/`unstampLoopDay`; stacks only once the whole cycle is credited.
+  - The completion toast shows *Did it yesterday* beside Undo when eligible (8s banner), then a *Counted for yesterday* receipt. New `credited_yesterday` activity-log action.
+  - Today's loop circle now completes last night's still-open instance instead of stamping today beside it — the main morning entry point for loops, which previously bypassed the toast entirely.
+  - Toast keyed on variant + task so a variant change remounts instead of keeping the frozen copy.
+  - Verified in the built app with the browser clock at 7:30am Chicago against a seeded scratch DB: one-off ticked from Today → button → server `completed_at` 10/30 8:00 PM; loop circle with yesterday's instance open → that instance completed → button → history holds 10/30 not 10/31, and today's instance spawned. **Web-only — OTA, no rebuild, no migration.**
+
 - feat(capture): scan a schedule photo or PDF into dated tasks [M]
   - User, sharing a Threads post for another planner app whose "Scan schedule" turns a timetable / shift rota / calendar screenshot / PDF into entries: *"Excuse me sir. Puhleeze?"* Ticket BOOM-21. (The same post's drag-to-lighter-days timeline is out of scope.)
   - New pure module `src/scheduleScan.js`: the vision prompt (carries today's date and weekday so a missing year or "Tomorrow" resolves), `parseScanResponse` (drops untitled rows and rows with no resolvable date rather than guessing today; weekday-only grids resolve to the next occurrence on or after today; bad times become null; past rows are flagged), and `entryToTask` (time and place into notes, `remindAt` only when asked AND the entry has a start time). Pinned by `scripts/scheduleScan.test.mjs`.

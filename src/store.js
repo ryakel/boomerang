@@ -1214,7 +1214,8 @@ export function logActivity(action, task) {
   log.unshift({
     id: uuid(),
     // 'created' | 'completed' | 'deleted' | 'status_changed' | 'edited' |
-    // 'snoozed' | 'priority_changed' | 'reopened' | 'skipped' | 'session_logged' | 'error'
+    // 'snoozed' | 'priority_changed' | 'reopened' | 'skipped' | 'session_logged' |
+    // 'credited_yesterday' | 'error'
     action,
     task_id: task.id,
     task_title: task.title,
