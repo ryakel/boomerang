@@ -659,6 +659,8 @@ On touch devices, pull down on the task list to refresh data from the server.
 - **Backfill on load** — pre-existing tasks without messages get them generated in the background on first load (staggered 1s apart).
 - **Static fallback** — if AI messages aren't available, funny static messages are used ("Archaeologists found this task", "The sequel nobody asked for", etc.)
 - **Undo button** — each completion toast includes an Undo button with a 4-second window to reverse the completion
+- **Did it yesterday** — tick something before noon that was already on your list yesterday and the toast also offers *Did it yesterday* (the banner stays up 8 seconds instead of 4). Tap it and the completion moves to yesterday evening: today's count drops it, the streak credits yesterday, and a loop's check moves to yesterday so tonight's instance still shows up instead of the loop slipping a day. If it was one of yesterday's committed picks, the "came back around" count from last night's rollover is undone too. Ignoring the button keeps today, exactly as before. The banner then reads *Counted for yesterday*, and the activity log records it.
+- **Loop card tick, the morning after** — ticking a loop's circle on Today while last night's instance is still open now completes that instance (and offers *Did it yesterday*) instead of checking today off beside it and leaving last night's task open.
 - **Points display** — shows days on list and points earned as a subtitle suffix
 
 ## Done List

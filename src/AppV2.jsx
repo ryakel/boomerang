@@ -66,6 +66,8 @@ import { useGCalSync } from './hooks/useGCalSync'
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts'
 import { inferSize, trelloUpdateCard, serverSkipAdvanceTask, gmailApprove, gmailDismiss, mergeTasks as apiMergeTasks, addTombstones, remoteLinksOf } from './api'
 import { loadLabels, loadSettings, saveSettings, saveLabels, sortTasks, computeDailyStats, computeStreak, logActivity, localYMD, uuid, LABEL_COLORS, isCrisisTask } from './store'
+import { canCreditYesterday, creditYesterday } from './creditYesterday'
+import { TERMINAL_STATUSES } from './loopSpawnStatus'
 import { localDateTimeValue, nextHalfHour } from './dates'
 import { computeRecords, calculateTaskPoints } from './scoring'
 import { applyTheme, watchSystemTheme } from './theme'
@@ -1010,6 +1012,28 @@ export default function AppV2() {
     }
   }, [uncompleteTask, pushStatusToTrello, routines, tasks, uncompleteRoutine])
 
+  // "Did it yesterday" — the toast's answer for a morning tick of last night's
+  // work. All the rules (which day, the rollover bump, where a loop's stamp
+  // goes, the stack exception) live in creditYesterday.js; this only applies
+  // the result. Reads the CURRENT task and routine, because the tick that
+  // raised the toast has already rewritten both.
+  const handleCreditYesterday = useCallback((id) => {
+    const task = tasks.find(t => t.id === id)
+    if (!canCreditYesterday(task)) { setToast(null); return }
+    const routine = task.routine_id ? routines.find(r => r.id === task.routine_id) || null : null
+    const siblings = routine ? tasks.filter(t => t.routine_id === task.routine_id && t.due_date === task.due_date) : []
+    const { taskUpdates, routine: nextRoutine } = creditYesterday({ task, routine, siblings })
+    if (!taskUpdates) { setToast(null); return }
+    updateTask(id, taskUpdates)
+    if (routine && nextRoutine !== routine) {
+      const updates = { completed_history: nextRoutine.completed_history }
+      if (nextRoutine.skipped_days !== routine.skipped_days) updates.skipped_days = nextRoutine.skipped_days
+      updateRoutine(routine.id, updates)
+    }
+    logActivity('credited_yesterday', task)
+    setToast({ task: { ...task, ...taskUpdates }, variant: 'yesterday' })
+  }, [tasks, routines, updateTask, updateRoutine])
+
   // Single shortcut into the canonical routine-completion path, shared by the
   // the Kept shells. Routes through the real surfaced task so
   // completeRoutine stays the lone completed_history writer (the doubling
@@ -1049,6 +1073,18 @@ export default function AppV2() {
       if (doneTask) { handleUncomplete(doneTask); return }
       const openTask = todays.find(t => t.status !== 'done')
       if (openTask) { handleComplete(openTask.id); return }
+      // Nothing due today but an earlier cycle's instance is still open — the
+      // normal state the morning after: the loop held today's spawn back
+      // BECAUSE last night's task was never ticked. Complete that task rather
+      // than stamping today's history beside it, which left it open forever
+      // and skipped the toast that asks whether it was really last night.
+      if (!(Array.isArray(routine.members) && routine.members.length > 0)) {
+        const earlier = tasks
+          .filter(t => t.routine_id === routine.id && !TERMINAL_STATUSES.has(t.status)
+            && t.due_date && String(t.due_date).slice(0, 10) < day)
+          .sort((a, b) => String(b.due_date).localeCompare(String(a.due_date)))[0]
+        if (earlier) { handleComplete(earlier.id); return }
+      }
     }
 
     rawToggle()
@@ -2021,12 +2057,17 @@ export default function AppV2() {
 
       {toast && (
         <Toast
+          // Keyed so a variant change (complete → yesterday, complete →
+          // reopen) remounts: the copy is frozen on mount and would otherwise
+          // keep saying the old thing.
+          key={`${toast.variant || 'complete'}:${toast.variant ? toast.task?.id : toast.id}`}
           task={toast.variant ? toast.task : toast}
           todayCount={todayCount}
           variant={toast.variant || 'complete'}
           nextTask={toast.nextTask}
           onNextTaskClick={t => { setEditTarget(t); setToast(null) }}
           onDone={() => setToast(null)}
+          onCreditYesterday={!toast.variant && canCreditYesterday({ ...toast, status: 'done' }) ? () => handleCreditYesterday(toast.id) : null}
           onUndo={() => {
             const taskToUndo = toast.variant ? toast.task : toast
             uncompleteTask(taskToUndo.id)
