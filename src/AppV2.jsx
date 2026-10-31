@@ -990,9 +990,14 @@ export default function AppV2() {
     }
   }, [tasks, updateTask, adjustRoutineHistory])
 
-  const handleUncomplete = useCallback((task) => {
+  // `quiet` is the toast's own Undo: the banner the user just tapped goes
+  // away instead of being replaced by a "back on the list" one. Every reopen
+  // path — Undo included — must come through here, because the loop stamp and
+  // the Trello card move back with the task (the toast's Undo used to call
+  // uncompleteTask directly and left the loop checked for the day).
+  const handleUncomplete = useCallback((task, { quiet = false } = {}) => {
     uncompleteTask(task.id)
-    setToast({ task, variant: 'reopen' })
+    setToast(quiet ? null : { task, variant: 'reopen' })
     if (task?.trello_card_id) pushStatusToTrello(task, 'not_started')
     // Reopening a routine-spawned task must also drop its completed_history
     // stamp, or the Kept grids/streaks keep counting the day as done
@@ -2069,9 +2074,10 @@ export default function AppV2() {
           onDone={() => setToast(null)}
           onCreditYesterday={!toast.variant && canCreditYesterday({ ...toast, status: 'done' }) ? () => handleCreditYesterday(toast.id) : null}
           onUndo={() => {
-            const taskToUndo = toast.variant ? toast.task : toast
-            uncompleteTask(taskToUndo.id)
-            setToast(null)
+            const shown = toast.variant ? toast.task : toast
+            // The toast holds the pre-tick copy; the stamp rules want the
+            // completed row (its completed_at decides which day comes off).
+            handleUncomplete(tasks.find(t => t.id === shown.id) || shown, { quiet: true })
           }}
         />
       )}

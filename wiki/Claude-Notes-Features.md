@@ -299,5 +299,6 @@ Task-level feature for "I need a response from someone and I'm not getting one" 
   - Loops MOVE the tick's evidence through `unstampLoopDay(today)` → `stampLoopDay(yesterday)` (so a skip on yesterday clears); no stamp today = nothing invented, same reference back. A stack only moves once every member of the cycle is credited to yesterday or earlier, because a stack stamps on the last member's clear.
   - The Toast is now KEYED on variant + task id in `AppV2.jsx` — its copy is frozen on mount, so a variant change on the same mounted banner kept the old text.
   - `toggleHabitDay` (Today's loop circle) now completes an open earlier-cycle instance of a non-stack loop when nothing is due today, instead of `rawToggle` stamping today beside it — that left last night's task open forever and never raised the toast.
+  - Every reopen goes through `handleUncomplete()` in `AppV2.jsx`, including the banner's Undo (`{ quiet: true }`, BOOM-24) — it is what takes the loop stamp and the Trello card back with the task.
   - Not covered: watch ticks (no toast on the wrist) and habit-mode logs (no toast path); the loop-detail calendar already repairs both. The editor's older *Completed on* backdate still adjusts routine history through `adjustRoutineHistory` (exact-ISO match, last-entry fallback) rather than this function.
 

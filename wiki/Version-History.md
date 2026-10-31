@@ -6,6 +6,11 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-10-31
 
+- fix(toast): undo on the completion banner un-checks the loop too [S]
+  - Ticket BOOM-24, found while building BOOM-22. The banner's Undo called `uncompleteTask()` directly, so a loop task reopened but its `completed_history` stamp stayed: the loop card read done, the rally counted the day, and the next spawn was held back a cycle. It also skipped moving a linked Trello card back.
+  - Undo now goes through `handleUncomplete()` like every other reopen path, with a `quiet` option so the banner just closes instead of being replaced by a "back on the list" one. It passes the completed row, not the toast's pre-tick copy, because that row's `completed_at` decides which day's stamp comes off.
+  - Verified in the built app at 9am Chicago on a scratch DB: tick a daily loop task, history gains today; Undo, history is back to yesterday only and the task is open. **Web-only — OTA.**
+
 - feat(toast): offer "did it yesterday" on a morning tick of last night's work [M]
   - User: *"I also have done the tasks so I check them off in the morning. And the counts are all screwed up and then the loops are screwed up."* Ticket BOOM-22. Option 1 of two agreed; the morning reconcile list is the follow-up and reuses the same core.
   - New pure module `src/creditYesterday.js` (`canCreditYesterday`, `creditYesterday`, `creditedCompletionIso`), 21 tests in `scripts/creditYesterday.test.mjs`, passing under Chicago, Auckland and UTC. Moves `completed_at` to yesterday evening, undoes last night's rollover bump, and moves a loop's stamp from today to yesterday through `stampLoopDay`/`unstampLoopDay`; stacks only once the whole cycle is credited.
