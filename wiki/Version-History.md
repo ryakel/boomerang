@@ -4,6 +4,55 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ---
 
+## 2026-10-31
+
+- feat(today): a last night list for what you did and didn't tick [M]
+  - Ticket BOOM-23, option 2 of the two agreed with the user, built on BOOM-22's repair. The open question (list only ticked items, or open ones too?) was settled by assumption: both.
+  - A **Last night** section at the top of Today. Rows are tasks from yesterday's plate that were either ticked this morning (*ticked this morning*) or are still open (*still open*). **Yesterday** credits the tick, or completes the open task as of last night. **✕** answers *keep it on today* / *still open*. **Not now** hides the section for the rest of the day on that device.
+  - "Yesterday's plate" is narrow on purpose (`wasOnYesterdaysPlate`): existed before today, and due yesterday, committed for yesterday, rolled over last night, or a loop instance due yesterday / auto-rolled to today. Not "everything overdue".
+  - Never asks twice: crediting moves `completed_at`, so the row drops out by itself; the ✕ answer stamps the new **`reconciled_on`** task column (migration 059) with today's date, so it holds on every device. Ignoring the list changes no data.
+  - Pure additions in `src/creditYesterday.js` — `wasOnYesterdaysPlate`, `reconcileCandidates`, `canCompleteAsYesterday`, `completeAsYesterday` — 37 tests, passing in Chicago, Auckland and UTC.
+  - **Rule change in the shared repair:** crediting a loop task now always records YESTERDAY on the loop, and takes today's stamp off only if there is one. A watch tick goes through the server's complete route, which never stamps the loop, so the old "only move what the tick wrote" rule left watch-ticked loops unrecorded.
+  - Verified in the built app on a fresh scratch DB (migration 059 ran): a loop completed through the server's complete route, two open tasks and one more listed; Yesterday on the loop → task 10/30 8 PM and history gains 10/30; Yesterday on an open task → done 10/30 8 PM; ✕ → `reconciled_on` saved; a second browser context showed the ✕'d row gone and the Not-now'd row still present. **Web + migration — the server picks up 059 on restart; no iOS rebuild.**
+
+- fix(toast): undo on the completion banner un-checks the loop too [S]
+  - Ticket BOOM-24, found while building BOOM-22. The banner's Undo called `uncompleteTask()` directly, so a loop task reopened but its `completed_history` stamp stayed: the loop card read done, the rally counted the day, and the next spawn was held back a cycle. It also skipped moving a linked Trello card back.
+  - Undo now goes through `handleUncomplete()` like every other reopen path, with a `quiet` option so the banner just closes instead of being replaced by a "back on the list" one. It passes the completed row, not the toast's pre-tick copy, because that row's `completed_at` decides which day's stamp comes off.
+  - Verified in the built app at 9am Chicago on a scratch DB: tick a daily loop task, history gains today; Undo, history is back to yesterday only and the task is open. **Web-only — OTA.**
+
+- feat(toast): offer "did it yesterday" on a morning tick of last night's work [M]
+  - User: *"I also have done the tasks so I check them off in the morning. And the counts are all screwed up and then the loops are screwed up."* Ticket BOOM-22. Option 1 of two agreed; the morning reconcile list is the follow-up and reuses the same core.
+  - New pure module `src/creditYesterday.js` (`canCreditYesterday`, `creditYesterday`, `creditedCompletionIso`), 21 tests in `scripts/creditYesterday.test.mjs`, passing under Chicago, Auckland and UTC. Moves `completed_at` to yesterday evening, undoes last night's rollover bump, and moves a loop's stamp from today to yesterday through `stampLoopDay`/`unstampLoopDay`; stacks only once the whole cycle is credited.
+  - The completion toast shows *Did it yesterday* beside Undo when eligible (8s banner), then a *Counted for yesterday* receipt. New `credited_yesterday` activity-log action.
+  - Today's loop circle now completes last night's still-open instance instead of stamping today beside it — the main morning entry point for loops, which previously bypassed the toast entirely.
+  - Toast keyed on variant + task so a variant change remounts instead of keeping the frozen copy.
+  - Verified in the built app with the browser clock at 7:30am Chicago against a seeded scratch DB: one-off ticked from Today → button → server `completed_at` 10/30 8:00 PM; loop circle with yesterday's instance open → that instance completed → button → history holds 10/30 not 10/31, and today's instance spawned. **Web-only — OTA, no rebuild, no migration.**
+
+- feat(capture): scan a schedule photo or PDF into dated tasks [M]
+  - User, sharing a Threads post for another planner app whose "Scan schedule" turns a timetable / shift rota / calendar screenshot / PDF into entries: *"Excuse me sir. Puhleeze?"* Ticket BOOM-21. (The same post's drag-to-lighter-days timeline is out of scope.)
+  - New pure module `src/scheduleScan.js`: the vision prompt (carries today's date and weekday so a missing year or "Tomorrow" resolves), `parseScanResponse` (drops untitled rows and rows with no resolvable date rather than guessing today; weekday-only grids resolve to the next occurrence on or after today; bad times become null; past rows are flagged), and `entryToTask` (time and place into notes, `remindAt` only when asked AND the entry has a start time). Pinned by `scripts/scheduleScan.test.mjs`.
+  - `scanSchedule()` in `api.js` rides the Anthropic-pinned `/api/messages` vision path like attachment OCR, tagged `_feature: 'schedule_scan'` for the usage dashboard. Images go through the existing canvas compressor first.
+  - `ScanScheduleModal`: Take a photo / Choose an image / Choose a PDF → preview with per-entry tick and inline title edit, past entries unticked, an opt-in "Remind me at each start time" → `addTask` per entry. **User-reviewed import, not a background path** — nothing exists until Add is tapped, the same shape as Markdown import, so it doesn't route through the Review section.
+  - Entry points: a scan icon beside *Throw it* in the Throw sheet (Task mode, only while the title is empty so nothing typed is dropped) and *Scan a schedule instead* under the title in the full `AddTaskModal`.
+  - UI copy says the file is sent to the AI provider — the inspiration's "read on your iPhone, never uploaded" is not true here and isn't claimed.
+  - Verified in the built app at phone width against a seeded DB with `/api/messages` mocked: throw sheet → scan → choose image → 5 entries (one weekday-only, one past and unticked) → reminders on → Add 4 → server rows carry the right due dates, notes and `remind_at`. Not verified against a live Anthropic call (no key in the sandbox). **Web-only — OTA, no rebuild, no migration.**
+
+## 2026-10-05
+
+- fix(edit): the checklist was buried below a dozen cards in a card-less leftover row [S]
+  - User, with an iPhone screenshot of the full editor: *"It's just buried. This fits an old UI that no longer exists."* The real report behind "I lost the ability to add checklists" — the feature was there, just unfindable.
+  - `EditTaskModal` rendered checklists after status, notes, weather, due/reminder, nag, critical, size, energy, DIY, impact and energy type. Empty, it was `v2-form-section-compact` — which the Kept card rule (`.v2-form-section:not(.v2-form-section-compact)`) deliberately leaves FLAT, so it read as a bare dashed "+ Add checklist" pill with no card and no heading: the one section on the page still drawn in the pre-Kept flat language.
+  - Now a full card **directly under Notes** (where the phone quick editor already puts subtasks), always headed "Checklist". Empty, the card is an **Add checklist item…** field and the first entry creates the list — no separate "add checklist" step. *Add another checklist* appears once one exists. In Kept the list's own boxed panel is flattened inside the card (`.v2-edit-checklists` in `src/kept/forms.css`), with a hairline between multiple lists.
+  - Verified at phone width in `kept-dark`: Tasks → task → Edit → More options → card under Notes → two items entered → autosave PATCH and server row carry both.
+
+- feat(tasks): build a checklist while creating a task [S]
+  - User, from the iPhone app: *"I lost the ability to add checklists to tasks."* Narrowed to: **no way to add a checklist while creating a task.** Adding to an existing task was reproduced working on current `dev` in both the phone quick editor and the desktop full editor (headless Chromium against a seeded DB; the PATCH lands and the server row carries the items).
+  - **Never existed rather than lost.** No creation surface ever had a checklist builder — the Throw sheet is title + day/reminder, and the full `AddTaskModal` behind its *More options* had none, down to telling the user a Polish-suggested checklist had to be applied by "save and re-open this task" (`git log -S` on both files finds no checklist UI ever removed).
+  - `AddTaskModal` gains a **Checklist** section: type + return adds an item, items are editable and removable, and an item still sitting in the box when *Add task* is tapped is kept rather than dropped. One list named "Checklist", the same `{ id, name, items, hideCompleted }` shape the editors write; more lists stay an editor job. The Polish suggestion now has **Add / Dismiss** in place.
+  - `useTasks.addTask` accepts `checklists` — the same silent-drop shape `remind_at` had: a key missing from that destructured signature never reaches the task.
+  - Throw sheet unchanged — quick capture stays one line; *More options* is the route.
+  - Verified in the built app at phone width: throw → More options → two entered items + one pending → *Add task* → the POST and the server row carry all three. `npm test` 559/559 + smoke; eslint clean on touched files; `npm audit` unchanged, no dependencies added. **Web-only — OTA, no rebuild, no migration.**
+
 ## 2026-09-24
 
 - fix(sync): the stale-version guard refused the second write of every batch — regression from 09-22 [M]

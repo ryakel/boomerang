@@ -119,14 +119,23 @@ function getStaticSubtitle(daysOnList, todayCount, isReopen, taskTitle) {
   return s
 }
 
-export default function Toast({ task, todayCount, variant = 'complete', onDone, onUndo, nextTask, onNextTaskClick }) {
+export default function Toast({ task, todayCount, variant = 'complete', onDone, onUndo, nextTask, onNextTaskClick, onCreditYesterday }) {
   const isReopen = variant === 'reopen'
+  // The confirmation after "Did it yesterday": a fixed line, no points, no
+  // shuffle — it is a receipt, not a celebration.
+  const isCredited = variant === 'yesterday'
   const daysOnList = Math.floor(
     (Date.now() - new Date(task.created_at).getTime()) / 86400000
   )
 
   // Freeze message values on mount so re-renders don't shuffle the copy.
   const frozen = useRef(null)
+  if (!frozen.current && isCredited) {
+    frozen.current = {
+      message: 'Counted for yesterday.',
+      subtitle: task.routine_id ? 'Streak and loop updated' : 'Streak updated',
+    }
+  }
   if (!frozen.current) {
     const variantKey = getVariantKey(daysOnList, isReopen)
     const ai = task.toast_messages?.[variantKey]
@@ -146,12 +155,16 @@ export default function Toast({ task, todayCount, variant = 'complete', onDone, 
 
   const onDoneRef = useRef(onDone)
   onDoneRef.current = onDone
+  // A boolean, not the handler: the handler is a fresh arrow every parent
+  // render and would restart the dismiss timer each time.
+  const asksYesterday = !!onCreditYesterday && variant === 'complete'
 
   useEffect(() => {
-    const timeout = nextTask ? 8000 : 4000
+    // A question on the banner needs time to be read and answered.
+    const timeout = (nextTask || asksYesterday) ? 8000 : 4000
     const timer = setTimeout(() => onDoneRef.current?.(), timeout)
     return () => clearTimeout(timer)
-  }, [nextTask])
+  }, [nextTask, asksYesterday])
 
   // Swipe-up to dismiss — the banner follows the finger and flicks away
   // past the threshold, like a real push notification.
@@ -195,6 +208,15 @@ export default function Toast({ task, todayCount, variant = 'complete', onDone, 
           </button>
         )}
       </div>
+      {onCreditYesterday && variant === 'complete' && (
+        <button
+          type="button"
+          className="v2-toast-undo v2-toast-yesterday"
+          onClick={e => { e.stopPropagation(); onCreditYesterday() }}
+        >
+          Did it yesterday
+        </button>
+      )}
       {onUndo && variant === 'complete' && (
         <button
           type="button"

@@ -104,3 +104,16 @@
 .v2-toast-undo:hover {
   background: color-mix(in srgb, var(--v2-accent) 12%, transparent);
 }
+
+/* "Did it yesterday" — sits beside Undo on a morning tick of last night's
+ * work. Same pill as Undo, but sentence case: it's a question answered, not
+ * an action reversed, and the longer label wraps onto two lines on a phone
+ * rather than crowding the message. */
+.v2-toast-yesterday {
+  text-transform: none;
+  letter-spacing: 0;
+  max-width: 96px;
+  line-height: 1.2;
+  white-space: normal;
+  text-align: center;
+}

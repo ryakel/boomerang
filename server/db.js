@@ -290,6 +290,7 @@ function taskToRow(task) {
     due_shifted_reason: task.due_shifted_reason || null,
     remind_at: task.remind_at || null,
     reminders_id: task.reminders_id || null,
+    reconciled_on: task.reconciled_on || null,
   }
 }
 
@@ -372,6 +373,7 @@ function rowToTask(row) {
     due_shifted_reason: row.due_shifted_reason || null,
     remind_at: row.remind_at || null,
     reminders_id: row.reminders_id || null,
+    reconciled_on: row.reconciled_on || null,
   }
 }
 
@@ -405,8 +407,8 @@ const UPSERT_TASK_SQL = `
     intention_when, intention_where, first_step, location_json,
     committed_on, boomerang_count, last_boomeranged_at, released_at,
     due_date_original, due_shifted_at, due_shifted_reason,
-    remind_at, reminders_id)
-  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    remind_at, reminders_id, reconciled_on)
+  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   ON CONFLICT(id) DO UPDATE SET
     title=excluded.title, status=excluded.status, notes=excluded.notes,
     due_date=excluded.due_date, snoozed_until=excluded.snoozed_until,
@@ -462,7 +464,8 @@ const UPSERT_TASK_SQL = `
     due_shifted_at=excluded.due_shifted_at,
     due_shifted_reason=excluded.due_shifted_reason,
     remind_at=excluded.remind_at,
-    reminders_id=excluded.reminders_id`
+    reminders_id=excluded.reminders_id,
+    reconciled_on=excluded.reconciled_on`
 
 function runUpsertTask(task) {
   const r = taskToRow(task)
@@ -486,7 +489,7 @@ function runUpsertTask(task) {
     r.intention_when, r.intention_where, r.first_step, r.location_json,
     r.committed_on, r.boomerang_count, r.last_boomeranged_at, r.released_at,
     r.due_date_original, r.due_shifted_at, r.due_shifted_reason,
-    r.remind_at, r.reminders_id,
+    r.remind_at, r.reminders_id, r.reconciled_on,
   ])
 }
 

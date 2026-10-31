@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useRef } from 'react'
 import {
   History, Search, Sparkles, X, Plus, Check, RotateCcw, Trash2,
-  ArrowRightLeft, Pencil, Clock3, FastForward, Flag, AlertTriangle,
+  ArrowRightLeft, Pencil, Clock3, FastForward, Flag, AlertTriangle, CalendarCheck,
 } from 'lucide-react'
 import { loadActivityLog, fetchActivityLog, clearActivityLogEverywhere, uuid, localYMD } from '../store'
 import { aiSearchActivity } from '../api'
@@ -19,6 +19,7 @@ const ACTION_LABELS = {
   snoozed: 'Snoozed',
   skipped: 'Skipped',
   priority_changed: 'Priority changed',
+  credited_yesterday: 'Counted for yesterday',
   error: 'Error',
 }
 
@@ -32,6 +33,7 @@ const ACTION_ICONS = {
   snoozed: Clock3,
   skipped: FastForward,
   priority_changed: Flag,
+  credited_yesterday: CalendarCheck,
   error: AlertTriangle,
 }
 
@@ -45,6 +47,7 @@ const ACTION_TONE = {
   snoozed: 'var(--v2-text-faint)',
   skipped: 'var(--v2-text-faint)',
   priority_changed: 'var(--v2-alert-high-pri)',
+  credited_yesterday: '#5DBC9B',
   error: '#E8443A',
 }
 

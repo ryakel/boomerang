@@ -44,7 +44,7 @@ export function useTasks() {
     return () => clearInterval(interval)
   }, [])
 
-  const addTask = useCallback(({ title, tags = [], dueDate = null, notes = '', notion = null, size = null, size_inferred = false, attachments = [], highPriority = false, lowPriority = false, energy = null, energyLevel = null, remindAt = null } = {}) => {
+  const addTask = useCallback(({ title, tags = [], dueDate = null, notes = '', notion = null, size = null, size_inferred = false, attachments = [], highPriority = false, lowPriority = false, energy = null, energyLevel = null, remindAt = null, checklists = [] } = {}) => {
     remoteLog('addTask:', title)
     const task = createTask(title, tags, dueDate, notes)
     if (notion) {
@@ -62,6 +62,9 @@ export function useTasks() {
     if (energy) task.energy = energy
     if (energyLevel) task.energyLevel = energyLevel
     if (attachments.length > 0) task.attachments = attachments
+    // Same silent-drop shape as remind_at below: the add form can build a
+    // checklist, and a key missing from this signature never reaches the task.
+    if (Array.isArray(checklists) && checklists.length > 0) task.checklists = checklists
     if (highPriority) task.high_priority = true
     if (lowPriority) task.low_priority = true
     // A reminder set at CREATE time. This was the missing half of the feature:

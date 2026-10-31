@@ -40,6 +40,7 @@ import ProjectPinnedSection from './components/ProjectPinnedSection'
 import StackSection from './components/StackSection'
 import TaskListToolbar from './components/TaskListToolbar'
 import MarkdownImportModal from './components/MarkdownImportModal'
+import ScanScheduleModal from './components/ScanScheduleModal'
 import WeekStrip from './components/WeekStrip'
 import Toast from './components/Toast'
 import FloatingCapture from './components/FloatingCapture'
@@ -65,6 +66,8 @@ import { useGCalSync } from './hooks/useGCalSync'
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts'
 import { inferSize, trelloUpdateCard, serverSkipAdvanceTask, gmailApprove, gmailDismiss, mergeTasks as apiMergeTasks, addTombstones, remoteLinksOf } from './api'
 import { loadLabels, loadSettings, saveSettings, saveLabels, sortTasks, computeDailyStats, computeStreak, logActivity, localYMD, uuid, LABEL_COLORS, isCrisisTask } from './store'
+import { canCreditYesterday, creditYesterday, completeAsYesterday } from './creditYesterday'
+import { TERMINAL_STATUSES } from './loopSpawnStatus'
 import { localDateTimeValue, nextHalfHour } from './dates'
 import { computeRecords, calculateTaskPoints } from './scoring'
 import { applyTheme, watchSystemTheme } from './theme'
@@ -115,6 +118,7 @@ export default function AppV2() {
   const [showActivityLog, setShowActivityLog] = useState(false)
   const [showNotifications, setShowNotifications] = useState(false)
   const [showMarkdownImport, setShowMarkdownImport] = useState(false)
+  const [showScanSchedule, setShowScanSchedule] = useState(false)
   const [updateVersion, setUpdateVersion] = useState(null)
   // SpacesHub is the destination for the Spaces tab. Opens a picker
   // for Projects / Routines / Knowledge; tapping a row closes the hub
@@ -348,10 +352,10 @@ export default function AppV2() {
   // Check app version whenever a view/modal opens — same cadence v1 uses.
   // Catches stale clients without waiting for the next SSE/sync round-trip.
   useEffect(() => {
-    if (showSettings || showDone || showAnalytics || showRoutines || showActivityLog || showPackages || showProjects || showAdviser || showSuggestions || showGrowthAreas || showNotes || showLists || editTarget || showAdd || showWhatNow || showMarkdownImport) {
+    if (showSettings || showDone || showAnalytics || showRoutines || showActivityLog || showPackages || showProjects || showAdviser || showSuggestions || showGrowthAreas || showNotes || showLists || editTarget || showAdd || showWhatNow || showMarkdownImport || showScanSchedule) {
       checkVersion()
     }
-  }, [showSettings, showDone, showAnalytics, showRoutines, showActivityLog, showPackages, showProjects, showAdviser, showSuggestions, showGrowthAreas, showNotes, showLists, editTarget, showAdd, showWhatNow, showMarkdownImport, checkVersion])
+  }, [showSettings, showDone, showAnalytics, showRoutines, showActivityLog, showPackages, showProjects, showAdviser, showSuggestions, showGrowthAreas, showNotes, showLists, editTarget, showAdd, showWhatNow, showMarkdownImport, showScanSchedule, checkVersion])
 
   // Deep-link handler. Notifications come in as `/?task=<id>` (task tap),
   // `/?suggestions=1` (routine_suggestion push), or `/?adviser=...` (plan
@@ -986,9 +990,14 @@ export default function AppV2() {
     }
   }, [tasks, updateTask, adjustRoutineHistory])
 
-  const handleUncomplete = useCallback((task) => {
+  // `quiet` is the toast's own Undo: the banner the user just tapped goes
+  // away instead of being replaced by a "back on the list" one. Every reopen
+  // path — Undo included — must come through here, because the loop stamp and
+  // the Trello card move back with the task (the toast's Undo used to call
+  // uncompleteTask directly and left the loop checked for the day).
+  const handleUncomplete = useCallback((task, { quiet = false } = {}) => {
     uncompleteTask(task.id)
-    setToast({ task, variant: 'reopen' })
+    setToast(quiet ? null : { task, variant: 'reopen' })
     if (task?.trello_card_id) pushStatusToTrello(task, 'not_started')
     // Reopening a routine-spawned task must also drop its completed_history
     // stamp, or the Kept grids/streaks keep counting the day as done
@@ -1007,6 +1016,67 @@ export default function AppV2() {
       }
     }
   }, [uncompleteTask, pushStatusToTrello, routines, tasks, uncompleteRoutine])
+
+  // "Did it yesterday" — the toast's answer for a morning tick of last night's
+  // work. All the rules (which day, the rollover bump, where a loop's stamp
+  // goes, the stack exception) live in creditYesterday.js; this only applies
+  // the result. Reads the CURRENT task and routine, because the tick that
+  // raised the toast has already rewritten both.
+  // Shared by the toast and the Last night list: the task's routine and, for
+  // a stack, the rest of its cycle — what the pure repair needs to decide
+  // whether a loop stamp moves. Writes back only the fields that changed.
+  const yesterdayContext = useCallback((task) => {
+    const routine = task.routine_id ? routines.find(r => r.id === task.routine_id) || null : null
+    const siblings = routine ? tasks.filter(t => t.routine_id === task.routine_id && t.due_date === task.due_date) : []
+    return { routine, siblings }
+  }, [tasks, routines])
+  const applyRoutineRepair = useCallback((routine, nextRoutine) => {
+    if (!routine || nextRoutine === routine) return
+    const updates = {}
+    for (const k of ['completed_history', 'skipped_days', 'resume_at']) {
+      if (nextRoutine[k] !== routine[k]) updates[k] = nextRoutine[k]
+    }
+    if (Object.keys(updates).length) updateRoutine(routine.id, updates)
+  }, [updateRoutine])
+
+  const handleCreditYesterday = useCallback((id) => {
+    const task = tasks.find(t => t.id === id)
+    if (!canCreditYesterday(task)) { setToast(null); return }
+    const { routine, siblings } = yesterdayContext(task)
+    const { taskUpdates, routine: nextRoutine } = creditYesterday({ task, routine, siblings })
+    if (!taskUpdates) { setToast(null); return }
+    updateTask(id, taskUpdates)
+    applyRoutineRepair(routine, nextRoutine)
+    logActivity('credited_yesterday', task)
+    setToast({ task: { ...task, ...taskUpdates }, variant: 'yesterday' })
+  }, [tasks, yesterdayContext, applyRoutineRepair, updateTask])
+
+  // The Last night list's two answers. "Yesterday" credits a morning tick or
+  // completes a still-open task as of last night — both through the pure
+  // module. The other answer only records that the question was answered, so
+  // no device asks it again today.
+  const handleReconcileYesterday = useCallback((t) => {
+    const task = tasks.find(x => x.id === t.id)
+    if (!task) return
+    const { routine, siblings } = yesterdayContext(task)
+    if (task.status === 'done') {
+      const { taskUpdates, routine: nextRoutine } = creditYesterday({ task, routine, siblings })
+      if (!taskUpdates) return
+      updateTask(task.id, taskUpdates)
+      applyRoutineRepair(routine, nextRoutine)
+    } else {
+      const { taskUpdates, routine: nextRoutine } = completeAsYesterday({ task, routine, siblings })
+      if (!taskUpdates) return
+      updateTask(task.id, taskUpdates)
+      applyRoutineRepair(routine, nextRoutine)
+      logActivity('completed', task)
+      if (task.trello_card_id) pushStatusToTrello(task, 'done')
+    }
+    logActivity('credited_yesterday', task)
+  }, [tasks, yesterdayContext, applyRoutineRepair, updateTask, pushStatusToTrello])
+  const handleReconcileKeep = useCallback((t) => {
+    updateTask(t.id, { reconciled_on: localYMD() })
+  }, [updateTask])
 
   // Single shortcut into the canonical routine-completion path, shared by the
   // the Kept shells. Routes through the real surfaced task so
@@ -1047,6 +1117,18 @@ export default function AppV2() {
       if (doneTask) { handleUncomplete(doneTask); return }
       const openTask = todays.find(t => t.status !== 'done')
       if (openTask) { handleComplete(openTask.id); return }
+      // Nothing due today but an earlier cycle's instance is still open — the
+      // normal state the morning after: the loop held today's spawn back
+      // BECAUSE last night's task was never ticked. Complete that task rather
+      // than stamping today's history beside it, which left it open forever
+      // and skipped the toast that asks whether it was really last night.
+      if (!(Array.isArray(routine.members) && routine.members.length > 0)) {
+        const earlier = tasks
+          .filter(t => t.routine_id === routine.id && !TERMINAL_STATUSES.has(t.status)
+            && t.due_date && String(t.due_date).slice(0, 10) < day)
+          .sort((a, b) => String(b.due_date).localeCompare(String(a.due_date)))[0]
+        if (earlier) { handleComplete(earlier.id); return }
+      }
     }
 
     rawToggle()
@@ -1540,6 +1622,8 @@ export default function AppV2() {
             try { await gmailApprove(t.id) } catch { /* refetch reverts */ }
           }}
           onGmailDismiss={handleDismissPending}
+          onReconcileYesterday={handleReconcileYesterday}
+          onReconcileKeep={handleReconcileKeep}
           onWhatNow={() => setShowWhatNow(true)}
           onToggleItem={(task, clId, itemId) => {
             const checklists = (task.checklists || []).map(cl =>
@@ -1555,6 +1639,7 @@ export default function AppV2() {
           onDeleteTask={(task) => handleDelete(task.id)}
           onThrow={({ title, dueDate, remindAt }) => scrollTaskIntoView(handleAddTask({ title, dueDate, remindAt }))}
           onOpenFullAdd={(draft) => openAddModal(draft)}
+          onScanSchedule={() => setShowScanSchedule(true)}
           onEditLoop={(r) => { setEditRoutineId(r.id); setShowRoutines(true) }}
           onAddLoop={() => { setRoutinesOpenToForm(true); setShowRoutines(true) }}
           onSpawnNow={handleSpawnLoop}
@@ -1601,6 +1686,8 @@ export default function AppV2() {
             try { await gmailApprove(t.id) } catch { /* refetch reverts */ }
           }}
           onGmailDismiss={handleDismissPending}
+          onReconcileYesterday={handleReconcileYesterday}
+          onReconcileKeep={handleReconcileKeep}
           onWhatNow={() => setShowWhatNow(true)}
           onToggleItem={(task, clId, itemId) => {
             const checklists = (task.checklists || []).map(cl =>
@@ -1616,6 +1703,7 @@ export default function AppV2() {
           onDeleteTask={(task) => handleDelete(task.id)}
           onThrow={({ title, dueDate, remindAt }) => scrollTaskIntoView(handleAddTask({ title, dueDate, remindAt }))}
           onOpenFullAdd={(draft) => openAddModal(draft)}
+          onScanSchedule={() => setShowScanSchedule(true)}
           onEditLoop={(r) => { setEditRoutineId(r.id); setShowRoutines(true) }}
           onAddLoop={() => { setRoutinesOpenToForm(true); setShowRoutines(true) }}
           onSpawnNow={handleSpawnLoop}
@@ -1678,6 +1766,15 @@ export default function AppV2() {
         parentProject={addChildOfProject}
         createAsProject={createAsProject}
         initialDraft={addInitialDraft}
+        onScanSchedule={() => setShowScanSchedule(true)}
+      />
+
+      <ScanScheduleModal
+        open={showScanSchedule}
+        onClose={() => setShowScanSchedule(false)}
+        onImport={(tasks) => {
+          for (const t of tasks) addTask(t)
+        }}
       />
 
       {editTarget && useQuickEditor && (
@@ -2008,16 +2105,22 @@ export default function AppV2() {
 
       {toast && (
         <Toast
+          // Keyed so a variant change (complete → yesterday, complete →
+          // reopen) remounts: the copy is frozen on mount and would otherwise
+          // keep saying the old thing.
+          key={`${toast.variant || 'complete'}:${toast.variant ? toast.task?.id : toast.id}`}
           task={toast.variant ? toast.task : toast}
           todayCount={todayCount}
           variant={toast.variant || 'complete'}
           nextTask={toast.nextTask}
           onNextTaskClick={t => { setEditTarget(t); setToast(null) }}
           onDone={() => setToast(null)}
+          onCreditYesterday={!toast.variant && canCreditYesterday({ ...toast, status: 'done' }) ? () => handleCreditYesterday(toast.id) : null}
           onUndo={() => {
-            const taskToUndo = toast.variant ? toast.task : toast
-            uncompleteTask(taskToUndo.id)
-            setToast(null)
+            const shown = toast.variant ? toast.task : toast
+            // The toast holds the pre-tick copy; the stamp rules want the
+            // completed row (its completed_at decides which day comes off).
+            handleUncomplete(tasks.find(t => t.id === shown.id) || shown, { quiet: true })
           }}
         />
       )}

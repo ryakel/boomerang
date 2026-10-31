@@ -355,3 +355,8 @@
 @keyframes v2-spin {
   to { transform: rotate(360deg); }
 }
+
+.v2-form-scan-pill {
+  align-self: flex-start;
+  margin: 8px 0 0;
+}
