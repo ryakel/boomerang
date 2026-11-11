@@ -6,6 +6,15 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-11-11
 
+- fix(today): needs attention means needs you now, and the evening reorders [L]
+  - Ticket BOOM-32. First dev test of Kept 2.0 at 9:39 PM: Today opened on seven overdue chores, a Last night queue and a "high impact, about 1 hr" recommendation for a task with no date, size or impact in the data. Old task-manager behaviour under new section names.
+  - `todayModel.js` now classifies once: **needs you now** (critical, due today, picked for today, a reminder that went off today, back from snooze today, due yesterday and marked as mattering) → Needs attention, max 3, only critical in red; **slipped** (anything else past its date) and **waiting a week+** → one quiet "To look over" row and sheet, oldest first; **important, not now** → off the main path.
+  - Worth doing next needs a reason about time (picked for today, due within 3 days); sooner beats more important, impact only breaks ties, "high impact" is never the reason, never in the evening, absent without evidence.
+  - Time of day sets the order (`order`): evening (by 20:00, earlier with an evening checklist or early quiet hours) leads with checklists, Tonight and Tomorrow. Quiet hours never make the evening start later.
+  - One obligation, one place: Last night's tasks are excluded from every other section (the Amazon return was in two). Last night is a compact row, before the evening only, and skips waiting tasks.
+  - UI: every main-path section is a card, 14px apart; a subtitle per phase; bookkeeping collapses to compact rows; a solid Open task button. Type and colours unchanged.
+  - Tests lead with scenarios from the report (9:39 PM, 8:24 AM before a commitment, waiting, duplicates); 44 total, passing in UTC and America/Chicago. Verified in the built app on the dev seed at 9:39 PM and 8:24 AM Chicago. **Web-only, OTA. No migration.**
+
 - docs(today): kept 2.0 handoff page, features and index [S]
   - `wiki/Today-Kept2.md` is the redesign's handoff: why it exists (the November engagement audit), the locked decisions, what was built section by section, the visual spec, how it was verified, open questions and future tracks. The page and the code outrank the claude.ai spec doc, whose plan and type sections lag.
   - `wiki/Features.md` gains a Today (Kept 2.0) section, and CLAUDE.md's wiki index points at the handoff. Ticket BOOM-32.

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import {
   AlertCircle, Compass, CalendarDays, Clock, Bell, Inbox, ChevronRight, Check, X, Repeat2,
-  Sunrise, Sun, Moon, StickyNote, Sprout, FolderKanban, Undo2,
+  Sunrise, Sun, Moon, StickyNote, Sprout, FolderKanban, Undo2, History, ChevronDown,
 } from 'lucide-react'
 import '@fontsource-variable/fraunces/full.css'
 import '@fontsource-variable/dm-sans/opsz.css'
@@ -44,16 +44,29 @@ const minutesLabel = (min) => {
 }
 const shortDate = (ms) => new Date(ms).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
 
-function attentionLabel(reason, todayKey) {
+function attentionLabel(reason) {
   switch (reason.key) {
     case 'critical': return 'Critical'
-    case 'overdue': return reason.days === 1 ? 'Overdue since yesterday' : `Overdue ${reason.days} days`
+    case 'reminder': return `Reminder ${clock(reason.at)}`
     case 'due': return 'Due today'
-    case 'reminder': return localYMD(new Date(reason.at)) === todayKey
-      ? `Reminder ${clock(reason.at)}` : `Reminder passed ${shortDate(reason.at)}`
+    case 'committed': return 'Picked for today'
+    case 'recent': return 'Was due yesterday'
     case 'back': return 'Back today'
     default: return null
   }
+}
+
+const inLabel = (atMs, nowMs) => {
+  const min = Math.round((atMs - nowMs) / 60000)
+  if (min <= 0 || min > 6 * 60) return null
+  return `in ${minutesLabel(min)}`
+}
+
+function subtitle(m) {
+  if (m.allClear) return m.phase === 'evening' ? 'Winding down. Nothing needs you tonight.' : 'Nothing needs you right now.'
+  if (m.phase === 'evening') return 'Winding down.'
+  if (m.attention.items.length > 0) return m.phase === 'morning' ? 'A few things to handle today.' : 'A few things still need you.'
+  return m.phase === 'morning' ? 'Nothing pressing this morning.' : 'Nothing pressing right now.'
 }
 
 const routineIcon = (r) => {
@@ -153,6 +166,8 @@ export default function TodayKept2({
     try { return localStorage.getItem(LASTNIGHT_KEY) } catch { return null }
   })
   const [reviewOpen, setReviewOpen] = useState(false)
+  const [slippedOpen, setSlippedOpen] = useState(false)
+  const [lastNightOpen, setLastNightOpen] = useState(false)
   const [expandedLines, setExpandedLines] = useState({})
   const [anytimeOpen, setAnytimeOpen] = useState(() => readJSON(ANYTIME_OPEN_KEY) === true)
   const [nudgeOpen, setNudgeOpen] = useState(false)
@@ -193,14 +208,14 @@ export default function TodayKept2({
   }
 
   const growthPick = growth ? (now.getHours() >= 17 && growth.evening?.text ? growth.evening : growth.morning?.text ? growth.morning : growth.evening) : null
-  const fullLists = m.checklists.filter(c => c.tier === 'full')
-  const lineLists = m.checklists.filter(c => c.tier === 'line' && !expandedLines[`${c.routine.id}|${c.due}`])
-  const openedLines = m.checklists.filter(c => c.tier === 'line' && expandedLines[`${c.routine.id}|${c.due}`])
+  const lineKey = (c) => `${c.routine.id}|${c.due}`
+  const fullLists = m.checklists.filter(c => c.tier === 'full' || expandedLines[lineKey(c)])
+  const lineLists = m.checklists.filter(c => c.tier === 'line' && !expandedLines[lineKey(c)])
 
-  const checklistSection = (c) => {
+  const checklistCard = (c) => {
     const color = feathers[c.routine.id] || 'var(--bm-ember)'
     return (
-      <section key={`${c.routine.id}|${c.due}`} className="t2-open">
+      <section key={lineKey(c)} className="t2-card">
         <Head icon={routineIcon(c.routine)} color={color} title={c.routine.title}
           count={`${c.done} of ${c.total}`} onTitle={() => onEditLoop?.(c.routine)} />
         {c.open.map((t, i) => (
@@ -208,6 +223,237 @@ export default function TodayKept2({
         ))}
       </section>
     )
+  }
+
+  const clockRows = (items) => items.map((it, i) => {
+    const key = it.event ? `e-${it.event.id}` : it.routine && it.kind === 'checklist' ? `c-${it.routine.id}` : `t-${it.task.id}`
+    let title, meta, bar, Icon = null, onClick = null
+    const soon = it.kind !== 'due' ? inLabel(it.at, m.nowMs) : null
+    if (it.kind === 'event') {
+      const e = it.event
+      title = e.title
+      const dur = e.endMs && e.startMs ? minutesLabel(Math.round((e.endMs - e.startMs) / 60000)) : null
+      meta = [it.ongoing ? 'now' : soon, e.location, dur].filter(Boolean).join(' · ') || 'Calendar'
+      bar = 'var(--bm-f-billabong)'
+    } else if (it.kind === 'checklist') {
+      title = it.routine.title
+      meta = [soon, `checklist · ${it.count} ${it.count === 1 ? 'item' : 'items'}`].filter(Boolean).join(' · ')
+      bar = feathers[it.routine.id] || 'var(--bm-ember)'
+      Icon = Repeat2
+      onClick = () => onEditLoop?.(it.routine)
+    } else {
+      title = it.task.title
+      const kind = it.kind === 'reminder' ? 'Reminder' : it.kind === 'loop' ? 'loop' : it.kind === 'due' ? 'due' : 'back from snooze'
+      meta = [soon, kind].filter(Boolean).join(' · ')
+      bar = it.kind === 'reminder' ? 'var(--bm-gold)' : it.kind === 'loop' ? (feathers[it.routine?.id] || 'var(--bm-ember)') : 'var(--t2-hair2)'
+      Icon = it.kind === 'reminder' ? Bell : it.kind === 'returns' ? Undo2 : it.kind === 'loop' ? Repeat2 : null
+      onClick = () => onOpenTask?.(it.task)
+    }
+    const when = it.kind === 'due' ? 'Due' : clock(it.at)
+    const inner = (
+      <>
+        <span className="t2-clock-time">{when}</span>
+        <span className="t2-clock-bar" style={{ background: bar }} aria-hidden="true" />
+        <span className="t2-clock-body">
+          <span className="t2-clock-title">{title}</span>
+          <span className="t2-row-meta t2-clock-meta">{Icon && <Icon size={12} strokeWidth={2} style={{ color: bar }} aria-hidden="true" />}{meta}</span>
+        </span>
+      </>
+    )
+    return onClick
+      ? <button key={key} className={`t2-clock${i === 0 ? ' is-first' : ''}`} onClick={onClick}>{inner}</button>
+      : <div key={key} className={`t2-clock${i === 0 ? ' is-first' : ''}`}>{inner}</div>
+  })
+
+  // The large all-clear only when the main path is otherwise empty; with
+  // Tonight or Tomorrow to show, "nothing needs you" is the subtitle instead.
+  const bigClear = m.allClear && m.later.items.length === 0 && m.tomorrow.items.length === 0
+    && m.pinnedArcs.length === 0
+  const slippedCount = m.needsReview.slipped.length
+  const waitingCount = m.needsReview.waiting.length
+
+  // One renderer per block; the model decides the order (morning/day vs evening).
+  const blocks = {
+    attention: () => m.attention.items.length > 0 && (
+      <section key="attention" className="t2-card">
+        <Head icon={AlertCircle} color="var(--bm-ember)" title="Needs attention"
+          count={m.attention.items.length + m.attention.overflow} />
+        {m.attention.items.map(({ task: t, reason }, i) => {
+          const crit = reason.key === 'critical'
+          const extra = []
+          if (t.status === 'doing' || t.status === 'in_progress') extra.push('doing')
+          if (reason.key !== 'reminder' && t.remind_at && localYMD(new Date(t.remind_at)) === m.todayKey) extra.push(`reminder ${clock(t.remind_at)}`)
+          if (t.assignee) extra.push(`for ${t.assignee}`)
+          return (
+            <TaskRow key={t.id} task={t} first={i === 0}
+              ring={crit ? 'var(--bm-danger)' : 'var(--bm-ember)'}
+              meta={<><span className={`t2-why${crit ? ' is-over' : ''}`}>{attentionLabel(reason)}</span>{extra.length > 0 && <> · {extra.join(' · ')}</>}</>}
+              onComplete={onCompleteTask} onOpen={onOpenTask} onDelete={onDeleteTask} />
+          )
+        })}
+        {m.attention.overflow > 0 && (
+          <button className="t2-more" onClick={() => onShowTasks?.()}>
+            {m.attention.overflow} more in Tasks <ChevronRight size={14} strokeWidth={2} />
+          </button>
+        )}
+      </section>
+    ),
+
+    next: () => m.next && (
+      <section key="next" className="t2-card">
+        <Head icon={Compass} color="var(--bm-ember)" title="Worth doing next" />
+        <div className="t2-next">
+          <span className="t2-next-title">{m.next.task.title}</span>
+          <span className="t2-next-meta">
+            <Clock size={12} strokeWidth={2} aria-hidden="true" />
+            <span>{[m.next.minutes != null && `About ${minutesLabel(m.next.minutes)}`, ...m.next.reasons].filter(Boolean).join(' · ')}</span>
+          </span>
+          {m.next.fitsBefore && (
+            <span className="t2-next-meta">Fits before {m.next.fitsBefore.title} at {clock(m.next.fitsBefore.startMs)}</span>
+          )}
+          <div className="t2-next-actions">
+            <button className="t2-btn t2-btn-primary" onClick={() => onOpenTask?.(m.next.task)}>Open task</button>
+            <button className="t2-btn t2-btn-ghost" onClick={dismissNext}>Not now</button>
+          </div>
+        </div>
+      </section>
+    ),
+
+    later: () => m.later.items.length > 0 && (
+      <section key="later" className="t2-card">
+        <Head icon={m.phase === 'evening' ? Moon : CalendarDays} color="var(--bm-ember)" title={m.later.label} />
+        {clockRows(m.later.items)}
+      </section>
+    ),
+
+    tomorrow: () => m.tomorrow.items.length > 0 && (
+      <section key="tomorrow" className="t2-card">
+        <Head icon={CalendarDays} color="var(--bm-ember)" title="Tomorrow" count={m.tomorrow.items.length} />
+        {clockRows(m.tomorrow.items)}
+      </section>
+    ),
+
+    checklists: () => fullLists.length > 0 && <div key="checklists" className="t2-stack">{fullLists.map(checklistCard)}</div>,
+
+    loops: () => m.loopTasks.length > 0 && (
+      <section key="loops" className="t2-card">
+        <Head icon={Repeat2} color="var(--bm-ember)" title="Loops" count={m.loopTasks.length} />
+        {m.loopTasks.map(({ task: t, routine: r, overdueDays }, i) => (
+          <TaskRow key={t.id} task={t} first={i === 0} ring={feathers[r.id] || 'var(--bm-ember)'}
+            meta={overdueDays > 0 ? `${r.cadence || 'loop'} · from ${overdueDays === 1 ? 'yesterday' : `${overdueDays} days ago`}` : (r.cadence || 'loop')}
+            onComplete={onCompleteTask} onOpen={onOpenTask} onDelete={onDeleteTask} />
+        ))}
+      </section>
+    ),
+
+    arcs: () => m.pinnedArcs.length > 0 && (
+      <section key="arcs" className="t2-card">
+        <Head icon={FolderKanban} color="var(--bm-gold)" title="Arcs" count={m.pinnedArcs.length} />
+        {m.pinnedArcs.map(({ arc, children }, i) => (
+          <div key={arc.id}>
+            <div className={`t2-row t2-row-actions${i === 0 ? ' is-first' : ''}`}>
+              <button className="t2-row-body" onClick={() => onOpenTask?.(arc)}>
+                <span className="t2-row-title">{arc.title}</span>
+                <span className="t2-row-meta">{arc.session_count || 0} sessions</span>
+              </button>
+              <button className="t2-chip" onClick={() => onLogSession?.(arc)}>Log session</button>
+            </div>
+            {children.map(c => (
+              <TaskRow key={c.id} task={c} ring="var(--bm-gold)" onComplete={onCompleteTask} onOpen={onOpenTask} />
+            ))}
+          </div>
+        ))}
+      </section>
+    ),
+
+    // Bookkeeping: each is one compact row that opens on demand.
+    quiet: () => (
+      <div key="quiet" className="t2-quiet">
+        {m.lastNight.length > 0 && (
+          <div className="t2-quiet-group">
+            <button className="t2-qrow" onClick={() => setLastNightOpen(v => !v)} aria-expanded={lastNightOpen}>
+              <Moon size={15} strokeWidth={2} aria-hidden="true" />
+              <span className="t2-qrow-text"><b>Last night</b> · {m.lastNight.length} to sort</span>
+              {lastNightOpen ? <ChevronDown size={15} strokeWidth={2} className="t2-faint" /> : <ChevronRight size={15} strokeWidth={2} className="t2-faint" />}
+            </button>
+            {lastNightOpen && (
+              <div className="t2-qpanel">
+                {m.lastNight.map(({ task: t, kind }, i) => (
+                  <div key={t.id} className={`t2-row t2-row-actions${i === 0 ? ' is-first' : ''}`}>
+                    <button className="t2-row-body" onClick={() => onOpenTask?.(t)}>
+                      <span className="t2-row-title">{t.title}</span>
+                      <span className="t2-row-meta">{kind === 'ticked' ? 'ticked this morning' : 'still open'}</span>
+                    </button>
+                    <button className="t2-chip" onClick={() => onReconcileYesterday?.(t)}>
+                      <Check size={13} strokeWidth={2.6} /> Yesterday
+                    </button>
+                    <button className="t2-x" onClick={() => onReconcileKeep?.(t)}
+                      aria-label={kind === 'ticked' ? 'Keep it on today' : 'Still open'}>
+                      <X size={15} strokeWidth={2.2} />
+                    </button>
+                  </div>
+                ))}
+                <button className="t2-more" onClick={hideLastNight}>Not now</button>
+              </div>
+            )}
+          </div>
+        )}
+
+        {m.needsReview.count > 0 && (
+          <button className="t2-qrow" onClick={() => setSlippedOpen(true)}>
+            <History size={15} strokeWidth={2} aria-hidden="true" />
+            <span className="t2-qrow-text">
+              {slippedCount > 0 && <><b>{slippedCount}</b> slipped past {slippedCount === 1 ? 'its date' : 'their dates'}</>}
+              {slippedCount > 0 && waitingCount > 0 && ' · '}
+              {waitingCount > 0 && <><b>{waitingCount}</b> waiting a while</>}
+            </span>
+            <ChevronRight size={15} strokeWidth={2} className="t2-faint" />
+          </button>
+        )}
+
+        {m.review.count > 0 && (
+          <button className="t2-qrow" onClick={() => setReviewOpen(true)}>
+            <Inbox size={15} strokeWidth={2} aria-hidden="true" />
+            <span className="t2-qrow-text">
+              <b>{m.review.count}</b> {m.review.count === 1 ? 'suggestion' : 'suggestions'}{m.review.source ? ` from ${m.review.source}` : ''} to review
+            </span>
+            <ChevronRight size={15} strokeWidth={2} className="t2-faint" />
+          </button>
+        )}
+
+        {lineLists.map(c => (
+          <button key={lineKey(c)} className="t2-qrow"
+            onClick={() => setExpandedLines(s => ({ ...s, [lineKey(c)]: true }))}>
+            <span className="t2-line-ring" style={{ '--ring': feathers[c.routine.id] || 'var(--bm-ember)' }} aria-hidden="true" />
+            <span className="t2-qrow-text"><b>{c.routine.title}</b> · {c.open.length} left{c.note ? ` ${c.note}` : ''}</span>
+            <ChevronRight size={15} strokeWidth={2} className="t2-faint" />
+          </button>
+        ))}
+
+        <div className="t2-extras">
+          {m.anytime.length > 0 && (
+            <button className="t2-extra" onClick={toggleAnytime} aria-expanded={anytimeOpen}>
+              Anytime · {m.anytime.length}
+            </button>
+          )}
+          {onWhatNow && <button className="t2-extra" onClick={onWhatNow}>What now?</button>}
+          {growthPick?.text && (
+            <button className="t2-extra" onClick={() => setNudgeOpen(v => !v)} aria-expanded={nudgeOpen}>
+              <Sprout size={12} strokeWidth={2} /> Today's nudge
+            </button>
+          )}
+        </div>
+        {nudgeOpen && growthPick?.text && <p className="t2-nudge">{growthPick.text}</p>}
+        {anytimeOpen && m.anytime.length > 0 && (
+          <section className="t2-card t2-anytime">
+            {m.anytime.map((t, i) => (
+              <TaskRow key={t.id} task={t} first={i === 0} ring="var(--t2-hair2)"
+                onComplete={onCompleteTask} onOpen={onOpenTask} onDelete={onDeleteTask} />
+            ))}
+          </section>
+        )}
+      </div>
+    ),
   }
 
   return (
@@ -225,11 +471,14 @@ export default function TodayKept2({
       ))}
 
       <div className="t2-date">
-        <h1 className="t2-day">{now.toLocaleDateString('en-US', { weekday: 'long' })}</h1>
-        <span className="t2-date-sub">{now.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>
+        <div className="t2-date-line">
+          <h1 className="t2-day">{now.toLocaleDateString('en-US', { weekday: 'long' })}</h1>
+          <span className="t2-date-sub">{now.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>
+        </div>
+        {!bigClear && <p className="t2-subtitle">{subtitle(m)}</p>}
       </div>
 
-      {m.allClear && (
+      {bigClear && (
         <section className="t2-clear">
           <span className="t2-clear-mark" aria-hidden="true"><Check size={20} strokeWidth={2.2} /></span>
           <h2 className="t2-clear-title">Nothing needs you right now.</h2>
@@ -237,195 +486,28 @@ export default function TodayKept2({
         </section>
       )}
 
-      {m.attention.items.length > 0 && (
-        <section className="t2-card">
-          <Head icon={AlertCircle} color="var(--bm-ember)" title="Needs attention"
-            count={m.attention.items.length + m.attention.overflow} />
-          {m.attention.items.map(({ task: t, reason }, i) => {
-            const extra = []
-            if (t.status === 'waiting') extra.push('waiting')
-            if (t.status === 'doing' || t.status === 'in_progress') extra.push('doing')
-            if (reason.key !== 'reminder' && t.remind_at && localYMD(new Date(t.remind_at)) === m.todayKey) extra.push(`reminder ${clock(t.remind_at)}`)
-            if (t.assignee) extra.push(`for ${t.assignee}`)
-            return (
-              <TaskRow key={t.id} task={t} first={i === 0}
-                ring={reason.key === 'critical' || reason.key === 'overdue' ? 'var(--bm-danger)' : 'var(--bm-ember)'}
-                meta={<><span className={`t2-why${reason.key === 'overdue' || reason.key === 'critical' ? ' is-over' : ''}`}>{attentionLabel(reason, m.todayKey)}</span>{extra.length > 0 && <> · {extra.join(' · ')}</>}</>}
-                onComplete={onCompleteTask} onOpen={onOpenTask} onDelete={onDeleteTask} />
-            )
-          })}
-          {m.attention.overflow > 0 && (
-            <button className="t2-more" onClick={() => onShowTasks?.()}>
-              {m.attention.overflow} more in Tasks <ChevronRight size={14} strokeWidth={2} />
-            </button>
-          )}
-        </section>
-      )}
+      {m.order.map(id => blocks[id]?.())}
 
-      {m.lastNight.length > 0 && (
-        <section className="t2-open">
-          <Head icon={Moon} color="var(--t2-meta)" title="Last night" count={m.lastNight.length} />
-          {m.lastNight.map(({ task: t, kind }, i) => (
-            <div key={t.id} className={`t2-row t2-row-actions${i === 0 ? ' is-first' : ''}`}>
-              <button className="t2-row-body" onClick={() => onOpenTask?.(t)}>
-                <span className="t2-row-title">{t.title}</span>
-                <span className="t2-row-meta">{kind === 'ticked' ? 'ticked this morning' : 'still open'}</span>
-              </button>
-              <button className="t2-chip" onClick={() => onReconcileYesterday?.(t)}>
-                <Check size={13} strokeWidth={2.6} /> Yesterday
-              </button>
-              <button className="t2-x" onClick={() => onReconcileKeep?.(t)}
-                aria-label={kind === 'ticked' ? 'Keep it on today' : 'Still open'}>
-                <X size={15} strokeWidth={2.2} />
-              </button>
-            </div>
-          ))}
-          <button className="t2-more" onClick={hideLastNight}>Not now</button>
-        </section>
-      )}
-
-      {fullLists.map(checklistSection)}
-      {openedLines.map(checklistSection)}
-
-      {m.loopTasks.length > 0 && (
-        <section className="t2-open">
-          <Head icon={Repeat2} color="var(--t2-meta)" title="Loops" count={m.loopTasks.length} />
-          {m.loopTasks.map(({ task: t, routine: r, overdueDays }, i) => (
-            <TaskRow key={t.id} task={t} first={i === 0} ring={feathers[r.id] || 'var(--bm-ember)'}
-              meta={overdueDays > 0 ? `${r.cadence || 'loop'} · due ${overdueDays === 1 ? 'yesterday' : `${overdueDays} days ago`}` : (r.cadence || 'loop')}
-              onComplete={onCompleteTask} onOpen={onOpenTask} onDelete={onDeleteTask} />
-          ))}
-        </section>
-      )}
-
-      {m.next && (
-        <section className="t2-card">
-          <Head icon={Compass} color="var(--t2-meta)" title="Worth doing next" />
-          <div className="t2-next">
-            <span className="t2-next-title">{m.next.task.title}</span>
-            <span className="t2-next-meta">
-              <Clock size={12} strokeWidth={2} aria-hidden="true" />
-              <span>{[m.next.minutes != null && `About ${minutesLabel(m.next.minutes)}`, ...m.next.reasons].filter(Boolean).join(' · ')}</span>
-            </span>
-            {m.next.fitsBefore && (
-              <span className="t2-next-meta">Fits before {m.next.fitsBefore.title} at {clock(m.next.fitsBefore.startMs)}</span>
-            )}
-            <div className="t2-next-actions">
-              <button className="t2-btn t2-btn-tonal" onClick={() => onOpenTask?.(m.next.task)}>Open task</button>
-              <button className="t2-btn t2-btn-ghost" onClick={dismissNext}>Not now</button>
-            </div>
+      {slippedOpen && (
+        <div className="bm-sheet-backdrop" onClick={() => setSlippedOpen(false)}>
+          <div className="bm-sheet bm-t2 t2-sheet" onClick={e => e.stopPropagation()} role="dialog" aria-label="To look over">
+            <div className="bm-grabber" />
+            <h2 className="bm-sheet-title">To look over</h2>
+            <p className="t2-sheet-sub">Not late, just undecided. Open one to give it a new date, or let it go.</p>
+            {slippedCount > 0 && <h3 className="t2-sheet-group">Slipped past their dates</h3>}
+            {m.needsReview.slipped.map(({ task: t, since }, i) => (
+              <TaskRow key={t.id} task={t} first={i === 0} ring="var(--t2-hair2)"
+                meta={`was ${t.due_date ? 'due' : 'a reminder for'} ${shortDate(new Date(`${since}T12:00:00`).getTime())}`}
+                onComplete={onCompleteTask} onOpen={(x) => { setSlippedOpen(false); onOpenTask?.(x) }} />
+            ))}
+            {waitingCount > 0 && <h3 className="t2-sheet-group">Waiting a while</h3>}
+            {m.needsReview.waiting.map(({ task: t, days }, i) => (
+              <TaskRow key={t.id} task={t} first={i === 0} ring="var(--t2-hair2)"
+                meta={`waiting ${days} days · maybe check in`}
+                onComplete={onCompleteTask} onOpen={(x) => { setSlippedOpen(false); onOpenTask?.(x) }} />
+            ))}
           </div>
-        </section>
-      )}
-
-      {lineLists.map(c => (
-        <button key={`${c.routine.id}|${c.due}`} className="t2-line"
-          onClick={() => setExpandedLines(s => ({ ...s, [`${c.routine.id}|${c.due}`]: true }))}>
-          <span className="t2-line-ring" style={{ '--ring': feathers[c.routine.id] || 'var(--bm-ember)' }} aria-hidden="true" />
-          <span className="t2-line-text">
-            <b>{c.routine.title}</b> · {c.open.length} left{c.note ? ` ${c.note}` : ''}
-          </span>
-          <ChevronRight size={15} strokeWidth={2} className="t2-faint" />
-        </button>
-      ))}
-
-      {m.coming.items.length > 0 && (
-        <section className="t2-open">
-          <Head icon={CalendarDays} color="var(--t2-meta)" title={m.coming.label} />
-          {m.coming.items.map((it, i) => {
-            const key = it.event ? `e-${it.event.id}` : it.routine && it.kind === 'checklist' ? `c-${it.routine.id}` : `t-${it.task.id}`
-            let title, meta, bar, Icon = null, onClick = null
-            if (it.kind === 'event') {
-              const e = it.event
-              title = e.title
-              const dur = e.endMs && e.startMs ? minutesLabel(Math.round((e.endMs - e.startMs) / 60000)) : null
-              meta = [it.ongoing ? 'now' : null, e.location, dur].filter(Boolean).join(' · ') || 'Calendar'
-              bar = 'var(--bm-f-billabong)'
-            } else if (it.kind === 'checklist') {
-              title = it.routine.title
-              meta = `checklist · ${it.count} ${it.count === 1 ? 'item' : 'items'}`
-              bar = feathers[it.routine.id] || 'var(--bm-ember)'
-              Icon = Repeat2
-              onClick = () => onEditLoop?.(it.routine)
-            } else {
-              title = it.task.title
-              meta = it.kind === 'reminder' ? 'Reminder' : it.kind === 'loop' ? 'loop' : it.kind === 'due' ? 'due' : 'back from snooze'
-              bar = it.kind === 'reminder' ? 'var(--bm-gold)' : it.kind === 'loop' ? (feathers[it.routine?.id] || 'var(--bm-ember)') : 'var(--t2-hair2)'
-              Icon = it.kind === 'reminder' ? Bell : it.kind === 'returns' ? Undo2 : it.kind === 'loop' ? Repeat2 : null
-              onClick = () => onOpenTask?.(it.task)
-            }
-            const when = it.kind === 'due'
-              ? new Date(it.at).toLocaleDateString('en-US', { weekday: 'short' })
-              : clock(it.at)
-            const body = (
-              <>
-                <span className="t2-clock-time">{when}</span>
-                <span className="t2-clock-bar" style={{ background: bar }} aria-hidden="true" />
-                <span className="t2-clock-body">
-                  <span className="t2-clock-title">{title}</span>
-                  <span className="t2-row-meta t2-clock-meta">{Icon && <Icon size={12} strokeWidth={2} style={{ color: bar }} aria-hidden="true" />}{meta}</span>
-                </span>
-              </>
-            )
-            return onClick
-              ? <button key={key} className={`t2-clock${i === 0 ? ' is-first' : ''}`} onClick={onClick}>{body}</button>
-              : <div key={key} className={`t2-clock${i === 0 ? ' is-first' : ''}`}>{body}</div>
-          })}
-        </section>
-      )}
-
-      {m.pinnedArcs.length > 0 && (
-        <section className="t2-open">
-          <Head icon={FolderKanban} color="var(--bm-gold)" title="Arcs" count={m.pinnedArcs.length} />
-          {m.pinnedArcs.map(({ arc, children }, i) => (
-            <div key={arc.id}>
-              <div className={`t2-row t2-row-actions${i === 0 ? ' is-first' : ''}`}>
-                <button className="t2-row-body" onClick={() => onOpenTask?.(arc)}>
-                  <span className="t2-row-title">{arc.title}</span>
-                  <span className="t2-row-meta">{arc.session_count || 0} sessions</span>
-                </button>
-                <button className="t2-chip" onClick={() => onLogSession?.(arc)}>Log session</button>
-              </div>
-              {children.map(c => (
-                <TaskRow key={c.id} task={c} ring="var(--bm-gold)" onComplete={onCompleteTask} onOpen={onOpenTask} />
-              ))}
-            </div>
-          ))}
-        </section>
-      )}
-
-      {m.review.count > 0 && (
-        <button className="t2-review" onClick={() => setReviewOpen(true)}>
-          <Inbox size={16} strokeWidth={2} aria-hidden="true" />
-          <span className="t2-review-text">
-            <b>{m.review.count}</b> {m.review.count === 1 ? 'suggestion' : 'suggestions'}{m.review.source ? ` from ${m.review.source}` : ''} to review
-          </span>
-          <ChevronRight size={15} strokeWidth={2} className="t2-faint" />
-        </button>
-      )}
-
-      {/* Quiet extras: everything the classic screen had that isn't a section here. */}
-      <div className="t2-extras">
-        {m.anytime.length > 0 && (
-          <button className="t2-extra" onClick={toggleAnytime} aria-expanded={anytimeOpen}>
-            Anytime · {m.anytime.length}
-          </button>
-        )}
-        {onWhatNow && <button className="t2-extra" onClick={onWhatNow}>What now?</button>}
-        {growthPick?.text && (
-          <button className="t2-extra" onClick={() => setNudgeOpen(v => !v)} aria-expanded={nudgeOpen}>
-            <Sprout size={12} strokeWidth={2} /> Today's nudge
-          </button>
-        )}
-      </div>
-      {nudgeOpen && growthPick?.text && <p className="t2-nudge">{growthPick.text}</p>}
-      {anytimeOpen && m.anytime.length > 0 && (
-        <section className="t2-open t2-anytime">
-          {m.anytime.map((t, i) => (
-            <TaskRow key={t.id} task={t} first={i === 0} ring="var(--t2-hair2)"
-              onComplete={onCompleteTask} onOpen={onOpenTask} onDelete={onDeleteTask} />
-          ))}
-        </section>
+        </div>
       )}
 
       {reviewOpen && (

@@ -2,21 +2,40 @@
 //
 // Pure: tasks, routines, settings, calendar events and `now` in; sections out.
 // No storage, no network, no React. TodayKept2.jsx renders whatever this
-// returns; scripts/todayModel.test.mjs pins the rules.
+// returns; scripts/todayModel.test.mjs pins the behaviour against scenarios.
 //
-// The screen is evidence-driven, not clock-driven. Every section answers "is
-// there something here worth saying?" and is absent when the answer is no:
+// The product: put something down and trust it comes back at the right time.
+// Today answers three questions, in this order, in one screen:
+//   1. What genuinely needs me?        (Needs attention: small by construction)
+//   2. What's worth doing next?        (one pick, or nothing)
+//   3. What's coming up?               (later today; tonight; tomorrow)
+// Everything else is one compact row at most.
 //
-//   Needs attention   accepted, open tasks with a concrete reason (critical,
-//                     overdue, due today, reminder passed, back from snooze)
-//   Routines          checklists (stacks) whose cycle is open, at a prominence
-//                     tier set by evidence; loop tasks due today
-//   Worth doing next  one explainable pick from the existing impactRank, only
-//                     if it clears the bar and (when a calendar commitment is
-//                     ahead and the task has a size) fits before it
-//   Coming up         fixed-time things still ahead today; Tomorrow once none are
-//   Review            a count of pending Gmail/Notion suggestions. Pending items
-//                     appear NOWHERE else: they are not commitments yet
+// A due date is EVIDENCE OF RELEVANCE, not proof something needs you now. The
+// data can't tell a hard deadline from a hopeful one, or whether a task is
+// actionable right now, so this is a conservative first pass that only treats
+// EXPLICIT signals as "needs you":
+//
+//   needs you now   critical; due today; picked for today (committed_on);
+//                   a reminder you set that went off today; back from snooze
+//                   today; due yesterday AND you marked it as mattering
+//                   (high priority, nag allowed, a reminder, an escalation)
+//   slipped         everything else that is past its date. Not "late", not red:
+//                   one quiet row that opens a deliberate review
+//   waiting         on someone else. Never "needs you". After a week of waiting
+//                   (waiting_at) it joins the review as a possible check-in
+//   important,      high impact with no date: not on Today's main path. Impact
+//   not now         is a 1–3 number, often AI-inferred; it is a tie-break, never
+//                   a reason on its own
+//
+// Worth doing next needs a reason about TIME, not importance: picked for today,
+// or due in the next few days. With no such evidence it's omitted. In the
+// evening it's omitted too: tomorrow's obligations are listed under Tomorrow.
+//
+// The screen's ORDER follows the time of day (`order`). Evening starts by 20:00,
+// earlier if an evening checklist or quiet hours start sooner. Nothing urgent
+// is ever hidden by the clock; the order just puts tonight and tomorrow ahead
+// of the day's leftovers.
 //
 // Durations come only from a task's own size (the same XS–XL → minutes table
 // the calendar push uses). Free time comes only from real calendar events. No
@@ -29,7 +48,11 @@ import { reconcileCandidates } from './creditYesterday.js'
 // Same table as SIZE_TO_MINUTES in src/api.js (the GCal push).
 export const SIZE_MINUTES = { XS: 15, S: 30, M: 60, L: 120, XL: 240 }
 
-export const ATTENTION_LIMIT = 5
+export const ATTENTION_LIMIT = 3
+export const WAITING_CHECKIN_DAYS = 7  // waiting this long → offered as a check-in in the review
+export const NEXT_DUE_WINDOW_DAYS = 3  // "due soon" for Worth doing next
+export const EVENING_FALLBACK = '20:00'
+export const MORNING_ENDS = '11:00'
 export const COMING_LIMIT = 6
 export const NOT_NOW_MAX = 2          // dismissals per day before the section rests
 export const ROUTINE_WINDOW_HOURS = 6 // a checklist's window when no later checklist starts sooner
@@ -39,7 +62,7 @@ export const LEAVING_SOON_MIN = 20    // a commitment this close quiets checklis
 const ACTIVE = ['not_started', 'doing', 'waiting', 'in_progress']
 const PICKABLE = ['not_started', 'doing', 'in_progress']
 
-const ATTENTION_ORDER = { critical: 0, overdue: 1, due: 2, reminder: 3, back: 4 }
+const ATTENTION_ORDER = { critical: 0, reminder: 1, due: 2, committed: 3, recent: 4, back: 5 }
 
 // ── small date helpers (local time) ────────────────────────────────────────
 const ms = (v) => (v == null ? NaN : new Date(v).getTime())
@@ -74,6 +97,28 @@ export function inQuietHours(settings = {}, now = new Date()) {
   return s < e ? cur >= s && cur < e : cur >= s || cur < e
 }
 
+// When does the evening start? By 20:00 at the latest. An evening checklist
+// (trigger at/after 17:00) or quiet hours that start earlier bring it forward.
+// Quiet hours never push it later: they mean "don't notify me", and winding
+// down starts before that.
+export function eveningStart(routines = [], settings = {}) {
+  const candidates = [clockMinutes(EVENING_FALLBACK)]
+  for (const r of routines) {
+    if (!Array.isArray(r?.members) || r.members.length === 0 || r.paused) continue
+    const m = clockMinutes(r.trigger_time)
+    if (m != null && m >= 17 * 60) candidates.push(m)
+  }
+  const q = settings.quiet_hours_enabled ? clockMinutes(settings.quiet_hours_start) : null
+  if (q != null && q >= 17 * 60) candidates.push(q)
+  return Math.min(...candidates)
+}
+
+export function dayPhase(routines, settings, now = new Date()) {
+  const cur = now.getHours() * 60 + now.getMinutes()
+  if (cur < 4 * 60 || cur >= eveningStart(routines, settings)) return 'evening'
+  return cur < clockMinutes(MORNING_ENDS) ? 'morning' : 'day'
+}
+
 // ── calendar ───────────────────────────────────────────────────────────────
 // Raw events are what GET /api/gcal/events returns. A task that was imported
 // from an event (gcal_event_id) already shows as a task, so its event is dropped
@@ -104,7 +149,9 @@ export function normalizeEvents(raw, tasks = []) {
 }
 
 // ── recommendation reasons ─────────────────────────────────────────────────
-// Built from the same factors impactRank scores, so the line says why it ranked.
+// Every reason is about TIME (picked for today, due soon). "High impact" is
+// never a reason on its own: impact is often AI-inferred and says nothing about
+// whether now is the moment.
 const WEEKDAY = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
 function dueLabel(key, todayKey) {
   const diff = daysBetween(todayKey, key)
@@ -116,20 +163,17 @@ function dueLabel(key, todayKey) {
 export function explainPick(task, ctx = {}, todayKey) {
   const reasons = []
   const due = dueKey(task)
-  if (due && due > todayKey && daysBetween(todayKey, due) <= 7) reasons.push(dueLabel(due, todayKey))
-  if (task.impact === 3) reasons.push('high impact')
-  if (task.high_priority) reasons.push('marked high priority')
-  if (ctx.weatherWindowActive && ctx.isOutdoor && ctx.isOutdoor(task)) reasons.push('good weather before it turns')
+  if (task.committed_on === todayKey) reasons.push('you picked it for today')
+  if (due && due > todayKey && daysBetween(todayKey, due) <= NEXT_DUE_WINDOW_DAYS) reasons.push(dueLabel(due, todayKey))
+  if (reasons.length && task.high_priority) reasons.push('marked high priority')
+  if (reasons.length && ctx.weatherWindowActive && ctx.isOutdoor && ctx.isOutdoor(task)) reasons.push('good weather before it turns')
   return reasons
 }
 
-function clearsBar(task, todayKey) {
-  const due = dueKey(task)
-  const soon = due && due > todayKey && daysBetween(todayKey, due) <= 7
-  return !!(soon || task.impact === 3 || task.high_priority)
-}
+const reasonKey = (task) => [dueKey(task) || '', task.committed_on || '', task.high_priority ? 1 : 0].join('|')
 
-const reasonKey = (task) => [dueKey(task) || '', task.impact ?? '', task.high_priority ? 1 : 0].join('|')
+// Did the user say this one matters (beyond giving it a date)?
+const markedAsMattering = (t) => !!(t.high_priority || t.nag_allowed || t.remind_at || (t.escalation_current_rung > 0))
 
 // ── the model ──────────────────────────────────────────────────────────────
 /**
@@ -151,8 +195,11 @@ export function buildTodayModel({
   const nowMs = now.getTime()
   const todayKey = localYMD(now)
   const tomorrowKey = addDaysYmd(todayKey, 1)
+  const yesterdayKey = addDaysYmd(todayKey, -1)
   const ctx = { ...rankCtx, todayYmd: todayKey, nowMs }
   const rank = (t) => impactRank(t, ctx)
+  const phase = dayPhase(routines, settings, now)
+  const evening = phase === 'evening'
 
   const routineById = new Map(routines.map(r => [r.id, r]))
   const isStack = (r) => Array.isArray(r?.members) && r.members.length > 0
@@ -162,19 +209,49 @@ export function buildTodayModel({
   const evs = Array.isArray(events) ? events : []
   const nextCommitment = evs.find(e => e.busy && e.day === todayKey && e.startMs > nowMs) || null
   const quiet = inQuietHours(settings, now)
+  const startOfToday = atClock(todayKey, '00:00')
 
-  // ── Needs attention ─────────────────────────────────────────────────────
+  // Last night (creditYesterday.js) is bookkeeping about yesterday. It belongs
+  // to the first part of the day; by the evening it is two days stale. While
+  // it shows, the tasks it asks about appear nowhere else.
+  // Waiting tasks are left out: asking "did you do it yesterday?" about
+  // something that's on someone else is asking you to act on it.
+  const lastNight = lastNightHidden || evening ? [] : reconcileCandidates(tasks, now).filter(r => r.task.status !== 'waiting')
+  const lastNightIds = new Set(lastNight.map(r => r.task.id))
+
+  // ── Classify every open, non-routine task once ──────────────────────────
   const attentionAll = []
+  const slipped = []
+  const waitingLong = []
   for (const t of tasks) {
-    if (!live(t) || isRoutineTask(t) || snoozedAt(t, nowMs)) continue
+    if (!live(t) || isRoutineTask(t) || snoozedAt(t, nowMs) || lastNightIds.has(t.id)) continue
     const due = dueKey(t)
+    const remindMs = t.remind_at ? ms(t.remind_at) : null
+
+    // Waiting on someone else: never "needs you". A long wait is a check-in.
+    if (t.status === 'waiting') {
+      // waiting_at is stamped when the status changes; older rows only have last_touched.
+      const since = Number.isFinite(ms(t.waiting_at)) ? ms(t.waiting_at) : ms(t.last_touched)
+      const days = Number.isFinite(since) ? Math.floor((nowMs - since) / 86400000) : null
+      if (days != null && days >= WAITING_CHECKIN_DAYS) waitingLong.push({ task: t, days })
+      continue
+    }
+
     let reason = null
     if (isCrisis(t)) reason = { key: 'critical' }
-    else if (due && due < todayKey) reason = { key: 'overdue', days: daysBetween(due, todayKey) }
+    else if (remindMs != null && remindMs <= nowMs && remindMs >= startOfToday) reason = { key: 'reminder', at: remindMs }
     else if (due === todayKey) reason = { key: 'due' }
-    else if (t.remind_at && ms(t.remind_at) <= nowMs) reason = { key: 'reminder', at: ms(t.remind_at) }
+    else if (t.committed_on === todayKey && !due) reason = { key: 'committed' }
+    else if (due === yesterdayKey && markedAsMattering(t)) reason = { key: 'recent' }
     else if (t.snoozed_until && ymdOf(t.snoozed_until) === todayKey) reason = { key: 'back' }
-    if (reason) attentionAll.push({ task: t, reason, rank: rank(t) })
+    if (reason) { attentionAll.push({ task: t, reason, rank: rank(t) }); continue }
+
+    // Past its date (or an old reminder that went unanswered) without an
+    // explicit signal: it slipped. That is a decision to make deliberately,
+    // not an alarm.
+    if ((due && due < todayKey) || (!due && remindMs != null && remindMs < startOfToday)) {
+      slipped.push({ task: t, since: due || ymdOf(remindMs), days: daysBetween(due || ymdOf(remindMs), todayKey) })
+    }
   }
   attentionAll.sort((a, b) => (ATTENTION_ORDER[a.reason.key] - ATTENTION_ORDER[b.reason.key]) || (b.rank - a.rank))
   const attentionIds = new Set(attentionAll.map(a => a.task.id))
@@ -182,11 +259,11 @@ export function buildTodayModel({
     items: attentionAll.slice(0, ATTENTION_LIMIT),
     overflow: Math.max(0, attentionAll.length - ATTENTION_LIMIT),
   }
-
-  // Last night (creditYesterday.js) asks about yesterday's leftovers directly,
-  // so while it is showing, those tasks are not listed again below.
-  const lastNight = lastNightHidden ? [] : reconcileCandidates(tasks, now)
-  const lastNightIds = new Set(lastNight.map(r => r.task.id))
+  // Oldest first: the review is where long-forgotten things get a decision.
+  slipped.sort((a, b) => a.since.localeCompare(b.since) || String(a.task.id).localeCompare(String(b.task.id)))
+  waitingLong.sort((a, b) => b.days - a.days)
+  const needsReview = { slipped, waiting: waitingLong, count: slipped.length + waitingLong.length }
+  const reviewIds = new Set([...slipped, ...waitingLong].map(x => x.task.id))
 
   // ── Routines ────────────────────────────────────────────────────────────
   const awayToday = (settings.away_days || []).includes(todayKey)
@@ -222,7 +299,7 @@ export function buildTodayModel({
     for (const c of [...byCycle.values()].filter(c => c.open.length > 0).sort((a, b) => a.due.localeCompare(b.due))) {
       let tier = 'full'
       let note = null
-      if (c.due < todayKey) { tier = 'line'; note = c.due === addDaysYmd(todayKey, -1) ? 'from yesterday' : 'from earlier' }
+      if (c.due < todayKey) { tier = 'line'; note = c.due === yesterdayKey ? 'from yesterday' : 'from earlier' }
       else if (nowMs > windowEnd) { tier = 'line'; note = start < atClock(todayKey, '12:00') ? 'from this morning' : 'from earlier' }
       else if (leavingSoon) { tier = 'line'; note = `before ${nextCommitment.title}` }
       else if (!caughtRecently) { tier = 'line'; note = null }
@@ -239,19 +316,31 @@ export function buildTodayModel({
     .sort((a, b) => b.overdueDays - a.overdueDays || rank(b.task) - rank(a.task))
 
   // ── Worth doing next ────────────────────────────────────────────────────
+  // Only with a reason about time, and only if it fits what's known about the
+  // time available. Never in the evening.
   let next = null
   let nextAbsent = null
   const dismissed = notNow && notNow.date === todayKey ? (notNow.entries || {}) : {}
-  if (quiet) nextAbsent = 'quiet'
+  // The evening shows tonight and tomorrow; it doesn't push a task at you.
+  if (evening) nextAbsent = 'evening'
+  else if (quiet) nextAbsent = 'quiet'
   else if (Object.keys(dismissed).length >= NOT_NOW_MAX) nextAbsent = 'dismissed'
   else {
     const freeMin = nextCommitment ? Math.floor((nextCommitment.startMs - nowMs) / 60000) : null
+    const daysOut = (t) => (dueKey(t) ? daysBetween(todayKey, dueKey(t)) : null)
     const pool = tasks
       .filter(t => !t.parent_id && !t.gmail_pending && PICKABLE.includes(t.status) && !snoozedAt(t, nowMs)
-        && !t.routine_id && !attentionIds.has(t.id) && !isCrisis(t) && clearsBar(t, todayKey)
-        && dismissed[t.id] !== reasonKey(t))
-      .map(t => ({ t, r: rank(t) }))
-      .sort((a, b) => b.r - a.r || String(dueKey(a.t) || '9999').localeCompare(String(dueKey(b.t) || '9999')) || String(a.t.id).localeCompare(String(b.t.id)))
+        && !t.routine_id && !attentionIds.has(t.id) && !reviewIds.has(t.id) && !lastNightIds.has(t.id)
+        && !isCrisis(t) && dismissed[t.id] !== reasonKey(t))
+      .filter(t => {
+        const d = daysOut(t)
+        const soon = d != null && d >= 1 && d <= NEXT_DUE_WINDOW_DAYS
+        const picked = t.committed_on === todayKey
+        return soon || picked
+      })
+      // Sooner first; picked-for-today next; impact only breaks ties.
+      .map(t => ({ t, d: t.committed_on === todayKey ? 0 : daysOut(t), r: rank(t) }))
+      .sort((a, b) => a.d - b.d || b.r - a.r || String(a.t.id).localeCompare(String(b.t.id)))
     for (const { t } of pool) {
       const minutes = SIZE_MINUTES[t.size] ?? null
       if (freeMin != null && minutes != null && minutes > freeMin) continue
@@ -267,7 +356,7 @@ export function buildTodayModel({
     if (!next) nextAbsent = 'none'
   }
 
-  // ── Coming up / Tomorrow ────────────────────────────────────────────────
+  // ── Later today / Tonight, and Tomorrow ─────────────────────────────────
   const shownIds = new Set([...attentionIds, ...loopTasks.map(l => l.task.id)])
   const ahead = []
   for (const e of evs) {
@@ -295,30 +384,25 @@ export function buildTodayModel({
   ahead.push(...stackLater.values())
   ahead.sort((a, b) => a.at - b.at)
 
-  let coming
-  if (ahead.length > 0 && !quiet) {
-    coming = { label: 'Coming up', day: todayKey, items: ahead.slice(0, COMING_LIMIT) }
-  } else {
-    const tmr = []
-    for (const e of evs) {
-      if (e.day !== tomorrowKey || e.allDay) continue
-      tmr.push({ kind: 'event', at: e.startMs, event: e })
-    }
-    for (const t of tasks) {
-      if (!live(t) || attentionIds.has(t.id) || t.id === next?.task.id) continue
-      if (t.remind_at && ymdOf(t.remind_at) === tomorrowKey) tmr.push({ kind: 'reminder', at: ms(t.remind_at), task: t })
-      else if (dueKey(t) === tomorrowKey && !(t.routine_id && isStack(routineById.get(t.routine_id)))) {
-        tmr.push({ kind: 'due', at: atClock(tomorrowKey, '23:59'), task: t })
-      }
-    }
-    tmr.sort((a, b) => a.at - b.at)
-    // Quiet hours with things still ahead tonight: keep tonight, it's what's next.
-    coming = ahead.length > 0
-      ? { label: 'Coming up', day: todayKey, items: ahead.slice(0, COMING_LIMIT) }
-      : { label: 'Tomorrow', day: tomorrowKey, items: tmr.slice(0, COMING_LIMIT) }
+  const tmr = []
+  for (const e of evs) {
+    if (e.day !== tomorrowKey || e.allDay) continue
+    tmr.push({ kind: 'event', at: e.startMs, event: e })
   }
+  for (const t of tasks) {
+    if (!live(t) || attentionIds.has(t.id) || t.id === next?.task.id) continue
+    if (t.remind_at && ymdOf(t.remind_at) === tomorrowKey) tmr.push({ kind: 'reminder', at: ms(t.remind_at), task: t })
+    else if (dueKey(t) === tomorrowKey && !(t.routine_id && isStack(routineById.get(t.routine_id)))) {
+      tmr.push({ kind: 'due', at: atClock(tomorrowKey, '23:59'), task: t })
+    }
+  }
+  tmr.sort((a, b) => a.at - b.at)
 
-  // ── Review, Last night, the quiet extras ────────────────────────────────
+  const later = { label: evening ? 'Tonight' : 'Coming up', day: todayKey, items: ahead.slice(0, COMING_LIMIT) }
+  // Tomorrow always shows in the evening; in the day only once nothing is ahead.
+  const tomorrow = { label: 'Tomorrow', day: tomorrowKey, items: (evening || ahead.length === 0) ? tmr.slice(0, COMING_LIMIT) : [] }
+
+  // ── Review, the quiet extras ────────────────────────────────────────────
   const pending = tasks.filter(t => t.gmail_pending)
   const review = {
     count: pending.length,
@@ -326,8 +410,8 @@ export function buildTodayModel({
       : pending.length && pending.every(t => t.notion_page_id) ? 'Notion' : null,
     items: pending,
   }
-  const anytime = tasks.filter(t => live(t) && !t.due_date && !t.remind_at && !t.routine_id
-    && !snoozedAt(t, nowMs) && !attentionIds.has(t.id) && t.id !== next?.task.id)
+  const anytime = tasks.filter(t => live(t) && t.status !== 'waiting' && !t.due_date && !t.remind_at && !t.routine_id
+    && !snoozedAt(t, nowMs) && !attentionIds.has(t.id) && !reviewIds.has(t.id) && t.id !== next?.task.id)
     .sort((a, b) => rank(b) - rank(a))
 
   const pinnedArcs = tasks.filter(t => t.status === 'project' && t.pinned_to_today).map(p => ({
@@ -336,13 +420,20 @@ export function buildTodayModel({
       && ACTIVE.includes(t.status) && !snoozedAt(t, nowMs)),
   }))
 
-  const allClear = attention.items.length === 0 && checklists.length === 0 && loopTasks.length === 0
-    && !next && review.count === 0 && lastNight.length === 0
+  const fullChecklists = checklists.some(c => c.tier === 'full')
+  // "Nothing needs you" is about the main path. Slipped items, suggestions and
+  // Last night are bookkeeping rows and don't make the day feel unfinished.
+  const allClear = attention.items.length === 0 && !fullChecklists && loopTasks.length === 0 && !next
+
+  // The order of the screen. Main path first; bookkeeping rows ('quiet') last.
+  const order = evening
+    ? ['attention', 'checklists', 'later', 'tomorrow', 'loops', 'next', 'arcs', 'quiet']
+    : ['attention', 'next', 'later', 'checklists', 'loops', 'tomorrow', 'arcs', 'quiet']
 
   return {
-    todayKey, tomorrowKey, nowMs, quiet,
-    attention, checklists, loopTasks, next, nextAbsent, nextCommitment,
-    coming, review, lastNight, anytime, pinnedArcs, allClear,
+    todayKey, tomorrowKey, nowMs, quiet, phase, order,
+    attention, needsReview, checklists, loopTasks, next, nextAbsent, nextCommitment,
+    later, tomorrow, review, lastNight, anytime, pinnedArcs, allClear,
   }
 }
 
