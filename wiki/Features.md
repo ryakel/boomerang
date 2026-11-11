@@ -25,6 +25,18 @@ The Terminal theme (GitHub-style monospace, `> command` modal titles, ASCII flou
 
 **7-day strip (Standard theme):** Shows activity intensity per day (soft dots) with today's exact `count/goal` inline above the task list. Opt-in via Settings → General → Home screen; `week_strip_always_open` keeps it permanently visible. Kept has its own equivalent visualizations (Day Arc, Flight Trail) built into its Today view rather than this strip.
 
+## Today (Kept 2.0)
+
+The Kept Today screen was redesigned around one question: what needs you, and why. Each section appears only when it has something to say, and "Nothing needs you right now" is a real answer.
+
+- **Needs attention**: critical, overdue, due today, reminder passed, or back from snooze today, each with its reason ("Overdue 3 days"). Up to five, then "N more in Tasks".
+- **Last night**, **checklists** and **loops** due today. A checklist is shown in full, as one line, or not at all, depending on its time window and whether you've actually been using it. One line is only a display level; nothing is marked or skipped.
+- **Worth doing next**: one pick, with the reasons it was picked. A time estimate appears only when the task has a size, and "fits before" only when a busy calendar event was checked. **Open task** opens it and changes nothing. **Not now** sets it aside for the rest of the day on that device (twice a day at most) and leaves the task alone.
+- **Coming up**: calendar events, reminders and checklists still ahead today, or **Tomorrow** once the day is done.
+- **Review row**: Gmail/Notion suggestions wait behind a single row with Keep/Dismiss. They never show up as commitments.
+
+Points, the Day Arc, rally, catches and loop trails left Today, but not the app: Analytics still has them. **Settings → General → Home screen → Classic Today screen** brings back the previous Today. Design notes and open questions: `wiki/Today-Kept2.md`.
+
 ## Settings
 
 Reached from More → Settings. It opens on an **index of six categories, each showing what it's set to** — `General · Kept · Dark`, `Tasks · Due +7d · Stale 7d`, `Integrations · Notion · Trello · GCal`, `Notifications · Push · Pushover`. Tap one to go to its page; anything long enough to deserve it has its own sub-page underneath (Impact dates, Custom instructions, Devices, Server logs, the notification groups, and one page per integration).
