@@ -260,4 +260,3 @@ button.t2-clock { cursor: pointer; }
   cursor: pointer;
 }
 .t2-nudge { margin: 10px var(--t2-gutter) 0; font-size: 13.5px; line-height: 1.45; color: var(--t2-meta); }
-.t2-quiet > .t2-anytime { margin-top: 12px; }

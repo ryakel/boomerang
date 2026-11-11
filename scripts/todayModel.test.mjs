@@ -161,6 +161,78 @@ test('a day with nothing due is all clear, even with old things to review', () =
   assert.equal(m.needsReview.count, 2)
 })
 
+// 2026-11-11, the second dev test at 10:04 PM: the only thing on screen was a
+// ten-days-overdue dentist call whose snooze happened to end that minute,
+// "Back today". No routine, nothing coming up, a backlog count. Quiet, but it
+// answered none of: anything tonight? anything for tomorrow? what's next on my
+// calendar? a routine I haven't finished?
+function seedLikeNight() {
+  n = 0
+  const takeMeds = { id: 'r-meds', title: 'take meds', cadence: 'daily' }
+  const dentist = task({ title: 'call dentist about that weird bill', due_date: daysAgo(10), snooze_count: 7,
+    snoozed_until: iso(22, 4) })
+  const meds = task({ title: 'take meds', routine_id: takeMeds.id, status: 'doing' })   // open, undated
+  const trial = task({ title: 'cancel free trial before it charges me', due_date: '2026-11-14', high_priority: true, size: 'XS' })
+  const dinner = task({ title: 'waiting for Mike to confirm dinner plans', status: 'waiting', due_date: '2026-11-15', waiting_at: iso(9, 0, 9) })
+  const jake = task({ title: 'buy birthday present for Jake', due_date: '2026-11-17' })
+  const undated = Array.from({ length: 6 }, () => task())
+  return { takeMeds, dentist, meds, trial, dinner, jake, tasks: [dentist, meds, trial, dinner, jake, ...undated] }
+}
+
+test('10:04 PM: a snooze ending is not a reason to need you; an old task that resurfaces is reviewed, not pushed', () => {
+  const w = seedLikeNight()
+  const m = model({ tasks: w.tasks, routines: [w.takeMeds], now: at(22, 4) })
+  assert.deepEqual(appearances(m, w.dentist.id), ['review'])
+  assert.equal(m.attention.items.length, 0)
+})
+
+test('9:39 PM: an overdue task about to come back from snooze is not listed as coming up tonight', () => {
+  const w = seedLikeNight()
+  const m = model({ tasks: w.tasks, routines: [w.takeMeds], now: at(21, 39) })
+  assert.deepEqual(appearances(m, w.dentist.id), [])
+  const notOverdue = task({ title: 'call back the landlord', snoozed_until: iso(22, 30) })
+  assert.deepEqual(appearances(model({ tasks: [notOverdue], now: at(21, 39) }), notOverdue.id), ['later'])
+})
+
+test('10:04 PM: an unfinished routine is on screen, ahead of what comes later', () => {
+  const w = seedLikeNight()
+  const m = model({ tasks: w.tasks, routines: [w.takeMeds], now: at(22, 4) })
+  assert.deepEqual(ids(m.loopTasks), [w.meds.id])
+  assert.ok(m.order.indexOf('loops') < m.order.indexOf('later'))
+})
+
+test('10:04 PM: with nothing tomorrow, the next few dated things show, from real dates only', () => {
+  const w = seedLikeNight()
+  const m = model({ tasks: w.tasks, routines: [w.takeMeds], now: at(22, 4) })
+  assert.equal(m.tomorrow.items.length, 0)
+  assert.equal(m.upcoming.label, 'Later this week')
+  assert.deepEqual(ids(m.upcoming.items), [w.trial.id, w.dinner.id, w.jake.id])
+  assert.equal(m.upcoming.items[1].waiting, true, 'a waiting item is shown as waiting, not as yours to do')
+  // Undated tasks are never pulled in to fill it.
+  assert.ok(m.upcoming.items.every(i => i.task?.due_date || i.event))
+})
+
+test('nothing in the next week and nothing open: an intentional all clear, with no backlog count', () => {
+  n = 0
+  const m = model({ tasks: [task(), task({ impact: 3 })], now: at(22, 4) })
+  assert.equal(m.allClear, true)
+  assert.equal(m.upcoming.items.length, 0)
+  assert.equal('anytime' in m, false, 'Anytime is not a Today section')
+})
+
+test('tomorrow includes all-day events; later this week waits while tomorrow has something', () => {
+  n = 0
+  const events = normalizeEvents([
+    { id: 'a1', title: "Jake's birthday", start: { date: TOMORROW }, end: { date: '2026-11-12' } },
+    { id: 'a2', title: 'Flight lesson', start: { dateTime: iso(9, 0, 13) }, end: { dateTime: iso(11, 0, 13) } },
+  ])
+  const m = model({ tasks: [], events, now: at(21, 0) })
+  assert.deepEqual(m.tomorrow.items.map(i => [i.kind, i.event.title, i.allDay]), [['event', "Jake's birthday", true]])
+  assert.equal(m.upcoming.items.length, 0)
+  const later = model({ tasks: [], events: events.slice(1), now: at(21, 0) })
+  assert.deepEqual(later.upcoming.items.map(i => i.event.title), ['Flight lesson'])
+})
+
 // ── Time of day ──────────────────────────────────────────────────────────
 test('evening starts by 8 PM; an earlier evening checklist or quiet hours bring it forward, never later', () => {
   // 2026-11-10: the dev seed's quiet hours start at 22:00, and treating that as
@@ -181,7 +253,7 @@ test('attention: only explicit signals qualify', () => {
   const due = task({ due_date: TODAY })
   const picked = task({ committed_on: TODAY })
   const rem = task({ remind_at: iso(6, 0) })
-  const back = task({ snoozed_until: iso(6, 30) })
+  const back = task({ snoozed_until: iso(6, 30) })               // a snooze ending is not a reason
   const recentMarked = task({ due_date: YESTERDAY, nag_allowed: true })
   const recentPlain = task({ due_date: YESTERDAY })            // slipped, not attention
   const old = task({ due_date: daysAgo(3), high_priority: true }) // slipped: past "recent"
@@ -190,7 +262,8 @@ test('attention: only explicit signals qualify', () => {
   const later = task({ remind_at: iso(16, 0) })
   // Last night hidden, so yesterday's items are judged here rather than asked about there.
   const m = model({ tasks: [due, picked, rem, back, recentMarked, recentPlain, old, oldReminder, future, later], now: at(6, 50), lastNightHidden: true })
-  assert.equal(m.attention.items.length + m.attention.overflow, 5)
+  assert.equal(m.attention.items.length + m.attention.overflow, 4)
+  assert.ok(!m.attention.items.some(a => a.task.id === back.id))
   assert.equal(m.attention.items.length, ATTENTION_LIMIT)
   assert.deepEqual(ids(m.needsReview.slipped).sort(), [recentPlain.id, old.id, oldReminder.id].sort())
   for (const t of [future, later]) assert.deepEqual(appearances(m, t.id).filter(w => w === 'attention'), [])
@@ -232,7 +305,6 @@ test('pending Gmail suggestions appear only in the review count', () => {
   assert.equal(m.later.items.length, 0)
   assert.equal(m.tomorrow.items.length, 0)
   assert.equal(m.needsReview.count, 0)
-  assert.equal(m.anytime.length, 0)
   assert.equal(m.review.count, 3)
   assert.equal(m.review.source, 'Gmail')
 })
