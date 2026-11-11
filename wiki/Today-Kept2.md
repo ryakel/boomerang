@@ -1,12 +1,12 @@
 # Today, Kept 2.0
 
-> **Status (2026-11-11): first usable version built, waiting on the user.**
-> Ticket BOOM-32. Built on `claude/today-kept2`; re-landed from a patch on
-> `claude/determined-sagan-9hyzlh` (cut from `dev`) after the original branch
-> was never pushed. The user is living with it before any further aesthetic or
-> behavioural change. Do not refine, restyle or extend it until he reports what
-> needs to change. When he does: change `src/todayModel.js` first with a test,
-> then the UI.
+> **Status (2026-11-11): selection model corrected after the first dev test.**
+> Ticket BOOM-32. The first build (§3, as shipped to dev on 2026-11-10) put the
+> old task-manager behaviour under new names: at 9:39 PM it opened on seven
+> overdue chores, then a Last night queue, then a "high impact" recommendation
+> built on inferred data. §0 is the correction and outranks anything below it
+> that disagrees. Further changes: change `src/todayModel.js` first, with a
+> scenario test, then the UI.
 
 This page is the handoff for the redesign: why it exists, what was decided,
 what was built, how it was verified, what is still open. Design artifacts
@@ -15,6 +15,80 @@ and the doc "Today, Kept 2.0: section spec and reuse map". The doc's plan and
 type sections lag the code; this page and the code win.
 
 ---
+
+## 0. Correction (2026-11-11)
+
+### What was wrong
+
+| Product priority | What the first build did |
+|---|---|
+| Don't let me forget, *at the right time* | Treated every overdue task as "needs attention": five red rows plus "2 more" filled the first screen. |
+| Tell me what to do next | Ranked by `impactRank`, which defaults every task to impact 2 and adds weight for being overdue. It recommended "that thing mom asked me to do" (no date, no size, no impact in the data) as "high impact, about 1 hr". Both figures were inferred. |
+| Fit tasks into calendar time | Coming up and the calendar sat below the fold. |
+| Calm | Red "Overdue N days" on every row; the same Amazon return in Needs attention *and* Last night; Last night's bookkeeping in the main path. |
+| Time of day | Ignored, by design (the old locked decision 7). 9:39 PM looked like 8 AM. |
+
+### The model now
+
+A due date is evidence of relevance, not proof something needs you now. The
+data can't tell a hard deadline from a hopeful one, or whether a task is
+actionable right now (no location, opening hours or consequence fields). So
+this is a **conservative first pass**: only explicit signals count.
+
+| Class | Rule (all in `src/todayModel.js`) | Where it shows |
+|---|---|---|
+| Needs you now | critical; due today; `committed_on` today; a reminder that went off **today**; back from snooze today; due **yesterday** *and* marked as mattering (`high_priority`, `nag_allowed`, a reminder, an active escalation) | Needs attention, max 3 + honest overflow. Only critical is red. |
+| Slipped | anything else past its date, or an old reminder that went unanswered | One quiet row ("5 slipped past their dates") → a "To look over" sheet, oldest first, neutral copy |
+| Waiting on someone | `status: waiting`. Never "needs you". After 7 days (`waiting_at`, falling back to `last_touched`) | The same sheet, as "waiting 9 days · maybe check in" |
+| Important, not now | high impact or high priority with no date | Not on the main path. Impact only breaks ties. |
+
+**Worth doing next** needs a reason about *time*: picked for today, or due in
+the next 3 days. Sooner beats more important; impact only breaks ties; "high
+impact" is never shown as a reason. Overdue, waiting, loop and attention tasks
+are not candidates. **Never in the evening.** No evidence → no card.
+
+**Time of day changes the order, never hides urgency.** Evening starts by 20:00,
+earlier if an evening checklist (trigger ≥ 17:00) or quiet hours start sooner.
+Quiet hours never push it later (the dev seed's 22:00 quiet hours made 9:39 PM
+look like daytime; that's a test now).
+
+| Phase | Order |
+|---|---|
+| Morning / day | Needs attention → Worth doing next → Coming up → checklists → loops → Tomorrow (only once nothing is ahead today) → arcs → quiet rows |
+| Evening | Needs attention → checklists → **Tonight** → **Tomorrow** (always) → loops → arcs → quiet rows |
+
+**One obligation, one place.** Last night's tasks are excluded from Needs
+attention, the review, Worth doing next, checklists and loops. Last night is a
+single compact row ("Last night · 2 to sort", expands in place), only before
+the evening, and never asks about a waiting task.
+
+**All clear** is about the main path only: slipped items, suggestions and Last
+night don't make the day feel unfinished. The large all-clear block appears
+only when nothing else is on the main path; otherwise it's the subtitle
+("Winding down. Nothing needs you tonight.").
+
+### Supported by data vs. new behaviour
+
+- **Existing data:** `due_date`, `committed_on`, `remind_at`, `snoozed_until`,
+  `high_priority`, `nag_allowed`, `escalation_current_rung`, `status`,
+  `waiting_at`/`last_touched`, `size`, routine triggers, quiet hours, calendar
+  events with busy/free. Everything in the model above uses only these.
+- **Not knowable today:** whether a date is a real deadline; whether a task is
+  actionable now (place, hours, people); whether impact was set by the user or
+  inferred (`impact_inferred` exists but isn't reliable on older rows).
+- **Would need new behaviour (not built):** a "hard deadline" marker on a task;
+  a follow-up date for waiting tasks; one-tap decisions in the "To look over"
+  sheet (new date / let it go) instead of opening each task; a nightly "for
+  tomorrow" pick. Each is a product decision, so none were assumed.
+
+### What the tests do and don't prove
+
+`scripts/todayModel.test.mjs` opens with scenarios taken from the complaints
+(the 9:39 PM screen, the 8:24 AM screen before a commitment, a waiting task, a
+duplicate). They pin outcomes: what's first, what's absent, that nothing shows
+twice. They do **not** prove the screen is intelligent; they prove it no longer
+does the specific unhelpful things it was caught doing. Living with it is the
+real test.
 
 ## 1. Why
 
@@ -65,9 +139,10 @@ evolution of Kept, not a new design system. Priorities in order:
 5. **Navigation, header and Throw stay exactly production.**
 6. **Analytics survives.** Points and streaks leave Today, not the app. No
    streak-preservation pressure via Today notifications, warnings or copy.
-7. **Morning/daytime/evening are examples, not layouts.** The screen is driven
-   by data and relevance. An urgent task stays above a bedtime checklist.
-   Nothing is manufactured to fill a section. Empty sections disappear.
+7. ~~**Morning/daytime/evening are examples, not layouts.**~~ *Superseded
+   2026-11-11 (§0):* time of day sets the ORDER of the screen. An urgent task
+   still stays above a bedtime checklist, nothing is manufactured to fill a
+   section, and empty sections disappear.
 8. **All clear is a legitimate outcome:** "Nothing needs you right now."
 9. **The recommendation must not become another chore.**
 10. **Durations come only from a task's own size; free time only from real

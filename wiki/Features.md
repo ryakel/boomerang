@@ -27,15 +27,15 @@ The Terminal theme (GitHub-style monospace, `> command` modal titles, ASCII flou
 
 ## Today (Kept 2.0)
 
-The Kept Today screen was redesigned around one question: what needs you, and why. Each section appears only when it has something to say, and "Nothing needs you right now" is a real answer.
+The Kept Today screen answers three questions in one screen: what genuinely needs you, what's worth doing next, and what's coming up. Each section appears only when it has something to say.
 
-- **Needs attention**: critical, overdue, due today, reminder passed, or back from snooze today, each with its reason ("Overdue 3 days"). Up to five, then "N more in Tasks".
-- **Last night**, **checklists** and **loops** due today. A checklist is shown in full, as one line, or not at all, depending on its time window and whether you've actually been using it. One line is only a display level; nothing is marked or skipped.
-- **Worth doing next**: one pick, with the reasons it was picked. A time estimate appears only when the task has a size, and "fits before" only when a busy calendar event was checked. **Open task** opens it and changes nothing. **Not now** sets it aside for the rest of the day on that device (twice a day at most) and leaves the task alone.
-- **Coming up**: calendar events, reminders and checklists still ahead today, or **Tomorrow** once the day is done.
-- **Review row**: Gmail/Notion suggestions wait behind a single row with Keep/Dismiss. They never show up as commitments.
+- **Needs attention** is small on purpose: critical tasks, things due today or picked for today, a reminder that just went off, something back from snooze, or something due yesterday that you'd marked as mattering. Overdue alone doesn't qualify.
+- **Worth doing next**: one pick, only with a reason about time (picked for today, or due in the next few days) and only if it fits before your next busy calendar event. Importance alone isn't a reason. **Open task** opens it and changes nothing; **Not now** sets it aside for the day on that device. Never shown in the evening.
+- **Coming up** in the day; in the evening (by 8 PM, earlier with an evening checklist or early quiet hours) the screen reorders to **Tonight** and **Tomorrow**, with evening checklists near the top.
+- **To look over**: everything that slipped past its date, and anything you've been waiting on for a week, sits behind one quiet row. Not late, just undecided.
+- **Last night** and Gmail/Notion **suggestions** are single compact rows. No task ever shows in two places.
 
-Points, the Day Arc, rally, catches and loop trails left Today, but not the app: Analytics still has them. **Settings → General → Home screen → Classic Today screen** brings back the previous Today. Design notes and open questions: `wiki/Today-Kept2.md`.
+Points, the Day Arc, rally, catches and loop trails left Today, but not the app: Analytics still has them. **Settings → General → Home screen → Classic Today screen** brings back the previous Today. Design notes, the rules and what the data can't yet tell: `wiki/Today-Kept2.md`.
 
 ## Settings
 
