@@ -37,7 +37,7 @@ this is a **conservative first pass**: only explicit signals count.
 
 | Class | Rule (all in `src/todayModel.js`) | Where it shows |
 |---|---|---|
-| Needs you now | critical; due today; `committed_on` today; a reminder that went off **today**; back from snooze today; due **yesterday** *and* marked as mattering (`high_priority`, `nag_allowed`, a reminder, an active escalation) | Needs attention, max 3 + honest overflow. Only critical is red. |
+| Needs you now | critical; due today; `committed_on` today; a reminder that went off **today**; due **yesterday** *and* marked as mattering. *("Back from snooze today" was removed in the second pass.)* (`high_priority`, `nag_allowed`, a reminder, an active escalation) | Needs attention, max 3 + honest overflow. Only critical is red. |
 | Slipped | anything else past its date, or an old reminder that went unanswered | One quiet row ("5 slipped past their dates") → a "To look over" sheet, oldest first, neutral copy |
 | Waiting on someone | `status: waiting`. Never "needs you". After 7 days (`waiting_at`, falling back to `last_touched`) | The same sheet, as "waiting 9 days · maybe check in" |
 | Important, not now | high impact or high priority with no date | Not on the main path. Impact only breaks ties. |
@@ -54,8 +54,8 @@ look like daytime; that's a test now).
 
 | Phase | Order |
 |---|---|
-| Morning / day | Needs attention → Worth doing next → Coming up → checklists → loops → Tomorrow (only once nothing is ahead today) → arcs → quiet rows |
-| Evening | Needs attention → checklists → **Tonight** → **Tomorrow** (always) → loops → arcs → quiet rows |
+| Morning / day | Needs attention → Worth doing next → Coming up → checklists → loops → Tomorrow (only once nothing is ahead today) → Later this week (when nothing nearer) → arcs → quiet rows |
+| Evening | Needs attention → checklists → loops → **Tonight** → **Tomorrow** (always) → **Later this week** (when nothing nearer) → arcs → quiet rows |
 
 **One obligation, one place.** Last night's tasks are excluded from Needs
 attention, the review, Worth doing next, checklists and loops. Last night is a
@@ -80,6 +80,19 @@ only when nothing else is on the main path; otherwise it's the subtitle
   a follow-up date for waiting tasks; one-tap decisions in the "To look over"
   sheet (new date / let it go) instead of opening each task; a nightly "for
   tomorrow" pick. Each is a product decision, so none were assumed.
+
+### Second pass (2026-11-11, 10:04 PM): too little
+
+The first correction overcorrected. At 10:04 PM the only thing on screen was a
+ten-days-overdue dentist call whose snooze ended that minute ("Back today"), with
+no routine, nothing coming up and an "Anytime · 23" count. Traced on the dev seed:
+
+| Symptom | Cause | Fix |
+|---|---|---|
+| Dentist call in Needs attention | the "back from snooze today" rule. A snooze ending means a task resurfaced, not that it needs you | removed as a reason; the task is judged on its own evidence (it's slipped → the review). A slipped task coming back later tonight isn't listed in Tonight either |
+| No routine | seed data: no checklist routines, no triggers. And a filter: an open loop task with **no due date** ("take meds") was dropped | an open, undated loop instance is the current cycle; in the evening loops sit with the checklists |
+| Nothing coming up | seed: nothing tomorrow; Tomorrow looked one day ahead only. Calendar: only read when that server reports Google Calendar connected (dev has its own credentials); all-day events were ignored | **Later this week**: up to 3 dated things (tasks, reminders, events) within 7 days, only when nothing nearer is on screen, never undated tasks; waiting items marked as waiting. All-day events count for Tomorrow and later |
+| Anytime · 23 | a backlog count with no context | removed from Today (still in Tasks) |
 
 ### What the tests do and don't prove
 

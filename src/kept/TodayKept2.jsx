@@ -22,7 +22,6 @@ import './today2.css'
 
 const NOT_NOW_KEY = 'boom_today_notnow'
 const LASTNIGHT_KEY = 'boom_lastnight_hidden_on'   // shared with the classic screen
-const ANYTIME_OPEN_KEY = 'boom_today_anytime_open'
 const EVENTS_TTL_MS = 10 * 60 * 1000
 
 function readJSON(key) {
@@ -169,7 +168,6 @@ export default function TodayKept2({
   const [slippedOpen, setSlippedOpen] = useState(false)
   const [lastNightOpen, setLastNightOpen] = useState(false)
   const [expandedLines, setExpandedLines] = useState({})
-  const [anytimeOpen, setAnytimeOpen] = useState(() => readJSON(ANYTIME_OPEN_KEY) === true)
   const [nudgeOpen, setNudgeOpen] = useState(false)
   const [growth, setGrowth] = useState(null)
 
@@ -201,11 +199,6 @@ export default function TodayKept2({
     safeSetItem(LASTNIGHT_KEY, todayKey)
     setLastNightHiddenOn(todayKey)
   }
-  const toggleAnytime = () => {
-    const v = !anytimeOpen
-    safeSetItem(ANYTIME_OPEN_KEY, JSON.stringify(v))
-    setAnytimeOpen(v)
-  }
 
   const growthPick = growth ? (now.getHours() >= 17 && growth.evening?.text ? growth.evening : growth.morning?.text ? growth.morning : growth.evening) : null
   const lineKey = (c) => `${c.routine.id}|${c.due}`
@@ -232,8 +225,8 @@ export default function TodayKept2({
     if (it.kind === 'event') {
       const e = it.event
       title = e.title
-      const dur = e.endMs && e.startMs ? minutesLabel(Math.round((e.endMs - e.startMs) / 60000)) : null
-      meta = [it.ongoing ? 'now' : soon, e.location, dur].filter(Boolean).join(' · ') || 'Calendar'
+      const dur = !e.allDay && e.endMs && e.startMs ? minutesLabel(Math.round((e.endMs - e.startMs) / 60000)) : null
+      meta = [it.ongoing ? 'now' : soon, e.allDay ? 'all day' : null, e.location, dur].filter(Boolean).join(' · ') || 'Calendar'
       bar = 'var(--bm-f-billabong)'
     } else if (it.kind === 'checklist') {
       title = it.routine.title
@@ -243,13 +236,17 @@ export default function TodayKept2({
       onClick = () => onEditLoop?.(it.routine)
     } else {
       title = it.task.title
-      const kind = it.kind === 'reminder' ? 'Reminder' : it.kind === 'loop' ? 'loop' : it.kind === 'due' ? 'due' : 'back from snooze'
+      const kind = it.waiting ? 'waiting on someone'
+        : it.kind === 'reminder' ? 'Reminder' : it.kind === 'loop' ? 'loop' : it.kind === 'due' ? 'due' : 'back from snooze'
       meta = [soon, kind].filter(Boolean).join(' · ')
       bar = it.kind === 'reminder' ? 'var(--bm-gold)' : it.kind === 'loop' ? (feathers[it.routine?.id] || 'var(--bm-ember)') : 'var(--t2-hair2)'
       Icon = it.kind === 'reminder' ? Bell : it.kind === 'returns' ? Undo2 : it.kind === 'loop' ? Repeat2 : null
       onClick = () => onOpenTask?.(it.task)
     }
-    const when = it.kind === 'due' ? 'Due' : clock(it.at)
+    // Beyond tomorrow the day matters more than the clock.
+    const farDay = it.day && it.day !== m.todayKey && it.day !== m.tomorrowKey
+    const when = farDay ? new Date(it.at).toLocaleDateString('en-US', { weekday: 'short' })
+      : it.allDay ? 'All day' : it.kind === 'due' ? 'Due' : clock(it.at)
     const inner = (
       <>
         <span className="t2-clock-time">{when}</span>
@@ -268,7 +265,7 @@ export default function TodayKept2({
   // The large all-clear only when the main path is otherwise empty; with
   // Tonight or Tomorrow to show, "nothing needs you" is the subtitle instead.
   const bigClear = m.allClear && m.later.items.length === 0 && m.tomorrow.items.length === 0
-    && m.pinnedArcs.length === 0
+    && m.upcoming.items.length === 0 && m.pinnedArcs.length === 0
   const slippedCount = m.needsReview.slipped.length
   const waitingCount = m.needsReview.waiting.length
 
@@ -330,6 +327,13 @@ export default function TodayKept2({
       <section key="tomorrow" className="t2-card">
         <Head icon={CalendarDays} color="var(--bm-ember)" title="Tomorrow" count={m.tomorrow.items.length} />
         {clockRows(m.tomorrow.items)}
+      </section>
+    ),
+
+    upcoming: () => m.upcoming.items.length > 0 && (
+      <section key="upcoming" className="t2-card">
+        <Head icon={CalendarDays} color="var(--bm-ember)" title={m.upcoming.label} />
+        {clockRows(m.upcoming.items)}
       </section>
     ),
 
@@ -431,11 +435,6 @@ export default function TodayKept2({
         ))}
 
         <div className="t2-extras">
-          {m.anytime.length > 0 && (
-            <button className="t2-extra" onClick={toggleAnytime} aria-expanded={anytimeOpen}>
-              Anytime · {m.anytime.length}
-            </button>
-          )}
           {onWhatNow && <button className="t2-extra" onClick={onWhatNow}>What now?</button>}
           {growthPick?.text && (
             <button className="t2-extra" onClick={() => setNudgeOpen(v => !v)} aria-expanded={nudgeOpen}>
@@ -444,14 +443,6 @@ export default function TodayKept2({
           )}
         </div>
         {nudgeOpen && growthPick?.text && <p className="t2-nudge">{growthPick.text}</p>}
-        {anytimeOpen && m.anytime.length > 0 && (
-          <section className="t2-card t2-anytime">
-            {m.anytime.map((t, i) => (
-              <TaskRow key={t.id} task={t} first={i === 0} ring="var(--t2-hair2)"
-                onComplete={onCompleteTask} onOpen={onOpenTask} onDelete={onDeleteTask} />
-            ))}
-          </section>
-        )}
       </div>
     ),
   }

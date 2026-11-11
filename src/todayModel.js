@@ -8,7 +8,9 @@
 // Today answers three questions, in this order, in one screen:
 //   1. What genuinely needs me?        (Needs attention: small by construction)
 //   2. What's worth doing next?        (one pick, or nothing)
-//   3. What's coming up?               (later today; tonight; tomorrow)
+//   3. What's coming up?               (later today / tonight; tomorrow; and
+//                                       the next few dated things this week
+//                                       when nothing nearer is on screen)
 // Everything else is one compact row at most.
 //
 // A due date is EVIDENCE OF RELEVANCE, not proof something needs you now. The
@@ -17,9 +19,10 @@
 // EXPLICIT signals as "needs you":
 //
 //   needs you now   critical; due today; picked for today (committed_on);
-//                   a reminder you set that went off today; back from snooze
-//                   today; due yesterday AND you marked it as mattering
-//                   (high priority, nag allowed, a reminder, an escalation)
+//                   a reminder you set that went off today; due yesterday AND
+//                   you marked it as mattering (high priority, nag allowed, a
+//                   reminder, an escalation). A snooze ending is NOT a reason:
+//                   the task resurfaces and is judged on its other evidence
 //   slipped         everything else that is past its date. Not "late", not red:
 //                   one quiet row that opens a deliberate review
 //   waiting         on someone else. Never "needs you". After a week of waiting
@@ -53,6 +56,8 @@ export const WAITING_CHECKIN_DAYS = 7  // waiting this long → offered as a che
 export const NEXT_DUE_WINDOW_DAYS = 3  // "due soon" for Worth doing next
 export const EVENING_FALLBACK = '20:00'
 export const MORNING_ENDS = '11:00'
+export const UPCOMING_DAYS = 7       // how far "Later this week" looks
+export const UPCOMING_LIMIT = 3
 export const COMING_LIMIT = 6
 export const NOT_NOW_MAX = 2          // dismissals per day before the section rests
 export const ROUTINE_WINDOW_HOURS = 6 // a checklist's window when no later checklist starts sooner
@@ -62,7 +67,7 @@ export const LEAVING_SOON_MIN = 20    // a commitment this close quiets checklis
 const ACTIVE = ['not_started', 'doing', 'waiting', 'in_progress']
 const PICKABLE = ['not_started', 'doing', 'in_progress']
 
-const ATTENTION_ORDER = { critical: 0, reminder: 1, due: 2, committed: 3, recent: 4, back: 5 }
+const ATTENTION_ORDER = { critical: 0, reminder: 1, due: 2, committed: 3, recent: 4 }
 
 // ── small date helpers (local time) ────────────────────────────────────────
 const ms = (v) => (v == null ? NaN : new Date(v).getTime())
@@ -243,7 +248,6 @@ export function buildTodayModel({
     else if (due === todayKey) reason = { key: 'due' }
     else if (t.committed_on === todayKey && !due) reason = { key: 'committed' }
     else if (due === yesterdayKey && markedAsMattering(t)) reason = { key: 'recent' }
-    else if (t.snoozed_until && ymdOf(t.snoozed_until) === todayKey) reason = { key: 'back' }
     if (reason) { attentionAll.push({ task: t, reason, rank: rank(t) }); continue }
 
     // Past its date (or an old reminder that went unanswered) without an
@@ -309,10 +313,11 @@ export function buildTodayModel({
   checklists.sort((a, b) => (a.tier === b.tier ? 0 : a.tier === 'full' ? -1 : 1))
 
   // Plain loops spawn ordinary tasks; the ones due today (or carried over) show
-  // here, completed through the normal task path.
+  // here, completed through the normal task path. An open instance with no due
+  // date (older rows; the spawn pass always dates new ones) is the current cycle.
   const loopTasks = tasks.filter(t => live(t) && isRoutineTask(t) && !isStack(routineById.get(t.routine_id))
-    && !snoozedAt(t, nowMs) && dueKey(t) && dueKey(t) <= todayKey && !lastNightIds.has(t.id))
-    .map(t => ({ task: t, routine: routineById.get(t.routine_id), overdueDays: daysBetween(dueKey(t), todayKey) }))
+    && !snoozedAt(t, nowMs) && (!dueKey(t) || dueKey(t) <= todayKey) && !lastNightIds.has(t.id))
+    .map(t => ({ task: t, routine: routineById.get(t.routine_id), overdueDays: dueKey(t) ? daysBetween(dueKey(t), todayKey) : 0 }))
     .sort((a, b) => b.overdueDays - a.overdueDays || rank(b.task) - rank(a.task))
 
   // ── Worth doing next ────────────────────────────────────────────────────
@@ -370,7 +375,10 @@ export function buildTodayModel({
     const r = t.routine_id ? routineById.get(t.routine_id) : null
     if (t.remind_at && ymdOf(t.remind_at) === todayKey && ms(t.remind_at) > nowMs && !snoozedAt(t, nowMs)) {
       ahead.push({ kind: 'reminder', at: ms(t.remind_at), task: t })
-    } else if (snoozedAt(t, nowMs) && ymdOf(t.snoozed_until) === todayKey) {
+    } else if (snoozedAt(t, nowMs) && ymdOf(t.snoozed_until) === todayKey
+      && !(dueKey(t) && dueKey(t) < todayKey && !t.routine_id)) {
+      // A slipped task coming back from snooze isn't "coming up": once back, it
+      // lands in the review, so it isn't announced on the way there either.
       const at = ms(t.snoozed_until)
       if (r && isStack(r)) {
         const cur = stackLater.get(r.id)
@@ -386,8 +394,8 @@ export function buildTodayModel({
 
   const tmr = []
   for (const e of evs) {
-    if (e.day !== tomorrowKey || e.allDay) continue
-    tmr.push({ kind: 'event', at: e.startMs, event: e })
+    if (e.day !== tomorrowKey) continue
+    tmr.push({ kind: 'event', at: e.allDay ? atClock(tomorrowKey, '00:00') : e.startMs, event: e, allDay: e.allDay })
   }
   for (const t of tasks) {
     if (!live(t) || attentionIds.has(t.id) || t.id === next?.task.id) continue
@@ -402,6 +410,28 @@ export function buildTodayModel({
   // Tomorrow always shows in the evening; in the day only once nothing is ahead.
   const tomorrow = { label: 'Tomorrow', day: tomorrowKey, items: (evening || ahead.length === 0) ? tmr.slice(0, COMING_LIMIT) : [] }
 
+  // Later this week: the next few DATED things after tomorrow, only when nothing
+  // nearer is on screen, so "what's next?" always has an answer when one exists.
+  // Undated tasks never fill it. A waiting item is marked as waiting.
+  const upcomingItems = []
+  if (later.items.length === 0 && tomorrow.items.length === 0) {
+    const firstDay = addDaysYmd(todayKey, 2)
+    const lastDay = addDaysYmd(todayKey, UPCOMING_DAYS)
+    const inRange = (k) => k && k >= firstDay && k <= lastDay
+    for (const e of evs) {
+      if (!inRange(e.day)) continue
+      upcomingItems.push({ kind: 'event', at: e.allDay ? atClock(e.day, '00:00') : e.startMs, day: e.day, event: e, allDay: e.allDay })
+    }
+    for (const t of tasks) {
+      if (!live(t) || t.routine_id || attentionIds.has(t.id) || t.id === next?.task.id) continue
+      const remindKey = t.remind_at ? ymdOf(t.remind_at) : null
+      if (inRange(remindKey)) upcomingItems.push({ kind: 'reminder', at: ms(t.remind_at), day: remindKey, task: t, waiting: t.status === 'waiting' })
+      else if (inRange(dueKey(t))) upcomingItems.push({ kind: 'due', at: atClock(dueKey(t), '23:59'), day: dueKey(t), task: t, waiting: t.status === 'waiting' })
+    }
+    upcomingItems.sort((a, b) => a.at - b.at)
+  }
+  const upcoming = { label: 'Later this week', items: upcomingItems.slice(0, UPCOMING_LIMIT) }
+
   // ── Review, the quiet extras ────────────────────────────────────────────
   const pending = tasks.filter(t => t.gmail_pending)
   const review = {
@@ -410,9 +440,6 @@ export function buildTodayModel({
       : pending.length && pending.every(t => t.notion_page_id) ? 'Notion' : null,
     items: pending,
   }
-  const anytime = tasks.filter(t => live(t) && t.status !== 'waiting' && !t.due_date && !t.remind_at && !t.routine_id
-    && !snoozedAt(t, nowMs) && !attentionIds.has(t.id) && !reviewIds.has(t.id) && t.id !== next?.task.id)
-    .sort((a, b) => rank(b) - rank(a))
 
   const pinnedArcs = tasks.filter(t => t.status === 'project' && t.pinned_to_today).map(p => ({
     arc: p,
@@ -426,14 +453,16 @@ export function buildTodayModel({
   const allClear = attention.items.length === 0 && !fullChecklists && loopTasks.length === 0 && !next
 
   // The order of the screen. Main path first; bookkeeping rows ('quiet') last.
+  // In the evening, unfinished routines sit with the checklists: "is there a
+  // routine I haven't finished?" is one of the evening's questions.
   const order = evening
-    ? ['attention', 'checklists', 'later', 'tomorrow', 'loops', 'next', 'arcs', 'quiet']
-    : ['attention', 'next', 'later', 'checklists', 'loops', 'tomorrow', 'arcs', 'quiet']
+    ? ['attention', 'checklists', 'loops', 'later', 'tomorrow', 'upcoming', 'arcs', 'quiet']
+    : ['attention', 'next', 'later', 'checklists', 'loops', 'tomorrow', 'upcoming', 'arcs', 'quiet']
 
   return {
     todayKey, tomorrowKey, nowMs, quiet, phase, order,
     attention, needsReview, checklists, loopTasks, next, nextAbsent, nextCommitment,
-    later, tomorrow, review, lastNight, anytime, pinnedArcs, allClear,
+    later, tomorrow, upcoming, review, lastNight, pinnedArcs, allClear,
   }
 }
 

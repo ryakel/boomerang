@@ -6,6 +6,15 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-11-11
 
+- fix(today): restore what's next and unfinished routines without new urgency [M]
+  - Ticket BOOM-32. Second dev test at 10:04 PM: the only thing on screen was a ten-days-overdue dentist call whose snooze ended that minute ("Back today"); no routine, nothing coming up, "Anytime · 23". Quiet but not reassuring.
+  - "Back from snooze today" is no longer a Needs attention reason; a resurfaced task is judged on its own evidence (overdue → the review). A slipped task due back later tonight isn't listed under Tonight either.
+  - An open loop task with no due date counts as the current cycle (the seed's "take meds" was being dropped). In the evening, loops sit with the checklists.
+  - New **Later this week**: up to 3 dated things (tasks, reminders, calendar events) within 7 days, shown only when nothing nearer is on screen; undated tasks never fill it; waiting items say so. All-day events now count for Tomorrow and later.
+  - Anytime removed from Today (still in Tasks).
+  - Diagnosis on the dev seed: it has no checklist routines and nothing due tomorrow, and the dev server reads calendar events only if its own Google connection is set up. Those gaps are data, not rendering.
+  - 6 new scenario tests from the 10:04 PM screen; 50 Today tests pass in UTC and America/Chicago. Verified in the built app on the reseeded dev data at 10:08 PM Chicago. **Web-only, OTA.**
+
 - fix(today): needs attention means needs you now, and the evening reorders [L]
   - Ticket BOOM-32. First dev test of Kept 2.0 at 9:39 PM: Today opened on seven overdue chores, a Last night queue and a "high impact, about 1 hr" recommendation for a task with no date, size or impact in the data. Old task-manager behaviour under new section names.
   - `todayModel.js` now classifies once: **needs you now** (critical, due today, picked for today, a reminder that went off today, back from snooze today, due yesterday and marked as mattering) → Needs attention, max 3, only critical in red; **slipped** (anything else past its date) and **waiting a week+** → one quiet "To look over" row and sheet, oldest first; **important, not now** → off the main path.

@@ -29,9 +29,9 @@ The Terminal theme (GitHub-style monospace, `> command` modal titles, ASCII flou
 
 The Kept Today screen answers three questions in one screen: what genuinely needs you, what's worth doing next, and what's coming up. Each section appears only when it has something to say.
 
-- **Needs attention** is small on purpose: critical tasks, things due today or picked for today, a reminder that just went off, something back from snooze, or something due yesterday that you'd marked as mattering. Overdue alone doesn't qualify.
+- **Needs attention** is small on purpose: critical tasks, things due today or picked for today, a reminder that just went off, or something due yesterday that you'd marked as mattering. Overdue alone doesn't qualify, and neither does a snooze ending.
 - **Worth doing next**: one pick, only with a reason about time (picked for today, or due in the next few days) and only if it fits before your next busy calendar event. Importance alone isn't a reason. **Open task** opens it and changes nothing; **Not now** sets it aside for the day on that device. Never shown in the evening.
-- **Coming up** in the day; in the evening (by 8 PM, earlier with an evening checklist or early quiet hours) the screen reorders to **Tonight** and **Tomorrow**, with evening checklists near the top.
+- **Coming up** in the day; in the evening (by 8 PM, earlier with an evening checklist or early quiet hours) the screen reorders to **Tonight** and **Tomorrow**, with evening checklists and unfinished loops near the top. When nothing nearer is on screen, **Later this week** shows the next few dated things (tasks, reminders, calendar events, all-day ones included).
 - **To look over**: everything that slipped past its date, and anything you've been waiting on for a week, sits behind one quiet row. Not late, just undecided.
 - **Last night** and Gmail/Notion **suggestions** are single compact rows. No task ever shows in two places.
 
