@@ -130,6 +130,7 @@ Each of these encodes a real incident or trap. Full context in the linked wiki p
 | Notifications — digest pipeline, the three engines, channels, what survived the reshape | `wiki/Claude-Notes-Notifications.md`, `wiki/Testing-Notification-Stack.md` |
 | Quokka adviser — architecture, tool registry, sessions/plans, health check | `wiki/Claude-Notes-Quokka.md` |
 | Platform — UI history (Kept), auth, iOS native app, security posture, data-durability detail, tech-debt ledger | `wiki/Claude-Notes-Platform.md`, `wiki/iOS-Native-App.md`, `wiki/Architecture.md`, `wiki/Security-Notes.md` |
+| Today screen (Kept 2.0) — the model's rules, locked decisions, open questions; `settings.today_classic` is the revert path | `wiki/Today-Kept2.md`; rules in `src/todayModel.js` + `scripts/todayModel.test.mjs` |
 | Per-commit history and incident narratives | `wiki/Version-History.md` |
 
 Skills in `.claude/skills/`: `promote-release` (dev→main), `notion-dev` (Notion code rules), `add-notification-type` (new send checklist), `add-setting` (settings-blob hazards).

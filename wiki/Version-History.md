@@ -4,6 +4,27 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ---
 
+## 2026-11-11
+
+- docs(today): kept 2.0 handoff page, features and index [S]
+  - `wiki/Today-Kept2.md` is the redesign's handoff: why it exists (the November engagement audit), the locked decisions, what was built section by section, the visual spec, how it was verified, open questions and future tracks. The page and the code outrank the claude.ai spec doc, whose plan and type sections lag.
+  - `wiki/Features.md` gains a Today (Kept 2.0) section, and CLAUDE.md's wiki index points at the handoff. Ticket BOOM-32.
+
+## 2026-11-10
+
+- feat(today): kept 2.0 screen behind a classic today switch [L]
+  - Ticket BOOM-32. New `src/kept/TodayKept2.jsx` renders `todayModel`: Needs attention with reasons, Last night, checklists at their prominence tier, loops due, one Worth doing next, Coming up / Tomorrow, and a review row that opens a Keep/Dismiss sheet. Anytime, What now and the nudge stay at the bottom.
+  - Gone from Today only: Day Arc, points goal, rally and catches, week breakdown, loop mini trails, the What now hero. Their data, the scoring and Analytics are untouched.
+  - **Open task** opens details and writes nothing. **Not now** is per device per day (`boom_today_notnow`), at most two a day, and never touches the task.
+  - Softer Kept type and surfaces scoped to `.bm-t2`. Fraunces and DM Sans are bundled as `@fontsource-variable` packages (5.3.0, OFL) so iOS renders offline. They use a different family name from the Google-loaded fonts, so only Today changes. Header, nav and Throw are unchanged.
+  - `settings.today_classic` (default false, ordinary blob preference) plus a **Classic Today screen** toggle in Settings → General. `KeptShell` and `KeptDesktop` pick the screen from it. This is the revert path.
+  - `server/server.js`: the GCal events mapping passes `transparency`, so free events never count as commitments. Nothing else server-side changed.
+  - Verified against a scrubbed live-DB snapshot at 390×844 and 1280×860, Kept dark and light. Completing a task wrote `done`; Not now left the task untouched and held across a reload; Open task wrote nothing; the review sheet listed the 3 pending Gmail items; the classic toggle held across a reload. **Web + one server field. No migration, no iOS rebuild.**
+
+- feat(today): pure today model for the kept 2.0 screen [L]
+  - Ticket BOOM-32. `src/todayModel.js` takes tasks, routines, settings, events and `now`, and returns the sections. No storage, network or React. 34 tests in `scripts/todayModel.test.mjs`, passing in UTC and America/Chicago.
+  - Pending suggestions (`gmail_pending`) never reach any section except the review count. Durations come only from a task's size, and free time only from busy, timed calendar events. No invented buffers.
+
 ## 2026-10-31
 
 - feat(today): a last night list for what you did and didn't tick [M]
