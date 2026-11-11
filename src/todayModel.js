@@ -183,6 +183,11 @@ export function buildTodayModel({
     overflow: Math.max(0, attentionAll.length - ATTENTION_LIMIT),
   }
 
+  // Last night (creditYesterday.js) asks about yesterday's leftovers directly,
+  // so while it is showing, those tasks are not listed again below.
+  const lastNight = lastNightHidden ? [] : reconcileCandidates(tasks, now)
+  const lastNightIds = new Set(lastNight.map(r => r.task.id))
+
   // ── Routines ────────────────────────────────────────────────────────────
   const awayToday = (settings.away_days || []).includes(todayKey)
   const ended = (r) => r.end_date && nowMs > new Date(`${r.end_date}T23:59:59`).getTime()
@@ -209,7 +214,7 @@ export function buildTodayModel({
       const c = byCycle.get(due)
       c.total++
       if (t.status === 'done') c.done++
-      else if (!snoozedAt(t, nowMs)) c.open.push(t)
+      else if (!snoozedAt(t, nowMs) && !lastNightIds.has(t.id)) c.open.push(t)
     }
     const start = clockMinutes(r.trigger_time) != null ? atClock(todayKey, r.trigger_time) : atClock(todayKey, '00:00')
     const nextStart = stackTriggers.filter(s => s.id !== r.id && s.at > start).map(s => s.at)
@@ -217,8 +222,8 @@ export function buildTodayModel({
     for (const c of [...byCycle.values()].filter(c => c.open.length > 0).sort((a, b) => a.due.localeCompare(b.due))) {
       let tier = 'full'
       let note = null
-      if (c.due < todayKey) { tier = 'line'; note = c.due === addDaysYmd(todayKey, -1) ? 'left from yesterday' : 'left from earlier' }
-      else if (nowMs > windowEnd) { tier = 'line'; note = start < atClock(todayKey, '12:00') ? 'left from this morning' : 'left from earlier' }
+      if (c.due < todayKey) { tier = 'line'; note = c.due === addDaysYmd(todayKey, -1) ? 'from yesterday' : 'from earlier' }
+      else if (nowMs > windowEnd) { tier = 'line'; note = start < atClock(todayKey, '12:00') ? 'from this morning' : 'from earlier' }
       else if (leavingSoon) { tier = 'line'; note = `before ${nextCommitment.title}` }
       else if (!caughtRecently) { tier = 'line'; note = null }
       checklists.push({ routine: r, due: c.due, open: c.open, done: c.done, total: c.total, tier, note })
@@ -229,7 +234,7 @@ export function buildTodayModel({
   // Plain loops spawn ordinary tasks; the ones due today (or carried over) show
   // here, completed through the normal task path.
   const loopTasks = tasks.filter(t => live(t) && isRoutineTask(t) && !isStack(routineById.get(t.routine_id))
-    && !snoozedAt(t, nowMs) && dueKey(t) && dueKey(t) <= todayKey)
+    && !snoozedAt(t, nowMs) && dueKey(t) && dueKey(t) <= todayKey && !lastNightIds.has(t.id))
     .map(t => ({ task: t, routine: routineById.get(t.routine_id), overdueDays: daysBetween(dueKey(t), todayKey) }))
     .sort((a, b) => b.overdueDays - a.overdueDays || rank(b.task) - rank(a.task))
 
@@ -321,8 +326,6 @@ export function buildTodayModel({
       : pending.length && pending.every(t => t.notion_page_id) ? 'Notion' : null,
     items: pending,
   }
-  const lastNight = lastNightHidden ? [] : reconcileCandidates(tasks, now)
-
   const anytime = tasks.filter(t => live(t) && !t.due_date && !t.remind_at && !t.routine_id
     && !snoozedAt(t, nowMs) && !attentionIds.has(t.id) && t.id !== next?.task.id)
     .sort((a, b) => rank(b) - rank(a))

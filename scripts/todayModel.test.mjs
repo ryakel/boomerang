@@ -73,7 +73,9 @@ test('pending Gmail suggestions appear only in the review count', () => {
 // ── Routines ─────────────────────────────────────────────────────────────
 const morning = { id: 'r-morning', title: 'Morning', members: ['a', 'b', 'c', 'd'], trigger_time: '06:00', cadence: 'daily' }
 const bedtime = { id: 'r-bed', title: 'Bedtime', members: ['a', 'b', 'c', 'd', 'e'], trigger_time: '20:00', cadence: 'daily' }
-const member = (r, o = {}) => task({ routine_id: r.id, due_date: TODAY, ...o })
+// Spawned this morning, as the loop engine does; an instance carried over from
+// yesterday is Last night's question (creditYesterday.js), not the checklist's.
+const member = (r, o = {}) => task({ routine_id: r.id, due_date: TODAY, created_at: iso(0, 5), ...o })
 const caughtLately = (r) => member(r, { status: 'done', due_date: YESTERDAY, completed_at: iso(7, 0, 9) })
 
 test('checklist: full inside its window with open members', () => {
@@ -89,7 +91,7 @@ test('checklist: one line once its window has passed', () => {
   const ts = [member(morning), caughtLately(morning)]
   const m = model({ tasks: ts, routines: [morning], now: at(14, 17) })
   assert.equal(m.checklists[0].tier, 'line')
-  assert.equal(m.checklists[0].note, 'left from this morning')
+  assert.equal(m.checklists[0].note, 'from this morning')
 })
 
 test('checklist: window ends at the next checklist trigger if that comes sooner', () => {
@@ -113,9 +115,9 @@ test('checklist: dormant (nothing caught in 14 days) is one line, not hidden', (
 })
 
 test('checklist: a cycle left from yesterday is one line', () => {
-  const m = model({ tasks: [member(morning, { due_date: YESTERDAY }), caughtLately(morning)], routines: [morning] })
+  const m = model({ tasks: [member(morning, { due_date: YESTERDAY, created_at: iso(0, 5, 9) }), caughtLately(morning)], routines: [morning], lastNightHidden: true })
   assert.equal(m.checklists[0].tier, 'line')
-  assert.equal(m.checklists[0].note, 'left from yesterday')
+  assert.equal(m.checklists[0].note, 'from yesterday')
 })
 
 test('checklist: hidden before its trigger, and listed in Coming up instead', () => {
@@ -142,11 +144,21 @@ test('checklist: hidden when cleared, paused, ended, skipped today, resting or a
 
 test('loop tasks due today show under routines, never in Needs attention or Worth doing next', () => {
   const ifr = { id: 'r-ifr', title: 'IFR Studying', cadence: 'daily', trigger_time: '06:00' }
-  const t = task({ routine_id: ifr.id, due_date: TODAY, impact: 3 })
+  const t = task({ routine_id: ifr.id, due_date: TODAY, impact: 3, created_at: iso(0, 5) })
   const m = model({ tasks: [t], routines: [ifr] })
   assert.deepEqual(ids(m.loopTasks), [t.id])
   assert.equal(m.attention.items.length, 0)
   assert.equal(m.next, null)
+})
+
+test('yesterday\'s leftovers shown in Last night are not listed again as a checklist', () => {
+  const left = member(bedtime, { due_date: YESTERDAY, created_at: iso(19, 0, 9) })
+  const ts = [left, caughtLately(bedtime)]
+  const withList = model({ tasks: ts, routines: [bedtime], now: at(7, 0) })
+  assert.ok(withList.lastNight.some(r => r.task.id === left.id))
+  assert.equal(withList.checklists.length, 0)
+  const hidden = model({ tasks: ts, routines: [bedtime], now: at(7, 0), lastNightHidden: true })
+  assert.equal(hidden.checklists[0].note, 'from yesterday')
 })
 
 // ── Worth doing next ─────────────────────────────────────────────────────

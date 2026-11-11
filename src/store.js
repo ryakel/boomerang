@@ -56,6 +56,10 @@ export const DEFAULT_SETTINGS = {
   // fill; this is the single source of truth for daily-goal progress
   // (GoalProgressBar was removed 2026-05-11).
   show_week_strip: false,
+  // Today screen layout. false = Kept 2.0 Today (TodayKept2.jsx); true = the
+  // previous screen with the points arc (TodayView.jsx). The revert switch for
+  // the redesign; Settings → General → Home screen.
+  today_classic: false,
   // Per-section collapsed state on the home task list. Map of section
   // name → bool (true = collapsed). Synced via settings so the preference
   // persists across reloads. Sections not in the map default to expanded.
