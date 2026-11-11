@@ -25,6 +25,8 @@
     "@capacitor/ios": "^8.4.2",
     "@capacitor/push-notifications": "^8.1.2",
     "@capgo/capacitor-updater": "^8.51.2",
+    "@fontsource-variable/dm-sans": "^5.3.0",
+    "@fontsource-variable/fraunces": "^5.3.0",
     "@modelcontextprotocol/sdk": "^1.29.0",
     "cors": "^2.8.6",
     "express": "^5.2.1",

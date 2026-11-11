@@ -3543,6 +3543,12 @@ export default function SettingsModal({
 
             <SettingsGroup caption="Home screen">
               <ToggleRow
+                label="Classic Today screen"
+                checked={!!settings.today_classic}
+                onChange={e => update('today_classic', e.target.checked)}
+                info="Brings back the previous Today screen with the points arc and loop trails. Nothing about your tasks, loops or stats changes either way."
+              />
+              <ToggleRow
                 label="Show 7-day strip"
                 checked={settings.show_week_strip}
                 onChange={e => update('show_week_strip', e.target.checked)}

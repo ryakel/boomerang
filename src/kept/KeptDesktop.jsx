@@ -6,6 +6,8 @@ import {
 import Logo from '../components/Logo'
 import { useSyncBounce } from '../hooks/useSyncBounce'
 import TodayView from './TodayView'
+import TodayKept2 from './TodayKept2'
+import { loadSettings } from '../store'
 import TasksViewKept from './TasksViewKept'
 import LoopsView from './LoopsView'
 import ThrowSheet from './ThrowSheet'
@@ -77,8 +79,9 @@ export default function KeptDesktop({
   } else if (tab === 'loops') {
     surface = <LoopsView routines={routines} tasks={tasks} onEditLoop={onEditLoop} onAddLoop={onAddLoop} onSpawnNow={onSpawnNow} onSkipCycle={onSkipCycle} onMarkLoopDay={onMarkLoopDay} onUnmarkLoopDay={onUnmarkLoopDay} onSkipLoopDay={onSkipLoopDay} onPushLoopOut={onPushLoopOut} onOpenSuggestions={onOpenSuggestions} />
   } else {
+    const Today = loadSettings().today_classic ? TodayView : TodayKept2
     surface = (
-      <TodayView
+      <Today
         tasks={tasks} routines={routines} labels={labels} weatherByDate={weatherByDate}
         dailyStats={dailyStats} pointsGoal={pointsGoal} streak={streak}
         onCompleteTask={onCompleteTask} onOpenTask={onOpenTask} onToggleHabit={onToggleHabit}
@@ -88,6 +91,7 @@ export default function KeptDesktop({
         onWhatNow={onWhatNow}
         onCycleImpact={onCycleImpact}
         pinnedNotes={pinnedNotes} onOpenNotes={onOpenNotes} onUnpinNote={onUnpinNote}
+        onShowTasks={() => setTab('tasks')}
       />
     )
   }
