@@ -272,6 +272,47 @@ test('a snooze return in Coming up is never presented as a calendar commitment',
   assert.equal(m.later.items[0].snoozed, undefined)
 })
 
+// 2026-11-11, 9:50 PM on prod: Tomorrow listed "Take shot" and "Gardyn Tank
+// Refresh", both already marked done in Loops. Marking a day in Loops stamps the
+// LOOP (stampLoopDay) and leaves its open task alone, and Today was trusting the
+// task row. The loop's record is the truth Loops shows; Today follows it.
+test('a loop credited in Loops does not show its leftover task anywhere on Today', () => {
+  n = 0
+  const shot = { id: 'r-shot', title: 'Take shot', cadence: 'weekly', completed_history: [iso(20, 0)] }
+  const gardyn = { id: 'r-gardyn', title: 'Gardyn Tank Refresh', cadence: 'monthly', completed_history: [iso(9, 0)] }
+  const shotTask = task({ title: 'Take shot', routine_id: shot.id, due_date: TOMORROW, created_at: iso(8, 0, 9) })
+  const gardynTask = task({ title: 'Gardyn Tank Refresh', routine_id: gardyn.id, due_date: TOMORROW, created_at: iso(8, 0, 9) })
+  const m = model({ tasks: [shotTask, gardynTask], routines: [shot, gardyn], now: at(21, 50) })
+  assert.deepEqual(appearances(m, shotTask.id), [])
+  assert.deepEqual(appearances(m, gardynTask.id), [])
+  assert.equal(m.tomorrow.items.length, 0)
+  // Nor is it asked about in Last night the next morning.
+  const yesterdaysShot = task({ title: 'Take shot', routine_id: shot.id, due_date: YESTERDAY, created_at: iso(8, 0, 8) })
+  const morning = model({ tasks: [yesterdaysShot], routines: [{ ...shot, completed_history: [iso(20, 0, 9)] }], now: at(7, 30) })
+  assert.deepEqual(appearances(morning, yesterdaysShot.id), [])
+})
+
+test('a loop still owed keeps its task; back-filling an older day does not hide it', () => {
+  n = 0
+  const shot = { id: 'r-shot', title: 'Take shot', cadence: 'weekly', completed_history: [iso(12, 0, 2)] }   // last week
+  const shotTask = task({ title: 'Take shot', routine_id: shot.id, due_date: TOMORROW, created_at: iso(8, 0, 9) })
+  assert.deepEqual(appearances(model({ tasks: [shotTask], routines: [shot], now: at(21, 50) }), shotTask.id), ['tomorrow'])
+  // Back-filling a day BEFORE the task existed (fixing an old gap) doesn't count.
+  const backfilled = { ...shot, completed_history: [...shot.completed_history, iso(12, 0, 8)] }
+  assert.deepEqual(appearances(model({ tasks: [shotTask], routines: [backfilled], now: at(21, 50) }), shotTask.id), ['tomorrow'])
+})
+
+test('an auto-roll loop (one task rolled forward daily) is satisfied only by a stamp on its current day', () => {
+  n = 0
+  const meds = { id: 'r-meds', title: 'Take meds', cadence: 'daily', auto_roll: true, completed_history: [iso(9, 0, 9)] }
+  const rolled = task({ title: 'Take meds', routine_id: meds.id, due_date: TODAY, created_at: iso(8, 0, 8) })
+  // Yesterday's stamp (after the task was created) must not hide today's dose.
+  // (Last night hidden: a rolled instance is also yesterday's leftover, asked about there.)
+  assert.deepEqual(appearances(model({ tasks: [rolled], routines: [meds], now: at(14, 0), lastNightHidden: true }), rolled.id), ['loops'])
+  const takenToday = { ...meds, completed_history: [...meds.completed_history, iso(9, 0)] }
+  assert.deepEqual(appearances(model({ tasks: [rolled], routines: [takenToday], now: at(14, 0), lastNightHidden: true }), rolled.id), [])
+})
+
 // ── Time of day ──────────────────────────────────────────────────────────
 test('evening starts by 8 PM; an earlier evening checklist or quiet hours bring it forward, never later', () => {
   // 2026-11-10: the dev seed's quiet hours start at 22:00, and treating that as

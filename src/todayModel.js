@@ -209,7 +209,22 @@ export function buildTodayModel({
   const routineById = new Map(routines.map(r => [r.id, r]))
   const isStack = (r) => Array.isArray(r?.members) && r.members.length > 0
   const isRoutineTask = (t) => !!(t.routine_id && routineById.has(t.routine_id))
-  const live = (t) => !t.parent_id && !t.gmail_pending && ACTIVE.includes(t.status)
+  // A plain loop credited outside its task (Loops → tap a day / Mark done
+  // stamps the LOOP via stampLoopDay and leaves the task open) is done: Loops
+  // says so, and Today follows the loop's record, not the leftover row. The
+  // stamp has to be on or after the day this instance was created (back-filling
+  // an older gap doesn't count); an auto-roll instance is one task rolled
+  // forward daily, so for it only a stamp on its current due day counts.
+  const loopCredited = (t) => {
+    const r = t.routine_id ? routineById.get(t.routine_id) : null
+    if (!r || isStack(r) || !Array.isArray(r.completed_history) || r.completed_history.length === 0) return false
+    const created = t.created_at ? ymdOf(t.created_at) : null
+    const due = dueKey(t)
+    const from = r.auto_roll && due && due <= todayKey ? due : created
+    if (!from) return false
+    return r.completed_history.some(ts => Number.isFinite(ms(ts)) && ymdOf(ts) >= from)
+  }
+  const live = (t) => !t.parent_id && !t.gmail_pending && ACTIVE.includes(t.status) && !loopCredited(t)
 
   const evs = Array.isArray(events) ? events : []
   const nextCommitment = evs.find(e => e.busy && e.day === todayKey && e.startMs > nowMs) || null
@@ -221,7 +236,8 @@ export function buildTodayModel({
   // it shows, the tasks it asks about appear nowhere else.
   // Waiting tasks are left out: asking "did you do it yesterday?" about
   // something that's on someone else is asking you to act on it.
-  const lastNight = lastNightHidden || evening ? [] : reconcileCandidates(tasks, now).filter(r => r.task.status !== 'waiting')
+  const lastNight = lastNightHidden || evening ? []
+    : reconcileCandidates(tasks, now).filter(r => r.task.status !== 'waiting' && !(r.kind !== 'ticked' && loopCredited(r.task)))
   const lastNightIds = new Set(lastNight.map(r => r.task.id))
 
   // ── Classify every open, non-routine task once ──────────────────────────
