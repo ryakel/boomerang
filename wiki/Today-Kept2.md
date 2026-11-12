@@ -104,6 +104,14 @@ Density and hierarchy are kept as they are. Changes:
 - **Snooze returns vs. calendar events:** rows a snooze brings back carry `snoozed: true`. They show a muted time, a dashed line instead of a coloured bar, no "in 9 min" countdown, and "Snoozed task · comes back". Events keep the solid bar, countdown, location and duration.
 - **The free-trial pick, traced on the dev seed:** it was the only open task inside the 3-day window (due Saturday). Every other task was waiting, slipped, due in 7 days or undated, so nothing had to be ranked. High priority only added a phrase to the reason line, and "About 15 min" is its XS size. A test pins it: the same task without a date, or due in 4 days, is not recommended.
 
+### Loops credited in Loops (2026-11-11, 9:50 PM on prod)
+
+Tomorrow listed "Take shot" and "Gardyn Tank Refresh", both already marked done in Loops. Marking a day in Loops (calendar tap, Mark done) goes through `stampLoopDay`, which stamps the **loop's** `completed_history` and leaves the loop's open task alone. Loops judges "done" from that record; Today judged it from the task row.
+
+Today now follows the loop's record. A plain-loop task counts as satisfied (`loopCredited` in `todayModel.js`) when its loop has a stamp on or after the day the task was created. Back-filling an older gap doesn't count. An auto-roll instance is one task moved forward daily, so for it only a stamp on its current due day counts. A satisfied task is left out of every section (Loops, Tonight, Tomorrow, Later this week, Last night). The task row itself isn't changed: Today never writes.
+
+Open question: should crediting a day in Loops also close the open task, so Tasks and Today agree without this rule? That's a change to the routine engine, which is out of scope here.
+
 ### What the tests do and don't prove
 
 `scripts/todayModel.test.mjs` opens with scenarios taken from the complaints

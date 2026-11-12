@@ -6,6 +6,12 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-11-12
 
+- fix(today): a loop credited in loops stops listing its leftover task [S]
+  - Ticket BOOM-32. Prod, 9:50 PM: Tomorrow listed "Take shot" and "Gardyn Tank Refresh", both already marked done in Loops. Marking a day in Loops stamps the loop (`stampLoopDay`) and leaves its open task alone, and Today trusted the task row.
+  - `todayModel.js` treats a plain-loop task as satisfied when its loop has a stamp on or after the task's creation day (auto-roll: on its current due day), so it leaves Loops, Tonight, Tomorrow, Later this week and Last night. Back-filled older days don't count. No writes: the task row is untouched.
+  - Tomorrow rows for loop tasks say "weekly loop" etc. instead of "Due / due".
+  - 3 new scenario tests from the screenshot (56 Today tests, UTC and America/Chicago). Not verified against prod data (no access from the sandbox); the rule is pinned by tests with the screenshot's shape. **Web-only, OTA.**
+
 - style(today): sans task titles, quieter primary button, honest subtitle, snooze returns set apart [S]
   - Ticket BOOM-32. Ryan's Wednesday 7:42 PM review: "the strongest version of Today so far". Keep the density and hierarchy; refine the rest.
   - Worth doing next's title is DM Sans like every other task title; Fraunces stays on the date and the all-clear line. Open task is a muted terracotta instead of solid ember, so it no longer competes with the capture button.

@@ -182,6 +182,7 @@ export default function TodayKept2({
   }, [todayKey])
 
   const feathers = useMemo(() => routineFeathers(routines), [routines])
+  const routineById = useMemo(() => Object.fromEntries(routines.map(r => [r.id, r])), [routines])
   const events = useMemo(() => (rawEvents ? normalizeEvents(rawEvents, tasks) : null), [rawEvents, tasks])
   const m = useMemo(() => buildTodayModel({
     tasks, routines, settings, now, events,
@@ -243,7 +244,9 @@ export default function TodayKept2({
       title = it.task.title
       const kind = it.waiting ? 'waiting on someone'
         : it.snoozed ? (it.kind === 'loop' ? 'Snoozed loop · comes back' : 'Snoozed task · comes back')
-          : it.kind === 'reminder' ? 'Reminder' : it.kind === 'due' ? 'due' : 'loop'
+          : it.kind === 'reminder' ? 'Reminder'
+            : it.kind === 'due' ? (it.task.routine_id ? `${routineById[it.task.routine_id]?.cadence || 'repeating'} loop` : 'due')
+              : 'loop'
       meta = [soon, kind].filter(Boolean).join(' · ')
       bar = it.snoozed ? 'var(--t2-faint)' : it.kind === 'reminder' ? 'var(--bm-gold)' : it.kind === 'loop' ? (feathers[it.routine?.id] || 'var(--bm-ember)') : 'var(--t2-hair2)'
       Icon = it.kind === 'reminder' ? Bell : it.kind === 'returns' ? Undo2 : it.kind === 'loop' ? Repeat2 : null
