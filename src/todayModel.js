@@ -385,7 +385,8 @@ export function buildTodayModel({
         if (!cur) stackLater.set(r.id, { kind: 'checklist', at, routine: r, count: 1 })
         else { cur.count++; cur.at = Math.min(cur.at, at) }
       } else {
-        ahead.push({ kind: r ? 'loop' : 'returns', at, task: t, routine: r || null })
+        // snoozed: this is a task you put off coming back, not a commitment.
+        ahead.push({ kind: r ? 'loop' : 'returns', at, task: t, routine: r || null, snoozed: true })
       }
     }
   }
@@ -453,6 +454,12 @@ export function buildTodayModel({
   const allClear = attention.items.length === 0 && !fullChecklists && loopTasks.length === 0 && !next
 
   // The order of the screen. Main path first; bookkeeping rows ('quiet') last.
+  // What the subtitle should say: the state the screen is actually in.
+  const headline = attention.items.length > 0 ? (evening ? 'evening' : 'attention')
+    : evening ? (allClear ? 'evening-clear' : 'evening')
+      : next ? 'next'
+        : allClear ? 'clear' : 'quiet'
+
   // In the evening, unfinished routines sit with the checklists: "is there a
   // routine I haven't finished?" is one of the evening's questions.
   const order = evening
@@ -460,7 +467,7 @@ export function buildTodayModel({
     : ['attention', 'next', 'later', 'checklists', 'loops', 'tomorrow', 'upcoming', 'arcs', 'quiet']
 
   return {
-    todayKey, tomorrowKey, nowMs, quiet, phase, order,
+    todayKey, tomorrowKey, nowMs, quiet, phase, order, headline,
     attention, needsReview, checklists, loopTasks, next, nextAbsent, nextCommitment,
     later, tomorrow, upcoming, review, lastNight, pinnedArcs, allClear,
   }

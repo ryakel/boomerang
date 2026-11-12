@@ -94,6 +94,16 @@ no routine, nothing coming up and an "Anytime · 23" count. Traced on the dev se
 | Nothing coming up | seed: nothing tomorrow; Tomorrow looked one day ahead only. Calendar: only read when that server reports Google Calendar connected (dev has its own credentials); all-day events were ignored | **Later this week**: up to 3 dated things (tasks, reminders, events) within 7 days, only when nothing nearer is on screen, never undated tasks; waiting items marked as waiting. All-day events count for Tomorrow and later |
 | Anytime · 23 | a backlog count with no context | removed from Today (still in Tasks) |
 
+### Refinements (2026-11-11, Wednesday 7:42 PM review)
+
+Density and hierarchy are kept as they are. Changes:
+
+- **Type:** every task title is DM Sans, Worth doing next included. Fraunces is reserved for the date and the all-clear line.
+- **Open task:** muted terracotta (ember mixed into the card) instead of solid ember, so it stops competing with the capture button.
+- **Subtitle from state:** the model returns `headline` (`attention`, `next`, `evening`, `evening-clear`, `clear`, `quiet`); the UI maps it to copy. With a recommendation it reads "A good time to get ahead."
+- **Snooze returns vs. calendar events:** rows a snooze brings back carry `snoozed: true`. They show a muted time, a dashed line instead of a coloured bar, no "in 9 min" countdown, and "Snoozed task · comes back". Events keep the solid bar, countdown, location and duration.
+- **The free-trial pick, traced on the dev seed:** it was the only open task inside the 3-day window (due Saturday). Every other task was waiting, slipped, due in 7 days or undated, so nothing had to be ranked. High priority only added a phrase to the reason line, and "About 15 min" is its XS size. A test pins it: the same task without a date, or due in 4 days, is not recommended.
+
 ### What the tests do and don't prove
 
 `scripts/todayModel.test.mjs` opens with scenarios taken from the complaints

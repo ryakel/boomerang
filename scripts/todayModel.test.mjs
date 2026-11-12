@@ -233,6 +233,45 @@ test('tomorrow includes all-day events; later this week waits while tomorrow has
   assert.deepEqual(later.upcoming.items.map(i => i.event.title), ['Flight lesson'])
 })
 
+// 2026-11-11, Wednesday 7:42 PM: "Nothing pressing right now" sat above a
+// perfectly good recommendation. The subtitle describes the state the screen
+// is actually in.
+test('headline: says what the screen is actually showing', () => {
+  n = 0
+  const trial = task({ title: 'cancel free trial', due_date: '2026-11-13', high_priority: true, size: 'XS' })
+  assert.equal(model({ tasks: [trial], now: at(19, 42) }).headline, 'next')
+  assert.equal(model({ tasks: [trial, task({ due_date: TODAY })], now: at(19, 42) }).headline, 'attention')
+  assert.equal(model({ tasks: [task()], now: at(14, 0) }).headline, 'clear')
+  assert.equal(model({ tasks: [trial], now: at(21, 0) }).headline, 'evening-clear')
+  assert.equal(model({ tasks: [task({ due_date: TODAY })], now: at(21, 0) }).headline, 'evening')
+  // Something open but nothing pressing and nothing to recommend: not "clear".
+  const meds = { id: 'r-m', title: 'meds', cadence: 'daily' }
+  assert.equal(model({ tasks: [task({ routine_id: meds.id, due_date: TODAY, created_at: iso(0, 5) })], routines: [meds], now: at(14, 0) }).headline, 'quiet')
+})
+
+test('the free-trial pick is explained by its date, not by priority or score', () => {
+  n = 0
+  const trial = task({ title: 'cancel free trial', due_date: '2026-11-13', high_priority: true, size: 'XS' })
+  const m = model({ tasks: [trial], now: at(19, 42) })
+  assert.deepEqual(m.next.reasons, ['due Friday', 'marked high priority'])
+  assert.equal(m.next.minutes, 15)
+  // Same task, no date: high priority alone recommends nothing.
+  assert.equal(model({ tasks: [{ ...trial, due_date: null }], now: at(19, 42) }).next, null)
+  // Same task, due in 4 days: outside the window, nothing.
+  assert.equal(model({ tasks: [{ ...trial, due_date: '2026-11-14' }], now: at(19, 42) }).next, null)
+})
+
+test('a snooze return in Coming up is never presented as a calendar commitment', () => {
+  n = 0
+  const events = normalizeEvents([{ id: 'e1', title: 'Dinner with Mike', start: { dateTime: iso(19, 0) }, end: { dateTime: iso(21, 0) } }])
+  const back = task({ title: 'research a new therapist', snoozed_until: iso(21, 48) })
+  const m = model({ tasks: [back], events, now: at(17, 0) })
+  assert.deepEqual(m.later.items.map(i => [i.kind, i.event?.title || i.task?.title]),
+    [['event', 'Dinner with Mike'], ['returns', 'research a new therapist']])
+  assert.equal(m.later.items[1].snoozed, true)
+  assert.equal(m.later.items[0].snoozed, undefined)
+})
+
 // ── Time of day ──────────────────────────────────────────────────────────
 test('evening starts by 8 PM; an earlier evening checklist or quiet hours bring it forward, never later', () => {
   // 2026-11-10: the dev seed's quiet hours start at 22:00, and treating that as

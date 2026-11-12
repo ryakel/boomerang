@@ -4,6 +4,16 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ---
 
+## 2026-11-12
+
+- style(today): sans task titles, quieter primary button, honest subtitle, snooze returns set apart [S]
+  - Ticket BOOM-32. Ryan's Wednesday 7:42 PM review: "the strongest version of Today so far". Keep the density and hierarchy; refine the rest.
+  - Worth doing next's title is DM Sans like every other task title; Fraunces stays on the date and the all-clear line. Open task is a muted terracotta instead of solid ember, so it no longer competes with the capture button.
+  - The model returns `headline` and the subtitle follows it: "A good time to get ahead." when there's a recommendation, instead of "Nothing pressing right now" above one.
+  - Snooze returns in Coming up carry `snoozed: true`: muted time, dashed line, no countdown, "Snoozed task · comes back". Calendar events keep the solid bar, countdown, location and duration.
+  - Free-trial pick traced on the dev seed: the only open task inside the 3-day window; high priority and the score decided nothing. Now pinned by a test.
+  - 3 new tests (53 Today tests, passing in UTC and America/Chicago). Verified in the built app on the dev seed at Thursday 7:42 PM Chicago, with the two read-only calendar endpoints stubbed (no Google connection in the sandbox). **Web-only, OTA.**
+
 ## 2026-11-11
 
 - fix(today): restore what's next and unfinished routines without new urgency [M]

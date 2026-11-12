@@ -1,8 +1,8 @@
 /* Kept 2.0 Today (TodayKept2.jsx). Scoped to .bm-t2 so no other surface
  * changes. Header, nav and Throw are outside this scope and stay production.
  *
- * Type: Fraunces only for the date, the Worth doing next title and the
- * all-clear line (variable, SOFT 100). Everything else is DM Sans variable
+ * Type: Fraunces only for the date and the all-clear line (variable, SOFT
+ * 100). Every task title, Worth doing next included, is DM Sans variable
  * with optical sizing. Both bundled from @fontsource-variable, so the iOS app
  * renders them offline. The production wordmark keeps the Google-loaded
  * 'Fraunces' family and is untouched.
@@ -163,8 +163,7 @@
 /* ── Worth doing next ─────────────────────────────────────────────────── */
 .t2-next { display: flex; flex-direction: column; gap: 6px; padding: 2px 0 14px; }
 .t2-next-title {
-  font: 500 19px/1.2 var(--t2-serif);
-  font-variation-settings: 'SOFT' 100;
+  font: 600 17px/1.3 var(--t2-sans);
   color: var(--t2-text);
 }
 .t2-next-meta { display: flex; align-items: center; gap: 6px; font-size: 12.5px; color: var(--t2-meta); }
@@ -174,7 +173,15 @@
   min-height: 44px; border-radius: 12px;
   font-size: 14px; cursor: pointer;
 }
-.t2-btn-primary { flex: 1 1 auto; border: 0; background: var(--bm-ember); color: #fff !important; font-weight: 600; }
+/* Muted terracotta: clearly the primary action in its card, but quieter than
+ * the bright capture button in the nav. */
+.t2-btn-primary {
+  flex: 1 1 auto; border: 0;
+  background: color-mix(in srgb, var(--bm-ember) 22%, var(--t2-card));
+  color: color-mix(in srgb, var(--bm-ember) 55%, var(--t2-text)) !important;
+  font-weight: 600;
+}
+.t2-btn-primary:active { background: color-mix(in srgb, var(--bm-ember) 30%, var(--t2-card)); }
 .t2-btn-ghost { flex: 0 0 auto; padding: 0 18px; border: 1px solid var(--t2-hair2); background: transparent; color: var(--t2-text); font-weight: 500; }
 
 /* ── Compact bookkeeping rows ─────────────────────────────────────────── */
@@ -215,6 +222,11 @@ button.t2-clock { cursor: pointer; }
 .t2-clock-body { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .t2-clock-title { font-size: 14.5px; font-weight: 500; line-height: 1.3; color: var(--t2-text); }
 .t2-clock-meta { display: flex; align-items: center; gap: 5px; }
+/* A snoozed task coming back is not a commitment: muted time, a dashed line
+ * where an event has a solid bar, and no countdown. */
+.t2-clock.is-snoozed .t2-clock-time { color: var(--t2-meta); font-weight: 400; }
+.t2-clock.is-snoozed .t2-clock-bar { background: none !important; border-left: 2px dashed var(--t2-hair2); width: 0; }
+.t2-clock.is-snoozed .t2-clock-title { color: var(--t2-label); }
 
 /* ── Sheets ───────────────────────────────────────────────────────────── */
 /* The sheet borrows the Today tokens (.bm-t2) but keeps the sheet's own padding. */

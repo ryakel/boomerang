@@ -62,10 +62,14 @@ const inLabel = (atMs, nowMs) => {
 }
 
 function subtitle(m) {
-  if (m.allClear) return m.phase === 'evening' ? 'Winding down. Nothing needs you tonight.' : 'Nothing needs you right now.'
-  if (m.phase === 'evening') return 'Winding down.'
-  if (m.attention.items.length > 0) return m.phase === 'morning' ? 'A few things to handle today.' : 'A few things still need you.'
-  return m.phase === 'morning' ? 'Nothing pressing this morning.' : 'Nothing pressing right now.'
+  switch (m.headline) {
+    case 'attention': return m.phase === 'morning' ? 'A few things to handle today.' : 'A few things still need you.'
+    case 'next': return 'A good time to get ahead.'
+    case 'evening': return 'Winding down.'
+    case 'evening-clear': return 'Winding down. Nothing needs you tonight.'
+    case 'clear': return m.phase === 'morning' ? 'Nothing pressing this morning.' : 'Nothing needs you right now.'
+    default: return m.phase === 'morning' ? 'Nothing pressing this morning.' : 'Nothing pressing right now.'
+  }
 }
 
 const routineIcon = (r) => {
@@ -221,7 +225,8 @@ export default function TodayKept2({
   const clockRows = (items) => items.map((it, i) => {
     const key = it.event ? `e-${it.event.id}` : it.routine && it.kind === 'checklist' ? `c-${it.routine.id}` : `t-${it.task.id}`
     let title, meta, bar, Icon = null, onClick = null
-    const soon = it.kind !== 'due' ? inLabel(it.at, m.nowMs) : null
+    // A countdown is appointment language; a snoozed task coming back doesn't get one.
+    const soon = it.kind !== 'due' && !it.snoozed ? inLabel(it.at, m.nowMs) : null
     if (it.kind === 'event') {
       const e = it.event
       title = e.title
@@ -237,9 +242,10 @@ export default function TodayKept2({
     } else {
       title = it.task.title
       const kind = it.waiting ? 'waiting on someone'
-        : it.kind === 'reminder' ? 'Reminder' : it.kind === 'loop' ? 'loop' : it.kind === 'due' ? 'due' : 'back from snooze'
+        : it.snoozed ? (it.kind === 'loop' ? 'Snoozed loop · comes back' : 'Snoozed task · comes back')
+          : it.kind === 'reminder' ? 'Reminder' : it.kind === 'due' ? 'due' : 'loop'
       meta = [soon, kind].filter(Boolean).join(' · ')
-      bar = it.kind === 'reminder' ? 'var(--bm-gold)' : it.kind === 'loop' ? (feathers[it.routine?.id] || 'var(--bm-ember)') : 'var(--t2-hair2)'
+      bar = it.snoozed ? 'var(--t2-faint)' : it.kind === 'reminder' ? 'var(--bm-gold)' : it.kind === 'loop' ? (feathers[it.routine?.id] || 'var(--bm-ember)') : 'var(--t2-hair2)'
       Icon = it.kind === 'reminder' ? Bell : it.kind === 'returns' ? Undo2 : it.kind === 'loop' ? Repeat2 : null
       onClick = () => onOpenTask?.(it.task)
     }
@@ -258,8 +264,8 @@ export default function TodayKept2({
       </>
     )
     return onClick
-      ? <button key={key} className={`t2-clock${i === 0 ? ' is-first' : ''}`} onClick={onClick}>{inner}</button>
-      : <div key={key} className={`t2-clock${i === 0 ? ' is-first' : ''}`}>{inner}</div>
+      ? <button key={key} className={`t2-clock${i === 0 ? ' is-first' : ''}${it.snoozed ? ' is-snoozed' : ''}`} onClick={onClick}>{inner}</button>
+      : <div key={key} className={`t2-clock${i === 0 ? ' is-first' : ''}${it.snoozed ? ' is-snoozed' : ''}`}>{inner}</div>
   })
 
   // The large all-clear only when the main path is otherwise empty; with
