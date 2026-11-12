@@ -25,6 +25,18 @@ The Terminal theme (GitHub-style monospace, `> command` modal titles, ASCII flou
 
 **7-day strip (Standard theme):** Shows activity intensity per day (soft dots) with today's exact `count/goal` inline above the task list. Opt-in via Settings → General → Home screen; `week_strip_always_open` keeps it permanently visible. Kept has its own equivalent visualizations (Day Arc, Flight Trail) built into its Today view rather than this strip.
 
+## Today (Kept 2.0)
+
+The Kept Today screen answers three questions in one screen: what genuinely needs you, what's worth doing next, and what's coming up. Each section appears only when it has something to say.
+
+- **Needs attention** is small on purpose: critical tasks, things due today or picked for today, a reminder that just went off, or something due yesterday that you'd marked as mattering. Overdue alone doesn't qualify, and neither does a snooze ending.
+- **Worth doing next**: one pick, only with a reason about time (picked for today, or due in the next few days) and only if it fits before your next busy calendar event. Importance alone isn't a reason. **Open task** opens it and changes nothing; **Not now** sets it aside for the day on that device. Never shown in the evening.
+- **Coming up** in the day; in the evening (by 8 PM, earlier with an evening checklist or early quiet hours) the screen reorders to **Tonight** and **Tomorrow**, with evening checklists and unfinished loops near the top. When nothing nearer is on screen, **Later this week** shows the next few dated things (tasks, reminders, calendar events, all-day ones included).
+- **To look over**: everything that slipped past its date, and anything you've been waiting on for a week, sits behind one quiet row. Not late, just undecided.
+- **Last night** and Gmail/Notion **suggestions** are single compact rows. No task ever shows in two places.
+
+Points, the Day Arc, rally, catches and loop trails left Today, but not the app: Analytics still has them. **Settings → General → Home screen → Classic Today screen** brings back the previous Today. Design notes, the rules and what the data can't yet tell: `wiki/Today-Kept2.md`.
+
 ## Settings
 
 Reached from More → Settings. It opens on an **index of six categories, each showing what it's set to** — `General · Kept · Dark`, `Tasks · Due +7d · Stale 7d`, `Integrations · Notion · Trello · GCal`, `Notifications · Push · Pushover`. Tap one to go to its page; anything long enough to deserve it has its own sub-page underneath (Impact dates, Custom instructions, Devices, Server logs, the notification groups, and one page per integration).

@@ -3,6 +3,8 @@ import KeptHeader from './KeptHeader'
 import KeptNav from './KeptNav'
 import PullToRefresh from './PullToRefresh'
 import TodayView from './TodayView'
+import TodayKept2 from './TodayKept2'
+import { loadSettings } from '../store'
 import LoopsView from './LoopsView'
 import TasksViewKept from './TasksViewKept'
 import MoreView from './MoreView'
@@ -57,8 +59,11 @@ export default function KeptShell({
       />
     )
   } else {
+    // Kept 2.0 Today by default; Settings → General → "Classic Today screen"
+    // brings back the previous one. Same props either way.
+    const Today = loadSettings().today_classic ? TodayView : TodayKept2
     surface = (
-      <TodayView
+      <Today
         tasks={tasks} routines={routines} labels={labels} weatherByDate={weatherByDate}
         dailyStats={dailyStats} pointsGoal={pointsGoal} streak={streak}
         onCompleteTask={onCompleteTask} onOpenTask={onOpenTask} onToggleHabit={onToggleHabit}
@@ -68,6 +73,7 @@ export default function KeptShell({
         onWhatNow={onWhatNow}
         onCycleImpact={onCycleImpact}
         pinnedNotes={pinnedNotes} onOpenNotes={onOpenNotes} onUnpinNote={onUnpinNote}
+        onShowTasks={() => setTab('tasks')}
       />
     )
   }

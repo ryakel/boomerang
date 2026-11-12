@@ -2470,6 +2470,9 @@ async function fetchGCalEvents(calendarId, timeMin, timeMax) {
     description: e.description || '',
     location: e.location || '',
     status: e.status || 'confirmed',
+    // Busy vs free. Today's Worth doing next only treats busy, timed events as
+    // commitments; a "free" event never shortens the time it thinks you have.
+    transparency: e.transparency || 'opaque',
     start: e.start,
     end: e.end,
     htmlLink: e.htmlLink,

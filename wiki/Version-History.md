@@ -4,6 +4,55 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ---
 
+## 2026-11-12
+
+- style(today): sans task titles, quieter primary button, honest subtitle, snooze returns set apart [S]
+  - Ticket BOOM-32. Ryan's Wednesday 7:42 PM review: "the strongest version of Today so far". Keep the density and hierarchy; refine the rest.
+  - Worth doing next's title is DM Sans like every other task title; Fraunces stays on the date and the all-clear line. Open task is a muted terracotta instead of solid ember, so it no longer competes with the capture button.
+  - The model returns `headline` and the subtitle follows it: "A good time to get ahead." when there's a recommendation, instead of "Nothing pressing right now" above one.
+  - Snooze returns in Coming up carry `snoozed: true`: muted time, dashed line, no countdown, "Snoozed task · comes back". Calendar events keep the solid bar, countdown, location and duration.
+  - Free-trial pick traced on the dev seed: the only open task inside the 3-day window; high priority and the score decided nothing. Now pinned by a test.
+  - 3 new tests (53 Today tests, passing in UTC and America/Chicago). Verified in the built app on the dev seed at Thursday 7:42 PM Chicago, with the two read-only calendar endpoints stubbed (no Google connection in the sandbox). **Web-only, OTA.**
+
+## 2026-11-11
+
+- fix(today): restore what's next and unfinished routines without new urgency [M]
+  - Ticket BOOM-32. Second dev test at 10:04 PM: the only thing on screen was a ten-days-overdue dentist call whose snooze ended that minute ("Back today"); no routine, nothing coming up, "Anytime · 23". Quiet but not reassuring.
+  - "Back from snooze today" is no longer a Needs attention reason; a resurfaced task is judged on its own evidence (overdue → the review). A slipped task due back later tonight isn't listed under Tonight either.
+  - An open loop task with no due date counts as the current cycle (the seed's "take meds" was being dropped). In the evening, loops sit with the checklists.
+  - New **Later this week**: up to 3 dated things (tasks, reminders, calendar events) within 7 days, shown only when nothing nearer is on screen; undated tasks never fill it; waiting items say so. All-day events now count for Tomorrow and later.
+  - Anytime removed from Today (still in Tasks).
+  - Diagnosis on the dev seed: it has no checklist routines and nothing due tomorrow, and the dev server reads calendar events only if its own Google connection is set up. Those gaps are data, not rendering.
+  - 6 new scenario tests from the 10:04 PM screen; 50 Today tests pass in UTC and America/Chicago. Verified in the built app on the reseeded dev data at 10:08 PM Chicago. **Web-only, OTA.**
+
+- fix(today): needs attention means needs you now, and the evening reorders [L]
+  - Ticket BOOM-32. First dev test of Kept 2.0 at 9:39 PM: Today opened on seven overdue chores, a Last night queue and a "high impact, about 1 hr" recommendation for a task with no date, size or impact in the data. Old task-manager behaviour under new section names.
+  - `todayModel.js` now classifies once: **needs you now** (critical, due today, picked for today, a reminder that went off today, back from snooze today, due yesterday and marked as mattering) → Needs attention, max 3, only critical in red; **slipped** (anything else past its date) and **waiting a week+** → one quiet "To look over" row and sheet, oldest first; **important, not now** → off the main path.
+  - Worth doing next needs a reason about time (picked for today, due within 3 days); sooner beats more important, impact only breaks ties, "high impact" is never the reason, never in the evening, absent without evidence.
+  - Time of day sets the order (`order`): evening (by 20:00, earlier with an evening checklist or early quiet hours) leads with checklists, Tonight and Tomorrow. Quiet hours never make the evening start later.
+  - One obligation, one place: Last night's tasks are excluded from every other section (the Amazon return was in two). Last night is a compact row, before the evening only, and skips waiting tasks.
+  - UI: every main-path section is a card, 14px apart; a subtitle per phase; bookkeeping collapses to compact rows; a solid Open task button. Type and colours unchanged.
+  - Tests lead with scenarios from the report (9:39 PM, 8:24 AM before a commitment, waiting, duplicates); 44 total, passing in UTC and America/Chicago. Verified in the built app on the dev seed at 9:39 PM and 8:24 AM Chicago. **Web-only, OTA. No migration.**
+
+- docs(today): kept 2.0 handoff page, features and index [S]
+  - `wiki/Today-Kept2.md` is the redesign's handoff: why it exists (the November engagement audit), the locked decisions, what was built section by section, the visual spec, how it was verified, open questions and future tracks. The page and the code outrank the claude.ai spec doc, whose plan and type sections lag.
+  - `wiki/Features.md` gains a Today (Kept 2.0) section, and CLAUDE.md's wiki index points at the handoff. Ticket BOOM-32.
+
+## 2026-11-10
+
+- feat(today): kept 2.0 screen behind a classic today switch [L]
+  - Ticket BOOM-32. New `src/kept/TodayKept2.jsx` renders `todayModel`: Needs attention with reasons, Last night, checklists at their prominence tier, loops due, one Worth doing next, Coming up / Tomorrow, and a review row that opens a Keep/Dismiss sheet. Anytime, What now and the nudge stay at the bottom.
+  - Gone from Today only: Day Arc, points goal, rally and catches, week breakdown, loop mini trails, the What now hero. Their data, the scoring and Analytics are untouched.
+  - **Open task** opens details and writes nothing. **Not now** is per device per day (`boom_today_notnow`), at most two a day, and never touches the task.
+  - Softer Kept type and surfaces scoped to `.bm-t2`. Fraunces and DM Sans are bundled as `@fontsource-variable` packages (5.3.0, OFL) so iOS renders offline. They use a different family name from the Google-loaded fonts, so only Today changes. Header, nav and Throw are unchanged.
+  - `settings.today_classic` (default false, ordinary blob preference) plus a **Classic Today screen** toggle in Settings → General. `KeptShell` and `KeptDesktop` pick the screen from it. This is the revert path.
+  - `server/server.js`: the GCal events mapping passes `transparency`, so free events never count as commitments. Nothing else server-side changed.
+  - Verified against a scrubbed live-DB snapshot at 390×844 and 1280×860, Kept dark and light. Completing a task wrote `done`; Not now left the task untouched and held across a reload; Open task wrote nothing; the review sheet listed the 3 pending Gmail items; the classic toggle held across a reload. **Web + one server field. No migration, no iOS rebuild.**
+
+- feat(today): pure today model for the kept 2.0 screen [L]
+  - Ticket BOOM-32. `src/todayModel.js` takes tasks, routines, settings, events and `now`, and returns the sections. No storage, network or React. 34 tests in `scripts/todayModel.test.mjs`, passing in UTC and America/Chicago.
+  - Pending suggestions (`gmail_pending`) never reach any section except the review count. Durations come only from a task's size, and free time only from busy, timed calendar events. No invented buffers.
+
 ## 2026-10-31
 
 - feat(today): a last night list for what you did and didn't tick [M]
