@@ -38,6 +38,7 @@ test('E1 browser recovery with synthetic HTTP server and no live application int
     ].map(([event, data]) => `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`).join(''))
   })
   app.post('/api/log', (_req, res) => res.json({ ok: true }))
+  app.get('/api/tasks/exam', (_req, res) => res.json(db.getTask('exam')))
   app.post('/__simulate_unknown', async (_req, res) => {
     const next = s.session()
     await s.stage(next, 'gcal_create_event', { summary: 'Synthetic browser event', start: { date: '2026-11-20' }, end: { date: '2026-11-21' } })
@@ -77,7 +78,7 @@ test('E1 browser recovery with synthetic HTTP server and no live application int
   t.after(() => driver.kill())
   const code = await new Promise((resolve, reject) => { driver.once('error', reject); driver.once('exit', resolve) })
   assert.equal(code, 0, output)
-  assert.equal(db.getTask('exam').title, 'Browser applied')
+  assert.equal(db.getTask('exam').title, 'Prepare exam')
   assert.equal(s.external.calls.filter(c => c.method === 'POST').length, 1)
   console.log(output.trim())
 })

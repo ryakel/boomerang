@@ -1,13 +1,16 @@
 import { useEffect, useState } from 'react'
+import LocalUndo from './LocalUndo'
 
 const labels = {
   running: 'Applying changes', completed: 'Actions reported applied',
   partial: 'Some actions need checking', needs_checking: 'Outcome needs checking',
+  conflict: 'Plan changed — review again', undone: 'Local changes undone',
 }
 const stepLabels = {
   not_started: 'Not started', executing: 'Executing', reported_applied: 'Reported applied',
   unknown: 'Outcome not verified', compensating: 'Attempting restoration',
   compensation_unverified: 'Restoration not verified',
+  verified_undone: 'Local change undone',
 }
 
 export default function ExecutionStatus({ chatId, onRecords }) {
@@ -38,13 +41,14 @@ export default function ExecutionStatus({ chatId, onRecords }) {
   return <section className="v2-execution-status" aria-label="Execution status" aria-live="polite">
     {error && <p role="status">Execution status unavailable. Check what happened before trying again.</p>}
     {visible.map(record => <details key={record.executionId} className="v2-adviser-plan">
-      <summary>{labels[record.state] || 'Outcome needs checking'} · {new Date(record.createdAt).toLocaleString()}</summary>
+      <summary>{record.undoApplied && record.state === 'partial' ? 'Local changes undone; other actions remain' : record.undoOf && record.ok ? 'Undo completed' : labels[record.state] || 'Outcome needs checking'} · {new Date(record.createdAt).toLocaleString()}</summary>
       {record.error && <p>{record.error}</p>}
       <ul>{record.results.map(step => <li key={step.stepId}>
         {step.toolName.replace(/^gcal_/, 'calendar_').replaceAll('_', ' ')}: {stepLabels[step.state] || 'Outcome not verified'}
       </li>)}</ul>
       {(record.state === 'partial' || record.state === 'needs_checking') &&
         <p>Check affected tasks or the connected service. These actions will not be retried automatically.</p>}
+      <LocalUndo record={record} />
     </details>)}
   </section>
 }

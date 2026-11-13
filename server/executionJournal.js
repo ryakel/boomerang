@@ -4,6 +4,7 @@ import crypto from 'node:crypto'
 let connection
 let persist
 let poisoned = false
+let transactionActive = false
 
 export function configureExecutionJournal(db, flush) {
   connection = db
@@ -26,7 +27,7 @@ export function configureExecutionJournal(db, flush) {
 
 export function executionIdentity(sessionId, plan) {
   const revision = crypto.createHash('sha256').update(JSON.stringify(plan.map(s => ({
-    stepId: s.stepId, toolName: s.toolName, input: s.input,
+    stepId: s.stepId, toolName: s.toolName, input: s.input, localGuard: s.localGuard,
   })))).digest('hex')
   return { revision, executionId: executionKey(sessionId, revision) }
 }
@@ -49,22 +50,53 @@ export function executionJournalReady() {
 
 export function saveExecution(record) {
   executionJournalReady()
-  record.updatedAt = new Date().toISOString()
+  if (transactionActive) throw new Error('Use updateExecution during a local transaction')
   try {
-    connection.run(`INSERT INTO adviser_executions
+    writeRecord(record)
+    persist()
+  } catch (error) {
+    poisoned = true
+    throw error
+  }
+}
+
+function writeRecord(record) {
+  record.updatedAt = new Date().toISOString()
+  connection.run(`INSERT INTO adviser_executions
       (id, session_id, chat_id, revision, state, receipt_json, created_at, updated_at)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?)
       ON CONFLICT(id) DO UPDATE SET state=excluded.state,
         receipt_json=excluded.receipt_json, updated_at=excluded.updated_at`,
     [record.executionId, record.sessionId, record.chatId, record.revision, record.state,
       JSON.stringify(record), record.createdAt, record.updatedAt])
+}
+
+export function updateExecution(record) {
+  if (!transactionActive) throw new Error('A local transaction is required')
+  writeRecord(record)
+}
+
+// Only synchronous local operations may share this transaction. No awaited
+// tool/network work can capture another request's writes on the shared DB.
+export function executionTransaction(record, mutate) {
+  executionJournalReady()
+  if (transactionActive) throw new Error('Nested execution transaction')
+  connection.run('BEGIN')
+  transactionActive = true
+  let committed = false
+  try {
+    const result = mutate()
+    if (result?.then) throw new Error('Local recovery must be synchronous')
+    writeRecord(record)
+    connection.run('COMMIT')
+    committed = true
     persist()
+    return result
   } catch (error) {
-    // Memory may be ahead of disk. Fail closed until restart; never dispatch on
-    // the strength of an unpersisted in-memory receipt.
-    poisoned = true
+    if (!committed) connection.run('ROLLBACK')
+    else poisoned = true
     throw error
-  }
+  } finally { transactionActive = false }
 }
 
 export function getExecution(id) {
@@ -84,7 +116,7 @@ export function listExecutions({ chatId, sessionId, limit = 50 } = {}) {
   if (sessionId) { clauses.push('session_id = ?'); args.push(sessionId) }
   const stmt = connection.prepare(`SELECT receipt_json FROM adviser_executions
     ${clauses.length ? `WHERE ${clauses.join(' AND ')}` : ''}
-    ORDER BY ${chatId ? "(state = 'completed') ASC," : ''} rowid DESC LIMIT ?`)
+    ORDER BY ${chatId ? "CASE WHEN state IN ('running','needs_checking','partial','conflict') THEN 0 ELSE 1 END," : ''} rowid DESC LIMIT ?`)
   try {
     stmt.bind([...args, Math.min(Math.max(Number(limit) || 50, 1), 10000)])
     const records = []

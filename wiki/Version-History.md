@@ -6,6 +6,12 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-11-13
 
+- feat(quokka): add previewed local undo and stale-edit guards [L]
+  - Authorized E2 after owner requested merging E1 and moving on. Migration 061 tracks all task/note writers; stage/Apply/Undo version checks preserve later edits. Synchronous local mutations, inverses and receipts share a transaction and atomic checkpoint; unsupported tools retain existing behavior.
+  - Add authenticated Undo preview/confirmation, durable deduplicated inverse execution and UI Cancel/reopen/confirm flow. Cover supported task/note fields and safe simple creates; reject later edits, dependencies, connected/critical tasks and unsafe mixed creation plans. No external Undo or full Stop flow.
+  - Convert P1 R3/R3b into safety invariants and test fresh-process Undo, checkpoint failure, same-field conflict, unrelated-field preservation, compatibility and browser recovery. No dependency/provider changes, paid calls, E2 merge or deployment. See Local-Undo-E2.md for scope/privacy/retention limits and final PR evidence.
+  - 692 offline tests pass across 40 files; actual-hook mobile/desktop preview, Cancel, reopen, confirm and repeated Undo pass. Build/lint pass (18 existing warnings). Audit remains 32 vulnerabilities in unchanged dependencies.
+
 - fix(quokka): reject unknown approvals before resolving tokens [S]
   - E1 review found that a valid-format revision on an empty session could report empty success. Reject absent/mismatched current approvals before request-scoped integration credentials are resolved; retain read-only replay of genuine persisted receipts after session expiry.
   - Extend the authenticated route regression with an empty-session case, zero dependency resolution and independent engine rejection. E1 journal/P1 checks pass (25 tests); changed files lint clean. No E2 implementation, merge or deployment.

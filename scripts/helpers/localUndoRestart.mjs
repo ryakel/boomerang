@@ -1,0 +1,10 @@
+import { installNetworkFence } from './quokkaNetworkFence.mjs'
+const fence = installNetworkFence()
+await fence.verify()
+const { initDb, flushNow } = await import('../../server/db.js')
+const { applyLocalUndo } = await import('../../server/localRecovery.js')
+const connection = await initDb(process.argv[2])
+const result = applyLocalUndo(process.argv[3], process.argv[4])
+flushNow()
+connection.close()
+console.log(`UNDO_RESULT=${JSON.stringify(result)}`)

@@ -16,6 +16,12 @@ documents approved-revision deduplication, durable receipts, restart uncertainty
 status API/UI, tests and limits. This changes runtime execution handling but
 does not implement Undo, full Stop recovery or provider migration.
 
+**E2 implementation (review pending):** [Local Undo](Local-Undo-E2.md) adds
+previewed, durable local field/create inverses and database version guards.
+Supported local compensation is verified and conflict-aware; unsupported tools
+remain best effort. Direct capture, provider defaults and full Stop flow are
+unchanged.
+
 Free-form natural-language control surface — user says "I've rescheduled my FAA exam to May 12, adjust everything" and Quokka finds related tasks/GCal events/routines and queues the fix. Named after the quokka (a small, perpetually-smiling Australian marsupial). User-facing branding uses "Quokka"; internal code (module names, CSS classes, endpoints under `/api/adviser/`, state vars like `showAdviser`) stays as `adviser`/`Adviser` — renaming plumbing provides no value.
 
 **Entry point:** `✨` sparkle icon in the header (took the slot where the gear used to be). Settings moved into the overflow `⋯` menu.

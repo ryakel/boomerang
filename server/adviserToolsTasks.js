@@ -372,7 +372,7 @@ export function registerTaskTools() {
       }
       return null
     },
-    execute: async (args) => {
+    execute: (args) => {
       // Parent validation already happened at stage time via stagedValidate,
       // but recheck here against the real DB (the parent may have been
       // staged in this same plan and is about to land — commit runs steps
@@ -510,7 +510,7 @@ export function registerTaskTools() {
       }
       return null
     },
-    execute: async (args) => {
+    execute: (args) => {
       const before = getTask(args.id)
       if (!before) throw new Error(`Task not found: ${args.id}`)
       // Validate parent_id refers to a real task (when set).

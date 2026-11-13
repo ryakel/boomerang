@@ -1,3 +1,4 @@
+import crypto from 'node:crypto'
 // adviserToolsMisc.js — Gmail, packages, weather, settings, analytics tools.
 
 import {
@@ -594,10 +595,11 @@ export function registerNoteTools() {
       required: ['body'],
     },
     preview: (a) => `Create ${a.pinned ? 'pinned ' : ''}note "${String(a.body || '').slice(0, 60)}"`,
-    execute: async (args) => {
+    preStage: (args) => { const id = `note-${crypto.randomUUID()}`; return { id, input: { ...args, id } } },
+    execute: (args) => {
       const now = new Date().toISOString()
       const note = {
-        id: `note-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        id: args.id || `note-${crypto.randomUUID()}`,
         body: String(args.body || '').trim(),
         pinned: !!args.pinned,
         created_at: now,
@@ -625,7 +627,7 @@ export function registerNoteTools() {
       required: ['id'],
     },
     preview: (a) => `Update note ${a.id}`,
-    execute: async (args) => {
+    execute: (args) => {
       const before = getNote(args.id)
       ensure(before, `Note not found: ${args.id}`)
       const updates = {}

@@ -47,3 +47,8 @@ The owner subsequently authorized E1 execution records only, after proposal
 #1021. See [E1 evidence](wiki/Execution-Records-E1.md) for implementation scope
 and limits. Merge/deployment, E2–E5 and provider/paid evaluation work still need
 their own authority.
+
+The owner then requested merging E1 and moving on to E2. E1 is merged; E2
+local Undo/stale-edit implementation is prepared for review. See
+[E2 scope and evidence](wiki/Local-Undo-E2.md). E2 merge/deployment and E3–E5
+still require explicit authority.

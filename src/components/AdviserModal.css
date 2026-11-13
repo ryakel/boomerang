@@ -682,3 +682,4 @@
 .v2-execution-status summary { cursor: pointer; }
 .v2-execution-status p { margin-top: 8px; }
 .v2-execution-status ul { padding-left: 20px; margin-top: 8px; }
+.v2-local-undo-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; margin-top: 8px; }

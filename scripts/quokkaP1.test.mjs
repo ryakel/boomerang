@@ -11,6 +11,16 @@ after(() => fence.restore())
 const EVENTS = '/calendar/v3/calendars/primary/events'
 const eventInput = { summary: 'Synthetic new event', start: { date: '2026-11-20' }, end: { date: '2026-11-21' } }
 const taskRow = (s, id = 'exam') => s.persisted().tasks.find(r => r.id === id)
+
+function assertRestoredContent(s) {
+  const normalized = value => ({ ...value, tasks: value.tasks.map(task => {
+    if (task.id !== 'exam') return task
+    const copy = { ...task }; delete copy.last_touched; delete copy.updated_at
+    return copy
+  }) })
+  assert.deepEqual(normalized(s.persisted()), normalized(s.initial))
+}
+
 const newEvents = s => Object.keys(s.external.state.events).filter(id => id.startsWith('created-'))
 
 test('isolation canaries: providers, HTTP/socket/TLS/UDP cannot escape', async () => {
@@ -84,15 +94,16 @@ test('R2 FIXED: lost successful response returns original receipt without anothe
   assert.deepEqual(s.persisted(), s.initial)
 })
 
-test('R3 REPRO: a staged task patch overwrites a newer same-field edit without conflict', async t => {
+test('R3 FIXED: stale task patches preserve the newer edit and require review', async t => {
   const s = await sandbox(t)
   const id = s.session()
   await s.stage(id, 'update_task', { id: 'exam', due_date: '2026-11-20' })
   db.updateTaskPartial('exam', { due_date: '2026-11-22', notes: 'Concurrent edit kept on another field' })
   assert.equal(taskRow(s).due_date, '2026-11-22')
   const result = await engine.commitPlan(id, s.deps)
-  assert.equal(result.ok, true)
-  assert.equal(taskRow(s).due_date, '2026-11-20')
+  assert.equal(result.ok, false)
+  assert.equal(result.state, 'conflict')
+  assert.equal(taskRow(s).due_date, '2026-11-22')
   assert.equal(taskRow(s).notes, 'Concurrent edit kept on another field')
   assert.deepEqual(s.external.state, fixture.external)
 })
@@ -111,7 +122,7 @@ test('R2b FIXED: lost external create response remains unknown and cannot be ret
   assert.deepEqual(s.persisted(), s.initial)
 })
 
-test('R3b REPRO: rollback overwrites an intervening task edit with a pre-commit snapshot', { timeout: 5000 }, async t => {
+test('R3b FIXED: field-scoped rollback preserves an intervening edit', { timeout: 5000 }, async t => {
   const s = await sandbox(t)
   const id = s.session()
   await s.stage(id, 'update_task', { id: 'exam', title: 'Will roll back' })
@@ -125,8 +136,8 @@ test('R3b REPRO: rollback overwrites an intervening task edit with a pre-commit 
   assert.equal(taskRow(s).notes, 'Concurrent user edit during commit')
   gate.release()
   assert.equal((await committing).ok, false)
-  assert.equal(taskRow(s).notes, 'Synthetic fixture', 'rollback erased the intervening edit')
-  assert.deepEqual(s.persisted(), s.initial)
+  assert.equal(taskRow(s).notes, 'Concurrent user edit during commit')
+  assert.equal(taskRow(s).title, 'Prepare exam')
   assert.deepEqual(s.external.state, fixture.external)
 })
 
@@ -158,8 +169,8 @@ test('baseline: failed external step compensates prior task changes in reverse o
   const result = await engine.commitPlan(id, s.deps)
   assert.equal(result.ok, false)
   assert.deepEqual(result.results.map(r => r.ok), [false, false, false])
-  assert.deepEqual(result.results.map(r => r.state), ['compensation_unverified', 'compensation_unverified', 'unknown'])
-  assert.deepEqual(s.persisted(), s.initial, 'both real task compensations restored disk state')
+  assert.deepEqual(result.results.map(r => r.state), ['verified_undone', 'verified_undone', 'unknown'])
+  assertRestoredContent(s)
   assert.deepEqual(s.external.state, fixture.external)
   assert.equal(engine.getSession(id).runnerState, 'errored')
 })
@@ -172,7 +183,7 @@ test('R5 REPRO: a tool that fails after a remote partial write leaves that write
   s.external.fail('POST', '/1/checklists/checklist-1/checkItems')
   const result = await engine.commitPlan(id, s.deps)
   assert.equal(result.ok, false)
-  assert.deepEqual(s.persisted(), s.initial)
+  assertRestoredContent(s)
   assert.deepEqual(s.external.state.checklists, { 'checklist-1': { id: 'checklist-1', name: 'Packing', items: [] } })
   assert.deepEqual(s.external.state.events, fixture.external.events)
   assert.equal(s.external.calls.some(c => c.method === 'DELETE'), false, 'failing tool never returned compensation')
@@ -188,7 +199,7 @@ test('R6 REPRO: HTTP failure during compensation leaves external divergence with
   const result = await engine.commitPlan(id, s.deps)
   assert.equal(result.ok, false)
   assert.equal(result.state, 'partial')
-  assert.deepEqual(s.persisted(), s.initial)
+  assertRestoredContent(s)
   assert.equal(newEvents(s).length, 1)
   assert.equal('compensationErrors' in result, false, 'rollback HTTP status is not surfaced')
   assert.equal(s.external.calls.at(-1).method, 'DELETE')

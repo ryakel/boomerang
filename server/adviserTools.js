@@ -30,6 +30,7 @@
 //   `idle` (no plan staged) or after the user commits/aborts a plan.
 
 import crypto from 'crypto'
+import { stageLocalGuard, checkLocalGuard, runLocalStep, trackLocalWrite } from './localRecovery.js'
 import { executionIdentity, executionKey, executionJournalReady, getExecution, listExecutions, saveExecution } from './executionJournal.js'
 
 const SESSION_IDLE_TTL_MS = 10 * 60 * 1000     // idle session timeout
@@ -305,7 +306,7 @@ export async function handleToolCall(sessionId, toolName, input, deps) {
   } catch {
     previewText = `Will run ${toolName}`
   }
-  session.plan.push({ stepId, toolName, input: stagedInput, preview: previewText, status: 'staged' })
+  session.plan.push({ stepId, toolName, input: stagedInput, preview: previewText, status: 'staged', localGuard: stageLocalGuard(toolName, stagedInput, session) })
   const response = {
     ok: true,
     staged: true,
@@ -364,34 +365,52 @@ export async function commitPlan(sessionId, deps, revision) {
   }
   session.committing = true
   const compensations = []
+  const owned = new Map()
   try {
     executionJournalReady()
+    try {
+      for (const step of plan) checkLocalGuard(step.localGuard)
+    } catch {
+      record.state = 'conflict'
+      record.error = 'A task or note changed. Review a fresh plan before applying.'
+      session.executionBlocked = true
+      saveExecution(record)
+      return publicOutcome(record)
+    }
     saveExecution(record)
     for (let index = 0; index < plan.length; index++) {
       const step = plan[index]
       const result = record.results[index]
-      result.state = 'executing'
-      saveExecution(record) // durable dispatch intent BEFORE invoking the tool
       let outcome
       try {
         const tool = tools.get(step.toolName)
         if (!tool) throw new Error('Unknown tool')
-        outcome = await tool.execute(step.input, { ...deps, suppressBroadcast: true })
-      } catch {
-        result.state = 'unknown' // errors do not establish absence of side effects
-        record.error = 'An action could not be verified. Check what happened before taking further action.'
-        // Preserve existing best-effort compensation, but never call it verified
-        // rollback. E2/E4 will add conflict checks/readback and durable inverses.
+        checkLocalGuard(step.localGuard, owned)
+        result.state = 'executing'
+        saveExecution(record) // durable dispatch intent BEFORE invoking the tool
+        if (step.localGuard?.supported) outcome = runLocalStep(record, index, step, tool, owned)
+        else if (step.localGuard) {
+          // The four guarded task/note operations are synchronous, even when
+          // Undo is unsupported. Track only our writes, before any async gap.
+          outcome = tool.execute(step.input, { ...deps, suppressBroadcast: true })
+          trackLocalWrite(step.localGuard, owned)
+        } else outcome = await tool.execute(step.input, { ...deps, suppressBroadcast: true })
+      } catch (error) {
+        result.state = error.code === 'STALE_PLAN' ? 'not_started' : 'unknown' // errors do not establish absence of side effects
+        record.error = error.code === 'STALE_PLAN' ? 'A task or note changed. Review a fresh plan before applying.' : 'An action could not be verified. Check what happened before taking further action.'
+        // Local inverses check field versions and read back restoration. Other
+        // compensation remains best effort until its own recovery adapter exists.
         for (let i = compensations.length - 1; i >= 0; i--) {
           const prior = compensations[i]
           record.results[prior.index].state = 'compensating'
           saveExecution(record)
-          try { await prior.run() } catch { /* journal remains conservative */ }
-          record.results[prior.index].state = 'compensation_unverified'
+          let verified = false
+          try { verified = (await prior.run())?.verified === true } catch { /* preserve later edits */ }
+          record.results[prior.index].state = verified ? 'verified_undone' : 'compensation_unverified'
           record.results[prior.index].ok = false
           saveExecution(record)
         }
-        record.state = index > 0 ? 'partial' : 'needs_checking'
+        record.state = index > 0 ? 'partial' : error.code === 'STALE_PLAN' ? 'conflict' : 'needs_checking'
         session.executionBlocked = true
         session.runnerState = 'errored'
         saveExecution(record)
@@ -405,9 +424,9 @@ export async function commitPlan(sessionId, deps, revision) {
         .filter(key => ['string', 'boolean'].includes(typeof value?.[key]))
         .map(key => [key, value[key]]))
       if (outcome?.compensation) compensations.push({ index, run: outcome.compensation })
-      // For synchronous local tools this export checkpoints effects and evidence
-      // together. Interrupted async/local tools remain unknown, never replayed.
-      saveExecution(record)
+      // Supported local adapters already checkpointed effects, inverse and
+      // receipt together. Other tools need their result checkpoint here.
+      if (!step.localGuard?.supported) saveExecution(record)
     }
     record.state = 'completed'
     record.ok = true
