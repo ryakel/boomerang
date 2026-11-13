@@ -6,6 +6,11 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-11-13
 
+- docs(product): record workspace handoff and decision structure [M]
+  - Capture the product-owner handoff in Product Context, Decision Log and Work Status; add AGENTS.md as a concise entry point and link it from CLAUDE.md. Record execution-first goals, the confirmed owner-daily-use-first audience, Flourish observations as supplied research, collaboration expectations and unresolved product decisions.
+  - Reconcile #1018 with completed/merged P1 and its specifically approved staging workflow; retain current limits on runtime changes, providers, benchmarks and deployments. File organization remains a documentation proposal, not new implementation authority.
+  - Recheck all 19 isolated P1 cases on merged dev and validate documentation links. Fresh audit reports 32 vulnerabilities against unchanged dependencies (2 critical, 11 high, 16 moderate, 3 low); no runtime/test/dependency changes or new deployment.
+
 - test(quokka): characterize isolated execution and recovery risks [M]
   - Issue #1018 P1 only: 19 deterministic tests use disposable synthetic sql.js databases, real staging/commit tools, fake Calendar/Trello endpoints and notification sinks, and verified fetch/socket/TLS/UDP fences. No runtime files or model defaults change.
   - Reproduce concurrent duplicate commits, uncertain external retry, stale plans and rollback erasing newer edits, abort during commit, partial/failed compensation, restart/session loss and polling rollover. Sequential retry after completed commit does not duplicate. Green characterization tests document defects, not fixes.

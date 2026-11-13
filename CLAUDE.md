@@ -4,6 +4,12 @@ Personal ADHD task manager PWA. React 19 + Vite frontend, Express + sql.js backe
 
 This file holds only the invariants and gotchas you can't infer from the tree. Deep implementation notes live in `wiki/` and load on demand — index at the bottom. Procedural workflows live in `.claude/skills/`.
 
+Product/collaboration context starts at [AGENTS.md](AGENTS.md),
+[Product Context](wiki/Product-Context.md), [Decision Log](wiki/Decision-Log.md)
+and [Work Status](wiki/Work-Status.md). These distinguish product direction,
+proposed implementation, approved scope and verified outcomes; they complement
+the engineering invariants below.
+
 ## Git model — `dev` integrates, `main` is production
 
 - All development lands on `dev`. `main` only ever receives merge commits from `dev`: never commit to `main` directly, never branch a feature off `main`, never cherry-pick or rebase between the two. `main` must stay an ancestor-subset of `dev` (`git rev-list --count origin/dev..origin/main` == 0; if it's ever > 0 the trunk has forked — stop and relink with a content-neutral merge of `main` into `dev`).
