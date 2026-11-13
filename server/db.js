@@ -8,6 +8,7 @@ import { normalizeWindow, isAway } from './vacationWindow.js'
 import { walkStreak, dayKey } from './streakWalk.js'
 import { ymdInTz } from './taskModel.js'
 import { configureExecutionJournal } from './executionJournal.js'
+import { configureLocalRecovery } from './localRecovery.js'
 import { atomicPersist } from './atomicPersist.js'
 
 let db
@@ -101,6 +102,7 @@ export async function initDb(filePath) {
 
   runMigrations()
 
+  configureLocalRecovery(db, isCrisisTask)
   configureExecutionJournal(db, flushNow)
   flushNow()
   return db

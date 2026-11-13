@@ -84,6 +84,15 @@ can live in their own linked document; keep their decision summary here.
 
 ## Open decisions before future behavior changes
 
+### E2 implementation authority — 2026-11-13
+
+After E1 was completed, the owner requested “Merge it and move on.” E1 #1022
+was merged into dev; the next identified increment, E2 safe local Undo and
+stale-edit protection, is authorized and prepared for review. See
+[Local Undo](Local-Undo-E2.md) for actual coverage and limits. No E2 merge or
+deployment, E3–E5, provider change or paid benchmark is approved by this work.
+The following E1/handoff notes are historical context.
+
 ### E1 implementation authority — 2026-11-13
 
 The product owner approved the recommended **E1 only** increment in Codex
