@@ -52,11 +52,12 @@ import { listPendingSuggestions, getPatternSuggestion, updateSuggestionStatus, s
 import { runBackup } from '../scripts/backup-db.js'
 import {
   listToolSchemas, newSession, getSession, abortSession, clearSession,
-  handleToolCall, commitPlan,
+  handleToolCall, getPlanApproval,
   appendEvent, subscribeSession, unsubscribeSession, setRunnerState,
   attachChatId, enqueueMessage, dequeueMessage,
   onPlanReady,
 } from './adviserTools.js'
+import { registerExecutionRoutes } from './adviserExecutionRoutes.js'
 import { registerTaskTools } from './adviserToolsTasks.js'
 import { registerGCalTools, registerNotionTools, registerTrelloTools } from './adviserToolsIntegrations.js'
 import { registerListTools } from './adviserToolsLists.js'
@@ -5262,7 +5263,7 @@ async function runChatTurn(sessionId, apiKey, message, history, deps, abortContr
     console.log(`${logTag} runner done — staged ${plan.length} step(s)`)
     appendEvent(sessionId, {
       type: 'plan',
-      data: { sessionId, steps: plan.map(p => ({ stepId: p.stepId, toolName: p.toolName, preview: p.preview })) },
+      data: { sessionId, ...getPlanApproval(sessionId), steps: plan.map(p => ({ stepId: p.stepId, toolName: p.toolName, preview: p.preview })) },
     })
     appendEvent(sessionId, { type: 'done', data: { sessionId } })
 
@@ -5410,30 +5411,22 @@ app.post('/api/adviser/chat', async (req, res) => {
   if (sessObj) sessObj.runnerPromise = runChatTurn(sessionId, apiKey, message, history, deps, abortController)
 })
 
-app.post('/api/adviser/commit', async (req, res) => {
-  const { sessionId } = req.body || {}
-  if (!sessionId) return res.status(400).json({ error: 'sessionId required' })
-  const session = getSession(sessionId)
-  if (!session) return res.status(404).json({ error: 'Session expired or already committed' })
-
-  const deps = adviserDeps(req)
-  try { deps.gcalToken = await getGCalAccessToken() } catch { /* non-fatal */ }
-
-  const outcome = await commitPlan(sessionId, deps)
-  if (outcome.broadcastNeeded) {
-    const newVersion = bumpVersion()
-    broadcast(newVersion, 'adviser')
-    outcome.version = newVersion
-  }
-
-  // If commit succeeded and there's a queued follow-up message, advance
-  // the queue now. Session is alive (commitPlan no longer deletes it),
-  // so the new turn runs on the same chat conversation.
-  if (outcome.ok) {
-    const apiKey = getAnthropicKey(req)
-    if (apiKey) processQueue(sessionId, apiKey, deps)
-  }
-  res.json(outcome)
+registerExecutionRoutes(app, {
+  dependencies: async (req) => {
+    const deps = adviserDeps(req)
+    try { deps.gcalToken = await getGCalAccessToken() } catch { /* non-fatal */ }
+    return deps
+  },
+  afterCommit: async (req, outcome, deps) => {
+    if (outcome.broadcastNeeded) {
+      const newVersion = bumpVersion()
+      broadcast(newVersion, 'adviser')
+    }
+    if (outcome.ok) {
+      const apiKey = getAnthropicKey(req)
+      if (apiKey) processQueue(outcome.sessionId, apiKey, deps)
+    }
+  },
 })
 
 app.post('/api/adviser/abort', (req, res) => {

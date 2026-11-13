@@ -5,11 +5,12 @@
 // - readOnly tools run immediately during the model's reasoning loop and return data.
 // - Mutation tools (readOnly: false) are STAGED: the model sees a confirmation string,
 //   but nothing actually mutates until the user calls /api/adviser/commit.
-// - On commit, all staged steps run in order. If any step fails, prior steps' compensations
-//   are invoked in reverse (LIFO) to roll back local DB writes and best-effort external ones.
+// - On commit, a durable revision/receipt prevents duplicate dispatch. Steps
+//   run in order; compensation remains best effort and is never verified Undo.
 // - One coalesced SSE broadcast fires after the whole plan commits (prevents storm).
 //
-// Sessions are in-memory with a 10-minute TTL. No persistence.
+// Chat-runner sessions remain in memory with a 10-minute TTL. Execution receipts
+// persist separately and survive session expiry, abort and process restart.
 //
 // Background-runner support (2026-05-17, "F" branch):
 // - The chat tool-use loop runs as a detached async task tied to the session
@@ -29,6 +30,7 @@
 //   `idle` (no plan staged) or after the user commits/aborts a plan.
 
 import crypto from 'crypto'
+import { executionIdentity, executionKey, executionJournalReady, getExecution, listExecutions, saveExecution } from './executionJournal.js'
 
 const SESSION_IDLE_TTL_MS = 10 * 60 * 1000     // idle session timeout
 const SESSION_AWAITING_TTL_MS = 30 * 60 * 1000 // max time a staged plan can wait before auto-abort
@@ -264,6 +266,8 @@ export async function handleToolCall(sessionId, toolName, input, deps) {
     }
   }
 
+  if (session.executionBlocked || session.committing) return { error: 'Execution must be checked before staging more changes. Start a new conversation for new work.' }
+
   // Mutation → stage it.
   // 1. Stage-time validation. Lets tools reject obviously-broken inputs
   //    (e.g. parent_id pointing nowhere) BEFORE the plan reaches commit
@@ -325,68 +329,105 @@ export function findStagedCreate(session, id) {
   return null
 }
 
-// Called by /api/adviser/commit. Executes all staged steps atomically.
-// Returns { ok, results: [{stepId, ok, result?, error?}], broadcastNeeded }.
-export async function commitPlan(sessionId, deps) {
+// A revision names the exact plan shown for approval, never a moving session.
+export function getPlanApproval(sessionId) {
   const session = sessions.get(sessionId)
+  return session?.plan.length ? executionIdentity(sessionId, session.plan) : null
+}
+
+function publicOutcome(record, replayed = false) {
+  return { ...record, replayed, broadcastNeeded: !replayed && record.results.some(r => r.state !== 'not_started') }
+}
+
+export async function commitPlan(sessionId, deps, revision) {
+  const session = sessions.get(sessionId)
+  const approval = getPlanApproval(sessionId)
+  const requestedRevision = revision || approval?.revision
+  const existing = requestedRevision
+    ? getExecution(executionKey(sessionId, requestedRevision))
+    : listExecutions({ sessionId, limit: 1 })[0]
+  if (existing) return publicOutcome(existing, true)
   if (!session) return { ok: false, error: 'Session expired or already committed' }
-  if (session.plan.length === 0) return { ok: true, results: [], broadcastNeeded: false }
-
-  const results = []
-  const compensations = [] // LIFO on failure
-  let failed = false
-  let failureError = null
-
-  for (const step of session.plan) {
-    const tool = tools.get(step.toolName)
-    if (!tool) {
-      failed = true
-      failureError = `Unknown tool: ${step.toolName}`
-      results.push({ stepId: step.stepId, toolName: step.toolName, ok: false, error: failureError })
-      break
-    }
-    try {
-      // Suppress SSE broadcasts during plan execution — coalesce at the end
-      const batchedDeps = { ...deps, suppressBroadcast: true }
-      const outcome = await tool.execute(step.input, batchedDeps)
-      results.push({
-        stepId: step.stepId,
-        toolName: step.toolName,
-        ok: true,
-        result: outcome?.result ?? null,
-      })
-      if (outcome?.compensation) compensations.push(outcome.compensation)
-    } catch (err) {
-      failed = true
-      failureError = err.message || String(err)
-      results.push({ stepId: step.stepId, toolName: step.toolName, ok: false, error: failureError })
-      break
-    }
+  if (!approval) return { ok: true, results: [], broadcastNeeded: false }
+  if (requestedRevision !== approval.revision || session.runnerState === 'running' || session.committing || session.executionBlocked) {
+    return { ok: false, error: 'The plan changed or is busy. Review the current plan before applying.' }
   }
-
-  if (failed) {
-    // Roll back prior successful steps (LIFO). Plan stays so the user
-    // can see what happened; runner state moves to errored.
-    for (let i = compensations.length - 1; i >= 0; i--) {
-      try { await compensations[i]() } catch (err) {
-        console.error('[Adviser] Compensation failed:', err.message)
+  // Snapshot before the first await. Raw inputs remain memory-only in E1; the
+  // durable journal contains hashes/identities and safe per-step receipts.
+  const plan = structuredClone(session.plan)
+  const record = {
+    ...approval, sessionId, chatId: session.chatId, state: 'running', ok: false,
+    createdAt: new Date().toISOString(),
+    results: plan.map(s => ({ stepId: s.stepId, toolName: s.toolName, state: 'not_started', ok: false })),
+  }
+  session.committing = true
+  const compensations = []
+  try {
+    executionJournalReady()
+    saveExecution(record)
+    for (let index = 0; index < plan.length; index++) {
+      const step = plan[index]
+      const result = record.results[index]
+      result.state = 'executing'
+      saveExecution(record) // durable dispatch intent BEFORE invoking the tool
+      let outcome
+      try {
+        const tool = tools.get(step.toolName)
+        if (!tool) throw new Error('Unknown tool')
+        outcome = await tool.execute(step.input, { ...deps, suppressBroadcast: true })
+      } catch {
+        result.state = 'unknown' // errors do not establish absence of side effects
+        record.error = 'An action could not be verified. Check what happened before taking further action.'
+        // Preserve existing best-effort compensation, but never call it verified
+        // rollback. E2/E4 will add conflict checks/readback and durable inverses.
+        for (let i = compensations.length - 1; i >= 0; i--) {
+          const prior = compensations[i]
+          record.results[prior.index].state = 'compensating'
+          saveExecution(record)
+          try { await prior.run() } catch { /* journal remains conservative */ }
+          record.results[prior.index].state = 'compensation_unverified'
+          record.results[prior.index].ok = false
+          saveExecution(record)
+        }
+        record.state = index > 0 ? 'partial' : 'needs_checking'
+        session.executionBlocked = true
+        session.runnerState = 'errored'
+        saveExecution(record)
+        return publicOutcome(record)
       }
+      result.state = 'reported_applied'
+      result.ok = true
+      // Do not retain task content, credentials, raw settings or provider errors.
+      const value = outcome?.result
+      result.result = Object.fromEntries(['id', 'event_id', 'deleted', 'created', 'updated']
+        .filter(key => ['string', 'boolean'].includes(typeof value?.[key]))
+        .map(key => [key, value[key]]))
+      if (outcome?.compensation) compensations.push({ index, run: outcome.compensation })
+      // For synchronous local tools this export checkpoints effects and evidence
+      // together. Interrupted async/local tools remain unknown, never replayed.
+      saveExecution(record)
     }
-    session.runnerState = 'errored'
+    record.state = 'completed'
+    record.ok = true
+    saveExecution(record)
+    session.plan = []
+    session.runnerState = 'idle'
     session.lastActivityAt = Date.now()
-    return { ok: false, error: failureError, results, broadcastNeeded: true }
+    appendEvent(sessionId, { type: 'committed', data: { ...record } })
+    return publicOutcome(record)
+  } catch {
+    session.executionBlocked = true
+    session.runnerState = 'errored'
+    for (const result of record.results) {
+      if (['executing', 'compensating'].includes(result.state)) { result.state = 'unknown'; result.ok = false }
+    }
+    return {
+      ...record, ok: false, state: 'needs_checking', broadcastNeeded: true,
+      error: 'Execution records could not be saved. No further actions will run. Check the outcome before trying again.',
+    }
+  } finally {
+    session.committing = false
   }
-
-  // Commit succeeded. Keep the session alive so its queued follow-ups
-  // (if any) can advance. Reset the plan + runner state — the session
-  // becomes "fresh" for the next turn within the same conversation.
-  // TTL cleanup still applies (10 min idle → expire).
-  const broadcastNeeded = session.plan.some(s => !tools.get(s.toolName)?.readOnly)
-  session.plan = []
-  session.runnerState = 'idle'
-  session.lastActivityAt = Date.now()
-  appendEvent(sessionId, { type: 'committed', data: { results: results.map(r => ({ stepId: r.stepId, toolName: r.toolName, ok: r.ok })) } })
-  return { ok: true, results, broadcastNeeded }
 }
 
 export function sessionStats() {

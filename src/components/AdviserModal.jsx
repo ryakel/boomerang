@@ -8,6 +8,7 @@ import { renderMarkdown } from '../utils/renderMarkdown'
 import { useMobilePages } from '../hooks/useMobilePages'
 import ModalShell from './ModalShell'
 import EmptyState from './EmptyState'
+import ExecutionStatus from './ExecutionStatus'
 import TypingSuggestions from './TypingSuggestions'
 import './AdviserModal.css'
 
@@ -72,7 +73,7 @@ function MessageBubble({ message }) {
           {renderMarkdown(typeof message.content === 'string' ? message.content : String(message.content ?? ''))}
         </div>
       )}
-      {plan.length > 0 && !message.committed && (
+      {plan.length > 0 && !message.committed && !message.executionState && (
         <div className="v2-adviser-plan">
           <div className="v2-adviser-plan-title">Planned changes ({plan.length})</div>
           {plan.map(step => (
@@ -86,7 +87,7 @@ function MessageBubble({ message }) {
       {message.committed && message.commitResults && (
         <div className="v2-adviser-plan v2-adviser-plan-committed">
           <div className="v2-adviser-plan-title">
-            <CheckCircle2 size={14} /> Applied {message.commitResults.filter(r => r.ok).length} change{message.commitResults.length !== 1 ? 's' : ''}
+            <CheckCircle2 size={14} /> Reported applied {message.commitResults.filter(r => r.ok).length} change{message.commitResults.length !== 1 ? 's' : ''}
           </div>
         </div>
       )}
@@ -293,7 +294,7 @@ const EASTER_EGG_PHRASE = /\b(?:want to|wanna|let'?s|shall we) play (?:a |an )?g
 
 export default function AdviserModal({ open, adviser, onClose, onAfterCommit, onOpenEasterEgg, draftSeed = '' }) {
   const {
-    messages, status, lastError,
+    messages, status, lastError, recordExecutions,
     send, commit, abort,
     runnerState, queueLength,
     chats, archivedChats, activeId, activeChat,
@@ -364,7 +365,7 @@ export default function AdviserModal({ open, adviser, onClose, onAfterCommit, on
 
   const streaming = status === 'streaming'
   const committing = status === 'committing'
-  const awaitingConfirm = status === 'awaiting_confirm'
+  const awaitingConfirm = status === 'awaiting_confirm' && !messages[messages.length - 1]?.executionState
   const canSend = input.trim().length > 0 && !streaming && !committing
 
   const handleSubmit = (e) => {
@@ -483,7 +484,7 @@ export default function AdviserModal({ open, adviser, onClose, onAfterCommit, on
                     <span>applying changes…</span>
                   </div>
                 )}
-                {lastError && (
+                {lastError && !messages[messages.length - 1]?.committed && (
                   <div className="v2-adviser-error">
                     <XCircle size={14} />
                     <span>{lastError}</span>
@@ -515,10 +516,12 @@ export default function AdviserModal({ open, adviser, onClose, onAfterCommit, on
             {status === 'committed' && (
               <div className="v2-adviser-committed-bar">
                 <CheckCircle2 size={16} />
-                <span>Changes applied. Ask for more or start a fresh chat.</span>
+                <span>Actions reported applied. Ask for more or start a fresh chat.</span>
                 <button className="v2-adviser-link" onClick={handleNewChat}>new chat</button>
               </div>
             )}
+
+            <ExecutionStatus chatId={activeId} onRecords={recordExecutions} />
 
             <form className="v2-adviser-composer" onSubmit={handleSubmit}>
               <textarea

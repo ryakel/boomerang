@@ -42,3 +42,8 @@ Green `REPRO` tests characterize known risks, not fixes. Preserve Claude default
 P1 does not authorize runtime fixes, provider migrations, paid benchmarks or new
 deployments. Confirm any later authorization in current instructions/issue
 comments rather than assuming P2–P5 or proposed reliability fixes are approved.
+
+The owner subsequently authorized E1 execution records only, after proposal
+#1021. See [E1 evidence](wiki/Execution-Records-E1.md) for implementation scope
+and limits. Merge/deployment, E2–E5 and provider/paid evaluation work still need
+their own authority.

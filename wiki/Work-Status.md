@@ -12,7 +12,7 @@ snapshot complements the [decision log](Decision-Log.md), not a standing approva
 | P1 merge's staging deployment | Previously approved for this merge only; workflow succeeded | [Recorded approval/merge](https://github.com/ryakel/boomerang/issues/1018#issuecomment-6843294678), [run 43361763071](https://github.com/ryakel/boomerang/actions/runs/43361763071). Production main unchanged. |
 | Workspace product/decision documentation | Current documentation-only proposal | Product-owner handoff; file organization remains proposed. No merge or deployment included. |
 | Additional isolated tests/reproduction | Within P1's authorized boundary if needed | Current 19 cases cover the requested baseline; do not invent more work merely to “resume” a completed phase. Record a concrete gap before extending tests. |
-| Execution reliability fixes | Proposed, not authorized | [Risk register](Quokka-P1-Risk-Register.md) recommends a separate bounded fix plan. |
+| Execution reliability E1 | Authorized; implementation prepared for review | Owner approved the recommended first increment in Codex after proposal #1021. [Implementation/evidence](Execution-Records-E1.md). No merge/deployment authority. |
 | P2–P5 / agent extraction, new provider adapter, paid benchmark, rollout | Not authorized | P1 review limits; preserve current Claude defaults. Existing utility OpenAI support is not authorization to switch models or migrate Quokka. |
 
 ## Engineering evidence and limits
@@ -42,6 +42,10 @@ snapshot complements the [decision log](Decision-Log.md), not a standing approva
   independently of repository changes; no remediation is included here.
 
 ## Next action
+
+Review the E1 implementation PR. It implements durable execution records and
+conservative outcomes, not Undo or full Stop recovery. The text below is the
+historical handoff snapshot; current authority is E1 only as recorded above.
 
 Review this handoff's documentation proposal; the merged P1 suite was rechecked.
 There is no remaining P1 implementation to restart. Review the risk register

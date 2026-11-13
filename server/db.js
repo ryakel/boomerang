@@ -1,5 +1,5 @@
 import initSqlJs from 'sql.js'
-import { readFileSync, writeFileSync, existsSync, mkdirSync, readdirSync } from 'fs'
+import { readFileSync, existsSync, mkdirSync, readdirSync } from 'fs'
 import path from 'path'
 import { fileURLToPath } from 'url'
 import crypto from 'crypto'
@@ -7,6 +7,8 @@ import { estimateAiCost } from './aiModels.js'
 import { normalizeWindow, isAway } from './vacationWindow.js'
 import { walkStreak, dayKey } from './streakWalk.js'
 import { ymdInTz } from './taskModel.js'
+import { configureExecutionJournal } from './executionJournal.js'
+import { atomicPersist } from './atomicPersist.js'
 
 let db
 let dbPath
@@ -20,7 +22,7 @@ function schedulePersist() {
   persistTimer = setTimeout(() => {
     persistTimer = null
     const data = db.export()
-    writeFileSync(dbPath, Buffer.from(data))
+    atomicPersist(dbPath, Buffer.from(data))
   }, PERSIST_INTERVAL_MS)
 }
 
@@ -31,7 +33,7 @@ export function flushNow() {
   }
   if (db) {
     const data = db.export()
-    writeFileSync(dbPath, Buffer.from(data))
+    atomicPersist(dbPath, Buffer.from(data))
   }
 }
 
@@ -99,6 +101,7 @@ export async function initDb(filePath) {
 
   runMigrations()
 
+  configureExecutionJournal(db, flushNow)
   flushNow()
   return db
 }

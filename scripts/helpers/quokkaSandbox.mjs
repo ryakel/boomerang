@@ -121,6 +121,7 @@ export async function sandbox(t) {
   const directory = mkdtempSync(path.join(tmpdir(), 'boom-quokka-p1-'))
   const dbPath = path.join(directory, 'synthetic.db')
   const connection = await db.initDb(dbPath)
+  const reopenedConnections = []
   for (const task of fixture.tasks) db.upsertTask(task)
   db.setData('settings', { timezone: 'UTC' })
   const external = new FakeIntegrations()
@@ -162,11 +163,13 @@ export async function sandbox(t) {
       fence.route(null)
       db.flushNow()
       connection.close()
+      for (const reopened of reopenedConnections) reopened.close()
       rmSync(directory, { recursive: true, force: true })
     }
   })
   return {
-    dbPath, deps, external, notifications, initial, persisted,
+    dbPath, connection, deps, external, notifications, initial, persisted,
+    async reopen() { reopenedConnections.push(await db.initDb(dbPath)) },
     session() {
       const id = engine.newSession({ chatId: 'synthetic-chat' })
       sessionIds.push(id)

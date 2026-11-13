@@ -2137,11 +2137,11 @@ export function adviserChat({ message, history, sessionId, chatId, subscribeOnly
   }
 }
 
-export async function adviserCommit(sessionId) {
+export async function adviserCommit(sessionId, revision) {
   const res = await fetch('/api/adviser/commit', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ sessionId }),
+    body: JSON.stringify({ sessionId, revision }),
   })
   if (!res.ok) {
     const text = await res.text().catch(() => '')
