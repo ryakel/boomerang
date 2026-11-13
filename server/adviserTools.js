@@ -348,7 +348,9 @@ export async function commitPlan(sessionId, deps, revision) {
     : listExecutions({ sessionId, limit: 1 })[0]
   if (existing) return publicOutcome(existing, true)
   if (!session) return { ok: false, error: 'Session expired or already committed' }
-  if (!approval) return { ok: true, results: [], broadcastNeeded: false }
+  if (!approval) return revision
+    ? { ok: false, error: 'No matching reviewed plan is available. Review a fresh plan before applying.' }
+    : { ok: true, results: [], broadcastNeeded: false }
   if (requestedRevision !== approval.revision || session.runnerState === 'running' || session.committing || session.executionBlocked) {
     return { ok: false, error: 'The plan changed or is busy. Review the current plan before applying.' }
   }
