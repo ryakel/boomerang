@@ -1,4 +1,4 @@
-import { commitPlan } from './adviserTools.js'
+import { commitPlan, getPlanApproval } from './adviserTools.js'
 import { executionKey, getExecution, listExecutions } from './executionJournal.js'
 
 // Mounted behind the application's existing authGate. Inject only request-
@@ -21,6 +21,9 @@ export function registerExecutionRoutes(app, { dependencies, afterCommit }) {
       return res.status(409).json({ error: 'Review a fresh plan before applying. The approved plan revision is required.' })
     }
     const existing = getExecution(executionKey(sessionId, revision))
+    if (!existing && getPlanApproval(sessionId)?.revision !== revision) {
+      return res.status(409).json({ error: 'No matching reviewed plan is available. Review a fresh plan before applying.' })
+    }
     // Reading a receipt never refreshes tokens or touches external services.
     const deps = existing ? {} : await dependencies(req)
     const outcome = await commitPlan(sessionId, deps, revision)

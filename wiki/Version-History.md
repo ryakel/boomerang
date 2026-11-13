@@ -6,6 +6,10 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-11-13
 
+- fix(quokka): reject unknown approvals before resolving tokens [S]
+  - E1 review found that a valid-format revision on an empty session could report empty success. Reject absent/mismatched current approvals before request-scoped integration credentials are resolved; retain read-only replay of genuine persisted receipts after session expiry.
+  - Extend the authenticated route regression with an empty-session case, zero dependency resolution and independent engine rejection. E1 journal/P1 checks pass (25 tests); changed files lint clean. No E2 implementation, merge or deployment.
+
 - fix(quokka): persist execution receipts and prevent duplicate apply [L]
   - Authorized E1 only (#1018, proposal #1021): migration 060, immutable approval revisions, durable execution receipts, per-step dispatch/evidence checkpoints and no automatic retry of uncertain effects. Interrupted dispatch is unknown on restart; journal persistence failure blocks new actions.
   - Add authenticated status routes and Quokka outcome UI; recover receipts by chat independently of sessions and suppress stale Apply controls. Preserve direct capture and Claude defaults. Atomic DB snapshot replacement avoids truncating the live file; no power-loss guarantee or storage-engine migration.

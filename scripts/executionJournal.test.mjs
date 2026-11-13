@@ -127,6 +127,12 @@ test('authenticated commit/status routes require revision and replay without res
   assert.equal((await request(app, '/api/adviser/executions?chatId=synthetic-chat')).status, 401)
   const options = { method: 'POST', token: 'synthetic-api-token', body: { sessionId: id } }
   assert.equal((await request(app, '/api/adviser/commit', options)).status, 409)
+  const empty = s.session()
+  assert.equal((await request(app, '/api/adviser/commit', {
+    ...options, body: { sessionId: empty, revision: approval.revision },
+  })).status, 409)
+  assert.equal(dependencies, 0, 'unrecognized approval must not resolve integration tokens')
+  assert.equal((await engine.commitPlan(empty, {}, approval.revision)).ok, false)
   options.body.revision = approval.revision
   const applied = await request(app, '/api/adviser/commit', options)
   assert.equal(applied.data.ok, true)

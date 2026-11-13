@@ -53,6 +53,11 @@ retrieves a receipt. `GET /api/adviser/executions?chatId=...` returns up to 50
 receipts, prioritizing unresolved executions over completed history. These
 routes use the existing single-user auth policy and responses are not cached.
 
+Review hardening: an unknown revision on an empty/missing session also returns
+409, before resolving integration credentials. It cannot be mistaken for an
+empty successful execution. The engine independently rejects this case even
+when invoked without the HTTP route.
+
 ## Persistence and safety limits
 
 The current sql.js architecture exports a whole database. Writes now go to a
