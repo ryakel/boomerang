@@ -6,6 +6,12 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-11-13
 
+- fix(quokka): persist execution receipts and prevent duplicate apply [L]
+  - Authorized E1 only (#1018, proposal #1021): migration 060, immutable approval revisions, durable execution receipts, per-step dispatch/evidence checkpoints and no automatic retry of uncertain effects. Interrupted dispatch is unknown on restart; journal persistence failure blocks new actions.
+  - Add authenticated status routes and Quokka outcome UI; recover receipts by chat independently of sessions and suppress stale Apply controls. Preserve direct capture and Claude defaults. Atomic DB snapshot replacement avoids truncating the live file; no power-loss guarantee or storage-engine migration.
+  - Convert P1 R1/R2/R2b into safety invariants; retain other known-risk REPRO cases. 671 offline tests, 28 targeted E1/P1/storage checks, actual-hook mobile/desktop browser validation, build and lint pass (18 existing warnings). Audit: 32 existing vulnerabilities, dependencies unchanged.
+  - No E2–E5, provider migration, paid calls, merge or deployment. Existing compensation and Stop remain limited; explicit readback, safe Undo and event cursors are later work. See Execution-Records-E1.md.
+
 - docs(product): record workspace handoff and decision structure [M]
   - Capture the product-owner handoff in Product Context, Decision Log and Work Status; add AGENTS.md as a concise entry point and link it from CLAUDE.md. Record execution-first goals, the confirmed owner-daily-use-first audience, Flourish observations as supplied research, collaboration expectations and unresolved product decisions.
   - Reconcile #1018 with completed/merged P1 and its specifically approved staging workflow; retain current limits on runtime changes, providers, benchmarks and deployments. File organization remains a documentation proposal, not new implementation authority.

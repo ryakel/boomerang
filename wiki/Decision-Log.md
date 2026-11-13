@@ -84,6 +84,17 @@ can live in their own linked document; keep their decision summary here.
 
 ## Open decisions before future behavior changes
 
+### E1 implementation authority — 2026-11-13
+
+The product owner approved the recommended **E1 only** increment in Codex
+(“Yeah let’s do it”), following proposal [#1021](https://github.com/ryakel/boomerang/pull/1021).
+This authorizes its additive execution journal/schema, revision/deduplication,
+receipt/status API, minimal honest outcome UI and isolated tests. Implementation
+is prepared for review; see [Execution Records](Execution-Records-E1.md).
+Merge/deployment, E2–E5, provider changes and paid calls remain unapproved.
+Accepted Stop/capture/Undo defaults are recorded in issue #1018; the open items
+below predate those decisions and are historical recommendations, not authority.
+
 | Question | Recommendation for discussion; not accepted | Why it matters |
 |---|---|---|
 | What may input authorize immediately? | Direct explicit capture can stay immediate; enrichment/external side effects need an explicit authority policy. | A shared entry point must preserve fast capture without accidental actions. |

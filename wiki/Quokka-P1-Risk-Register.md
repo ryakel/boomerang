@@ -4,6 +4,12 @@ Issue [#1018](https://github.com/ryakel/boomerang/issues/1018), authorized by th
 [P1 testing-only review](https://github.com/ryakel/boomerang/issues/1018#issuecomment-6842559084).
 Baseline: `dev` at `b14a45c291fff304000ee74752fb67c7a9e66c6d`, 2026-11-13.
 
+**E1 review update:** R1/R2/R2b are now safety invariants in the implementation
+branch: one concurrent dispatch, original receipt replay, and no blind retry of
+unknown external creates. Durable receipts survive restart, while model sessions
+still do not. The table below remains the historical P1 baseline. See
+[E1 results/limits](Execution-Records-E1.md); other REPRO cases remain unfixed.
+
 **P1 reproduces execution risks; it does not repair them or compare models.**
 Green `REPRO` tests mean the documented unsafe behavior still exists. They do
 not certify execution safety. Change these assertions deliberately when a

@@ -50,11 +50,11 @@ test('baseline: scripted no-action and rejected unknown tool leave all state unc
   assert.deepEqual(s.external.state, fixture.external)
 })
 
-test('R1 REPRO: simultaneous Apply creates two external events for one staged step', { timeout: 5000 }, async t => {
+test('R1 FIXED: simultaneous Apply shares one execution and creates one external event', { timeout: 5000 }, async t => {
   const s = await sandbox(t)
   const id = s.session()
   await s.stage(id, 'gcal_create_event', eventInput)
-  const gate = s.external.pause('POST', EVENTS, 2)
+  const gate = s.external.pause('POST', EVENTS)
   t.after(gate.release)
   const first = engine.commitPlan(id, s.deps)
   const second = engine.commitPlan(id, s.deps)
@@ -62,12 +62,14 @@ test('R1 REPRO: simultaneous Apply creates two external events for one staged st
   assert.equal(newEvents(s).length, 0)
   gate.release()
   const outcomes = await Promise.all([first, second])
-  assert.deepEqual(outcomes.map(r => r.ok), [true, true])
-  assert.equal(newEvents(s).length, 2, 'known defect: no per-plan commit lock')
+  assert.deepEqual(outcomes.map(r => r.ok), [true, false])
+  assert.equal(outcomes[1].state, 'running')
+  assert.equal(outcomes[1].executionId, outcomes[0].executionId)
+  assert.equal(newEvents(s).length, 1)
   assert.deepEqual(s.persisted(), s.initial)
 })
 
-test('R2: lost successful commit response then sequential retry does not duplicate, but loses receipt', async t => {
+test('R2 FIXED: lost successful response returns original receipt without another effect', async t => {
   const s = await sandbox(t)
   const id = s.session()
   await s.stage(id, 'gcal_create_event', eventInput)
@@ -76,7 +78,7 @@ test('R2: lost successful commit response then sequential retry does not duplica
   assert.equal(lost.results.length, 1)
   const retry = await engine.commitPlan(id, s.deps)
   assert.equal(retry.ok, true)
-  assert.deepEqual(retry.results, [], 'no original completion receipt to replay')
+  assert.deepEqual(retry.results, lost.results)
   assert.equal(newEvents(s).length, 1, 'sequential retry duplication hypothesis falsified')
   assert.equal(engine.getSession(id).events.filter(e => e.type === 'committed').length, 1)
   assert.deepEqual(s.persisted(), s.initial)
@@ -95,17 +97,17 @@ test('R3 REPRO: a staged task patch overwrites a newer same-field edit without c
   assert.deepEqual(s.external.state, fixture.external)
 })
 
-test('R2b REPRO: lost external create response leaves unknown effect; retry duplicates it', async t => {
+test('R2b FIXED: lost external create response remains unknown and cannot be retried blindly', async t => {
   const s = await sandbox(t)
   const id = s.session()
   await s.stage(id, 'gcal_create_event', eventInput)
   s.external.loseResponse('POST', EVENTS)
   const failed = await engine.commitPlan(id, s.deps)
   assert.equal(failed.ok, false)
-  assert.match(failed.error, /lost response/)
+  assert.equal(failed.state, 'needs_checking')
   assert.equal(newEvents(s).length, 1, 'external write happened despite failed acknowledgment')
-  assert.equal((await engine.commitPlan(id, s.deps)).ok, true)
-  assert.equal(newEvents(s).length, 2, 'retry cannot identify the first remote create')
+  assert.equal((await engine.commitPlan(id, s.deps)).ok, false)
+  assert.equal(newEvents(s).length, 1)
   assert.deepEqual(s.persisted(), s.initial)
 })
 
@@ -155,7 +157,8 @@ test('baseline: failed external step compensates prior task changes in reverse o
   s.external.fail('POST', EVENTS)
   const result = await engine.commitPlan(id, s.deps)
   assert.equal(result.ok, false)
-  assert.deepEqual(result.results.map(r => r.ok), [true, true, false])
+  assert.deepEqual(result.results.map(r => r.ok), [false, false, false])
+  assert.deepEqual(result.results.map(r => r.state), ['compensation_unverified', 'compensation_unverified', 'unknown'])
   assert.deepEqual(s.persisted(), s.initial, 'both real task compensations restored disk state')
   assert.deepEqual(s.external.state, fixture.external)
   assert.equal(engine.getSession(id).runnerState, 'errored')
@@ -184,7 +187,7 @@ test('R6 REPRO: HTTP failure during compensation leaves external divergence with
   s.external.fail('DELETE', `${EVENTS}/created-1`)
   const result = await engine.commitPlan(id, s.deps)
   assert.equal(result.ok, false)
-  assert.match(result.error, /GCal fetch 404/)
+  assert.equal(result.state, 'partial')
   assert.deepEqual(s.persisted(), s.initial)
   assert.equal(newEvents(s).length, 1)
   assert.equal('compensationErrors' in result, false, 'rollback HTTP status is not surfaced')

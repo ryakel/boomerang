@@ -673,3 +673,12 @@
   flex-shrink: 0;
   white-space: nowrap;
 }
+.v2-execution-status {
+  max-height: 30vh;
+  overflow-y: auto;
+  overflow-wrap: anywhere;
+  font-size: 0.85rem;
+}
+.v2-execution-status summary { cursor: pointer; }
+.v2-execution-status p { margin-top: 8px; }
+.v2-execution-status ul { padding-left: 20px; margin-top: 8px; }

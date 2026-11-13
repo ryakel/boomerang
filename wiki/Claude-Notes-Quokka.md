@@ -11,6 +11,11 @@ uncertain retry, stale-plan/rollback, abort, partial compensation, restart and
 event-rollover results. Green `REPRO` tests reproduce known risks, not safety.
 No runtime behavior or provider defaults changed.
 
+**E1 implementation (review pending):** [Execution Records](Execution-Records-E1.md)
+documents approved-revision deduplication, durable receipts, restart uncertainty,
+status API/UI, tests and limits. This changes runtime execution handling but
+does not implement Undo, full Stop recovery or provider migration.
+
 Free-form natural-language control surface — user says "I've rescheduled my FAA exam to May 12, adjust everything" and Quokka finds related tasks/GCal events/routines and queues the fix. Named after the quokka (a small, perpetually-smiling Australian marsupial). User-facing branding uses "Quokka"; internal code (module names, CSS classes, endpoints under `/api/adviser/`, state vars like `showAdviser`) stays as `adviser`/`Adviser` — renaming plumbing provides no value.
 
 **Entry point:** `✨` sparkle icon in the header (took the slot where the gear used to be). Settings moved into the overflow `⋯` menu.

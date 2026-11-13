@@ -61,6 +61,20 @@ export function useAdviser() {
   const pendingAssistantRef = useRef(null)
   const saveTimerRef = useRef(null)
 
+  const recordExecutions = useCallback((records) => {
+    setMessages(previous => {
+      let changed = false
+      const next = previous.map(message => {
+        const record = records.find(r => r.revision === message.planRevision)
+        if (!record || (message.executionState === record.state && message.receiptUpdatedAt === record.updatedAt)) return message
+        changed = true
+        return { ...message, executionState: record.state, receiptUpdatedAt: record.updatedAt,
+          committed: record.ok, commitResults: record.results }
+      })
+      return changed ? next : previous
+    })
+  }, [])
+
   const refreshChatList = useCallback(async () => {
     const { chats, archived, activeId } = await adviserListChats()
     setChats(chats)
@@ -231,6 +245,7 @@ export function useAdviser() {
           ensurePlaceholder()
           if (!pendingAssistantRef.current) break
           pendingAssistantRef.current.plan = data.steps || []
+          pendingAssistantRef.current.planRevision = data.revision
           setMessages(prev => [...prev.slice(0, -1), { ...pendingAssistantRef.current }])
           break
         case 'committed':
@@ -425,7 +440,9 @@ export function useAdviser() {
     if (status === 'committing') return
     setStatus('committing')
     try {
-      const outcome = await adviserCommit(sessionId)
+      const revision = messages[messages.length - 1]?.planRevision
+      if (!revision) throw new Error('Review a fresh plan before applying these changes.')
+      const outcome = await adviserCommit(sessionId, revision)
       if (outcome.ok) {
         setMessages(prev => {
           const last = prev[prev.length - 1]
@@ -438,7 +455,7 @@ export function useAdviser() {
         // in this conversation. Runner state will transition to idle
         // via the SSE stream, which is still subscribed.
       } else {
-        setLastError(outcome.error || 'Commit failed')
+        setLastError(outcome.error || (outcome.state === 'running' ? 'This execution is already running. See its status below.' : 'Check the execution status before taking further action.'))
         setStatus('error')
         if (outcome.results) {
           setMessages(prev => {
@@ -452,7 +469,7 @@ export function useAdviser() {
       setLastError(err.message || String(err))
       setStatus('error')
     }
-  }, [sessionId, status])
+  }, [sessionId, status, messages])
 
   const abort = useCallback(async () => {
     if (streamRef.current) {
@@ -549,7 +566,7 @@ export function useAdviser() {
 
   return {
     // Active-chat surface
-    messages, status, lastError,
+    messages, status, lastError, recordExecutions,
     send, commit, abort,
     // Background-runner state — UI can show "still working" indicators
     // when reconnecting mid-turn, "queued" pill when a follow-up message
