@@ -56,8 +56,8 @@ can live in their own linked document; keep their decision summary here.
 
 ## D004 — Primary collaboration and durable context structure
 
-- Date/status: 2026-11-13; workspace collaboration **accepted**, file organization
-  **proposed for review**.
+- Date/status: 2026-11-13; workspace collaboration and file organization
+  **accepted**, documentation merged in [#1020](https://github.com/ryakel/boomerang/pull/1020).
 - Source: product-owner handoff in Codex.
 - Decision: keep strategy, UX, architecture and engineering discussion together;
   repository documentation/issues preserve continuity. No mandatory external
@@ -67,7 +67,7 @@ can live in their own linked document; keep their decision summary here.
   Work Status records scope/evidence; existing subsystem docs retain mechanics.
 - Tradeoff: a few short documents provide clear ownership; avoid duplicating
   evolving status across every file or replacing existing subsystem guidance.
-- Authority: documentation proposal only. No runtime work or deployment approved.
+- Authority: documentation accepted; no runtime work or deployment approved.
 
 ## D005 — Owner's daily use first
 
@@ -82,13 +82,39 @@ can live in their own linked document; keep their decision summary here.
   change or extra implementation scope authorized by this answer.
 - Next review: reconsider audience when broader use becomes a concrete goal.
 
-## Open decisions before future behavior changes
+## D006 — Stop leads to recovery choices
 
-| Question | Recommendation for discussion; not accepted | Why it matters |
-|---|---|---|
-| What may input authorize immediately? | Direct explicit capture can stay immediate; enrichment/external side effects need an explicit authority policy. | A shared entry point must preserve fast capture without accidental actions. |
-| What does Stop mean during commit? | Stop future steps, attempt cancellation where supported, report completed/in-flight/unknown effects; do not promise automatic reversal. | P1 R4 shows current abort semantics are insufficient. |
-| How should irreversible and partial actions behave? | Show risk before approval and reconcile actual effects after failure; reserve “rolled back” for verified rollback. | P1 R5–R7 establish non-atomic external effects. |
-| What counts as verified completion? | Define evidence by outcome; distinguish task persistence, external API acknowledgment and real-world fulfillment. | Success measures and honest UI state. |
-| What must survive restart, and for how long? | Design durable intent/receipts and recovery policy separately from in-memory sessions. | P1 R8 is not solved by transcript persistence. |
-| What is the next authorized increment? | Review duplicate/uncertain commits, stale writes, cancellation, residual status and event cursors before provider work. | Prioritization is still a product/engineering decision, not P1 authority. |
+- Status: **accepted product direction**, not implemented.
+- Source: [owner's Stop/Undo decision](https://github.com/ryakel/boomerang/issues/1018#issuecomment-6853223055).
+- Decision: Stop leads to “what now?” with Continue, Modify or Undo. Preserve
+  what happened and expose partial/uncertain outcomes. Undo must be explicit.
+- Tradeoff: some external effects are in flight or irreversible; universal
+  reversal cannot be promised. Exact safe inverse operations remain engineering
+  design, not something a chat response can establish.
+- Authority: product direction only; no runtime changes/deployment approved.
+
+## D007 — Capture authority, persistent Undo and safe uncertainty
+
+- Status: **accepted product defaults**, not a claim of implemented behavior.
+- Source: [owner's acceptance](https://github.com/ryakel/boomerang/issues/1018#issuecomment-6856481691).
+- Decision: explicit simple task/note capture stays immediate; broader changes,
+  scheduling, deletion and external actions get review. Recent Undo survives app
+  closure/reopening and protects subsequent edits. Verify uncertain effects at
+  the destination before retry; if unverified, expose uncertainty and choices.
+- Limits: exact retention and supported Undo operations are not settled;
+  persistent Undo does not guarantee every effect is reversible.
+- Authority: product defaults accepted; implementation/migrations/deployment
+  remain unapproved.
+
+## D008 — Bounded reliability implementation proposal
+
+- Status: **proposed implementation**; creation of the proposal requested by
+  the product owner in Codex after D006/D007. No runtime implementation approved.
+- Proposal: [Execution Reliability](Execution-Reliability-Proposal.md), E1–E5.
+  Recommend E1 first: durable execution identity/receipts, duplicate protection,
+  explicit unknown state and safe retry boundaries; estimated 3–5 days.
+- Tradeoff: this foundation precedes useful local Undo and Stop recovery; it
+  does not itself fulfill the complete recovery experience. Provider work stays
+  separate. See the proposal for acceptance tests, scope and deferred behavior.
+- Next decision: approve a concrete implementation increment. Retention and
+  operation coverage can be settled as local/external Undo is scoped.

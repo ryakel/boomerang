@@ -72,6 +72,12 @@ direction unless a new decision deliberately supersedes it.
 
 ## Collaboration
 
+Accepted recovery behavior is recorded in Decision Log D006/D007: Stop offers
+Continue/Modify/Undo; explicit simple capture is immediate; recent Undo survives
+reopening; uncertain external effects are checked before any retry. The
+[execution proposal](Execution-Reliability-Proposal.md) sequences implementation;
+it is not an implemented capability or authorization to start runtime changes.
+
 This Codex workspace is the primary home for product, UX, architecture,
 implementation and testing discussions. Challenge assumptions and explain
 tradeoffs; inspect real code; turn agreed choices into scoped proposals; implement

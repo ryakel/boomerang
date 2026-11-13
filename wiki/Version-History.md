@@ -6,6 +6,11 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-11-13
 
+- docs(quokka): propose bounded execution reliability increments [M]
+  - Record accepted Stop → Continue/Modify/Undo, immediate explicit capture, recent Undo across reopening and reconciliation before retry. Reconcile accepted/merged #1020 documentation status without assuming runtime authorization.
+  - Add Execution-Reliability-Proposal.md with code references, durable journal/receipt design, five scoped increments, synthetic acceptance cases and estimates. Recommend E1 (3–5 days) as a separate first implementation approval; runtime, migrations, model/provider changes and deployment remain unapproved.
+  - Documentation only; validate relative links and whitespace. No runtime/test/workflow/dependency changes or deployment.
+
 - docs(product): record workspace handoff and decision structure [M]
   - Capture the product-owner handoff in Product Context, Decision Log and Work Status; add AGENTS.md as a concise entry point and link it from CLAUDE.md. Record execution-first goals, the confirmed owner-daily-use-first audience, Flourish observations as supplied research, collaboration expectations and unresolved product decisions.
   - Reconcile #1018 with completed/merged P1 and its specifically approved staging workflow; retain current limits on runtime changes, providers, benchmarks and deployments. File organization remains a documentation proposal, not new implementation authority.
