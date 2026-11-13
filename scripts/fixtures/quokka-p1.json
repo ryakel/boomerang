@@ -1,0 +1,15 @@
+{
+  "now": "2026-11-13T12:00:00.000Z",
+  "tasks": [
+    { "id": "exam", "title": "Prepare exam", "status": "not_started", "due_date": "2026-11-18", "notes": "Synthetic fixture", "created_at": "2026-11-01T12:00:00.000Z", "last_touched": "2026-11-01T12:00:00.000Z" },
+    { "id": "unrelated", "title": "Leave this task alone", "status": "done", "notes": "Unrelated sentinel", "created_at": "2026-11-01T12:00:00.000Z", "last_touched": "2026-11-01T12:00:00.000Z" }
+  ],
+  "external": {
+    "events": {
+      "exam-event": { "id": "exam-event", "summary": "Exam", "description": "Synthetic fixture", "start": { "date": "2026-11-18" }, "end": { "date": "2026-11-19" } },
+      "unrelated-event": { "id": "unrelated-event", "summary": "Unrelated sentinel", "start": { "date": "2026-11-25" }, "end": { "date": "2026-11-26" } }
+    },
+    "checklists": {},
+    "cards": { "fixture-card": { "id": "fixture-card", "name": "Synthetic card" } }
+  }
+}

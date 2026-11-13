@@ -4,6 +4,13 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ---
 
+## 2026-11-13
+
+- test(quokka): characterize isolated execution and recovery risks [M]
+  - Issue #1018 P1 only: 19 deterministic tests use disposable synthetic sql.js databases, real staging/commit tools, fake Calendar/Trello endpoints and notification sinks, and verified fetch/socket/TLS/UDP fences. No runtime files or model defaults change.
+  - Reproduce concurrent duplicate commits, uncertain external retry, stale plans and rollback erasing newer edits, abort during commit, partial/failed compensation, restart/session loss and polling rollover. Sequential retry after completed commit does not duplicate. Green characterization tests document defects, not fixes.
+  - Add `npm run test:quokka-p1`, dev PR CI coverage and `wiki/Quokka-P1-Risk-Register.md` with reproduction steps, severities, limitations and recommended approval gate. 131 adjacent regression tests pass; lint has 0 errors/18 existing warnings. Audit flags 31 existing vulnerabilities; dependencies unchanged. No deployment, live calls, provider work or merge.
+
 ## 2026-11-12
 
 - fix(today): a loop credited in loops stops listing its leftover task [S]

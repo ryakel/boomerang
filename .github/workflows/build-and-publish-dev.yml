@@ -57,6 +57,9 @@ jobs:
       - name: Lint
         run: npm run lint
 
+      - name: Quokka isolated P1 characterization tests
+        run: npm run test:quokka-p1
+
       - name: Build frontend
         run: npm run build
 
