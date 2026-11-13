@@ -3,6 +3,14 @@
 > Moved out of `CLAUDE.md` (2026-07-25) in the context-engineering restructure: `CLAUDE.md` now holds only invariants and gotchas, and deep implementation notes live here, loaded on demand. Content below is preserved from the former CLAUDE.md "Development Notes" and stays maintained — update it the same way CLAUDE.md used to be updated.
 
 ### Quokka (AI Adviser)
+
+**P1 execution/recovery evidence (2026-11-13, #1018):** run
+`npm run test:quokka-p1` for the isolated characterization suite. The
+[P1 risk register](Quokka-P1-Risk-Register.md) documents concurrent commit,
+uncertain retry, stale-plan/rollback, abort, partial compensation, restart and
+event-rollover results. Green `REPRO` tests reproduce known risks, not safety.
+No runtime behavior or provider defaults changed.
+
 Free-form natural-language control surface — user says "I've rescheduled my FAA exam to May 12, adjust everything" and Quokka finds related tasks/GCal events/routines and queues the fix. Named after the quokka (a small, perpetually-smiling Australian marsupial). User-facing branding uses "Quokka"; internal code (module names, CSS classes, endpoints under `/api/adviser/`, state vars like `showAdviser`) stays as `adviser`/`Adviser` — renaming plumbing provides no value.
 
 **Entry point:** `✨` sparkle icon in the header (took the slot where the gear used to be). Settings moved into the overflow `⋯` menu.
