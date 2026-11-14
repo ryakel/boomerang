@@ -2,8 +2,9 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { startOtaUpdateLifecycle } from '../src/otaUpdateLifecycle.js'
 
-function fixture({ id = 'builtin', bundledOnly = true, currentError = false, resetError = false } = {}) {
+function fixture({ id = 'builtin', bundledOnly = true, currentError = false, resetError = false, loadError = false, readyError = false } = {}) {
   const calls = []
+  const stages = []
   let resume
   const updater = {
     current: async () => {
@@ -15,13 +16,15 @@ function fixture({ id = 'builtin', bundledOnly = true, currentError = false, res
       calls.push(['reset', args])
       if (resetError) throw new Error('reset failed')
     },
-    notifyAppReady: async () => { calls.push('ready') },
+    notifyAppReady: async () => { calls.push('ready'); if (readyError) throw new Error('ready callback failed') },
   }
   return {
     calls,
+    stages,
     run: () => startOtaUpdateLifecycle({
       bundledOnly,
-      loadUpdater: async () => updater,
+      onProbeStage: stage => stages.push(stage),
+      loadUpdater: async () => { if (loadError) throw new Error('updater module failed'); return updater },
       loadApp: async () => {
         calls.push('load-app')
         return { addListener: async (event, handler) => { calls.push(event); resume = handler } }
@@ -37,11 +40,13 @@ test('probe builtin UI is ready without checking, downloading, or registering re
   assert.equal(await f.run(), 'bundled-only')
   f.resume()
   assert.deepEqual(f.calls, ['current', 'ready'])
+  assert.deepEqual(f.stages, ['loading-updater', 'reading-bundle', 'marking-builtin-ready', 'builtin-ready'])
 })
 test('probe with a retained server bundle selects builtin without acknowledging or fetching old UI', async () => {
   const f = fixture({ id: 'retained-older-dev' })
   assert.equal(await f.run(), 'reloading-builtin')
   assert.deepEqual(f.calls, ['current', ['reset', { toLastSuccessful: false }]])
+  assert.deepEqual(f.stages, ['loading-updater', 'reading-bundle', 'resetting-to-builtin', 'reset-returned'])
   f.resume()
   assert.equal(f.calls.length, 2)
 })
@@ -57,16 +62,32 @@ test('failed bundle inspection never falls through to server updates or a blind 
     const f = fixture(options)
     await assert.rejects(f.run())
     assert.deepEqual(f.calls, ['current'])
+    assert.deepEqual(f.stages, ['loading-updater', 'reading-bundle'])
   }
 })
 test('failed reset is surfaced and does not mark an older bundle ready or enable updates', async () => {
   const f = fixture({ id: 'retained-older-dev', resetError: true })
   await assert.rejects(f.run(), /reset failed/)
   assert.deepEqual(f.calls, ['current', ['reset', { toLastSuccessful: false }]])
+  assert.equal(f.stages.at(-1), 'resetting-to-builtin')
 })
 test('ordinary native builds preserve server update checks on launch and resume', async () => {
   const f = fixture({ bundledOnly: false })
   assert.equal(await f.run(), 'server-updates')
   f.resume()
   assert.deepEqual(f.calls, ['ready', 'server-check', 'load-app', 'resume', 'server-check'])
+  assert.deepEqual(f.stages, [])
+})
+
+test('failed module loading identifies the stalled boundary before any native call', async () => {
+  const f = fixture({ loadError: true })
+  await assert.rejects(f.run(), /updater module failed/)
+  assert.deepEqual(f.calls, [])
+  assert.deepEqual(f.stages, ['loading-updater'])
+})
+test('failed readiness acknowledgement cannot emit a successful readiness diagnostic', async () => {
+  const f = fixture({ readyError: true })
+  await assert.rejects(f.run(), /ready callback failed/)
+  assert.deepEqual(f.calls, ['current', 'ready'])
+  assert.deepEqual(f.stages, ['loading-updater', 'reading-bundle', 'marking-builtin-ready'])
 })

@@ -1,15 +1,16 @@
 # Disposable AlarmKit test — Mac handoff
 
-Status: **unsigned simulator compilation/packaging passed; physical-device
-installation passed for the earlier revision; UI-isolation fix needs Mac rebuild;
-audible evaluation pending**. Branch `claude/alarmkit-probe`, based on dev `7354b6a`.
+Status: **b615637 compiled/installed on the Mac; owner heard an alarm and native
+snooze re-alert, then stopped it with no test alarm remaining. Compact Island
+layout fix and readiness diagnostics need a new Mac build.** Branch
+`claude/alarmkit-probe`, based on dev `7354b6a`.
 This is a delivery experiment before deciding how to implement school pickup.
 See [the product walkthrough](School-Pickup-Experience.md) and
 [D011](Decision-Log.md#d011--bounded-native-alarm-delivery-experiment).
 
 ## Scope and user experience
 
-In the rebuilt **Boomerang Dev** app, open Settings → Notifications → Test.
+In the rebuilt **Boomerang Dev** app, open Settings → Notifications → Test channels.
 The **Alarm sound test** section can inspect permission/status, explicitly ask
 for alarm permission, start one alarm in 60 seconds, and cancel the test. The
 alert offers system Stop and **Snooze 1 min**. Snooze uses AlarmKit's post-alert
@@ -50,8 +51,8 @@ checks/listeners entirely, including on resume. That reset selects web assets;
 it does not clear tasks, credentials, settings or app data. No updater private
 storage keys are edited. Ordinary App builds retain their existing OTA policy.
 
-**Mac recheck required:** pull the latest feature branch preserving local edits,
-run `sh scripts/ios-alarm-probe-check.sh` (now 17 boundary/lifecycle tests), then
+**Mac recheck required for the latest layout/diagnostic follow-up:** pull the latest feature branch preserving local edits,
+run `sh scripts/ios-alarm-probe-check.sh` (now 19 boundary/lifecycle tests), then
 use the existing `npm run ios:dev` to update the existing Dev installation.
 Before starting an alarm, verify that Alarm sound test is visible, App build
 identifies the feature revision instead of dev-347e0e2, and the updater reports
@@ -59,8 +60,44 @@ identifies the feature revision instead of dev-347e0e2, and the updater reports
 is needed. Check foreground/resume and a cold relaunch without losing controls
 or triggering manifest/download requests, including recovery from a retained
 OTA bundle. Observe native/update logs without credentials. No uninstall or
-storage clear is needed. The native pin/reset path is unverified until this
-device recheck; earlier build/install passes do not validate the later fix.
+storage clear is needed. b615637 has since compiled and installed, and the owner
+showed the new controls. Exact builtin identity/reconciliation and persistence
+across cold relaunch remain unverified; the later widget changes need a new build.
+
+## Current observed sequence and remaining presentation issue
+
+The owner reported hearing an initial alarm, using native Snooze and hearing
+the next alert. Their screenshot shows permission authorized and daemon state
+`countdown`. They then confirmed that the native X stopped sound and the app
+reported no test alarm. Native Snooze is the intended AlarmKit post-alert path.
+These are owner-observed phone results, not automated delivery measurements.
+Exact Silent/lock/Focus conditions and timing were not separately reconfirmed;
+do not mark the entire delivery matrix passed from this sequence.
+
+During snooze, the owner described an icon at far left, timer right of the
+camera and a mostly blank black Island spanning the top bar. The original
+compact timer had no width bound. The follow-up gives compact trailing content
+a 40-point frame, single line/caption text and compact paused/alert indicators;
+expanded and Lock Screen views stay flexible. This follows Apple's
+[Food Truck compact timer pattern](https://github.com/apple/sample-food-truck/blob/main/README.md).
+The new `Snooze compact` Xcode preview is a pure presentation fixture: it does
+not request permission, schedule or sound an alarm. Use Xcode MCP to render it,
+then verify actual compact/minimal/long-press-expanded states on the phone. No
+visual pass is claimed until that check; native snooze semantics are unchanged.
+
+The Mac's b615637 console capture included `Semaphore wait timed out after
+10000ms`, without observed current/reset/ready lifecycle completion. Inspection
+of the installed updater source shows this message comes from `sendReadyToJs`
+waiting for readiness; `current()` itself does not wait on that semaphore.
+There is no confirmed root cause yet. The follow-up logs non-sensitive phases:
+`loading-updater`, `reading-bundle`, `resetting-to-builtin` / `reset-returned`, or
+`marking-builtin-ready` / `builtin-ready`. Capture those phases through launch
+and resume to locate the unresolved boundary. Do not silence the warning, edit
+vendor code, or claim updater readiness based on successful alarm delivery.
+The browser harness now runs the actual JS updater initializer with synthetic
+native modules and verifies builtin readiness with no bundle requests or resume
+updater listener, alongside the real alarm controls at 320px/960px. That is
+browser-level wiring evidence, not a native callback or network-trace result.
 
 ## Implementation boundaries
 
@@ -198,11 +235,19 @@ Observed on the Mac:
 - The watch doctor passed its signature/icon checks, but reported no watch
   available for device coverage. No Watch installation or routing result is claimed.
 
-Remaining: alarm permission/UI, first audible alert with locked/Silent/background,
-snooze re-alert, Stop and separate cancellation have **not yet been observed**.
-No audible test was initiated by the agent. The owner will start each test and
-report observations; the matrix below stays unrun until then. No merge,
+At that earlier installation checkpoint, audible tests were still unrun. The
+current owner-observed results are recorded above and in the matrix below;
+separate cancellation and remaining delivery conditions still need evaluation.
+No audible test was initiated by the agent. No merge,
 production app change or server deployment occurred.
+
+b615637 follow-up: standard Xcode 27.2 (27B52) passed 17 bridge/lifecycle tests,
+both unsigned simulator builds and the signed Dev install/launch, with the same
+preserved local Watch/generated package edits. Packaged UI build:
+`v2.61.1-18-gb615637`. [Mac evidence](https://github.com/ryakel/boomerang/pull/1028#issuecomment-6881167198).
+Native log confirms the bundled-UI gate; captured console alone does not prove
+absence of network requests or completion of updater reconciliation. No Watch
+was available. This evidence predates the compact-layout/phase-log follow-up.
 
 ## Physical-device evaluation
 
@@ -213,11 +258,13 @@ or in the PR; never turn an unrun row into a pass.
 | Check | Expected observation | Result |
 |---|---|---|
 | Fresh permission denied | Clear denied state; schedule disabled, no alarm | Not run |
-| Grant alarm permission | Separate AlarmKit authorization, no alarm created by granting | Not run |
+| Grant alarm permission | Separate AlarmKit authorization, no alarm created by granting | Authorized shown in owner screenshot; grant-only behavior not separately observed |
 | Start once; rapid taps | One test alarm in readback, duplicate start disabled/refused | Not run |
-| Locked + Silent + backgrounded | Audible system alarm near 60s; note actual volume/settings | Not run |
-| Snooze 1 min | Sound stops, visible countdown, audible re-alert near 60s | Not run |
-| Stop | Sound ends; readback no longer lists it; no task/pickup completion | Not run |
+| Initial sound | Audible test alert | Owner heard it |
+| Locked + Silent + backgrounded | Audible system alarm near 60s; note actual volume/settings | Audible alert observed; exact conditions/timing not reconfirmed |
+| Snooze 1 min | Sound stops, visible countdown, audible re-alert near 60s | Native Snooze → countdown screenshot → owner heard re-alert; timing not measured |
+| Compact Island | Icon/countdown fit around camera without a full-width blank bar | Owner reported oversized blank bar; width fix/preview pending Mac/phone validation |
+| Stop | Sound ends; readback no longer lists it; no task/pickup completion | Owner confirmed native X stopped sound, then no test alarm |
 | Cancel before firing | Readback absent; no later sound or countdown | Not run |
 | Cancel while snoozed | Countdown ends; no re-alert | Not run |
 | Close/reopen app | Existing test readable/cancellable; no second test created | Not run |
@@ -240,11 +287,10 @@ project parsing checks source membership, extension embedding/dependency, bundle
 configurations and the Dev-only gate. Build/lint are frontend checks.
 **No native compilation, physical audibility, snooze delivery, offline/restart
 delivery or Watch behavior has been established in this Linux workspace.** The
-owner separately reported 11 bridge tests, both simulator builds and widget
-packaging passed on standard Xcode 27.2 with local edits preserved. Record the
-tested diff/revision on the PR before attributing that result to an upstream
-commit. The shared script-selection change is validated in the Mac evidence above;
-physical-device results remain pending.
+Mac evidence records successful b615637 builds and Dev installation on standard
+Xcode 27.2 with the preserved local-diff qualification. Owner-observed audible,
+snooze and Stop results are recorded above. The new compact preview/layout,
+readiness boundary and remaining device conditions still need Mac/phone evidence.
 
 Commands: `npm run test:alarm-probe`; optional browser run with
 `PLAYWRIGHT_MODULE=/path/to/playwright/index.mjs npm run test:alarm-probe:browser`.

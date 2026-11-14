@@ -58,6 +58,9 @@ export function initOtaUpdates() {
         loadUpdater: async () => (await import('@capgo/capacitor-updater')).CapacitorUpdater,
         loadApp: async () => (await import('@capacitor/app')).App,
         checkOnce,
+        // Phase-only logs locate a stuck native callback without credentials,
+        // bundle URLs or user data. No extra updater call or retry is added.
+        onProbeStage: stage => console.log(`[OTA] alarm experiment stage: ${stage}`),
       })
       if (mode !== 'server-updates') console.info(`[OTA] alarm experiment: ${mode}`)
     } catch (e) {
