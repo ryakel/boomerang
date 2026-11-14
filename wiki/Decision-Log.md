@@ -171,3 +171,27 @@ below predate those decisions and are historical recommendations, not authority.
   was proposed, not approved; no automatic pruning was introduced.
 - Final evidence: merged #1022–#1026, 754 offline tests and authenticated browser
   recovery/capture. Latest CI/staging outcomes: Work Status and issue #1018.
+
+## D010 — One school-pickup responsibility; trial departure acknowledgment
+
+- Date/status: 2026-11-14, **accepted product direction; acknowledgment is a trial**.
+- Source: product discussion in Codex following the owner's daily-use examples.
+  "Leaving now" texts to the owner's wife already help force departure from work.
+- Decision: coordinate calendar protection, the pickup schedule and departure
+  support as one responsibility. The owner explicitly agreed to that direction.
+- Supplied facts: the 1:30 PM hold blocks meetings, rather than specifying when
+  to leave. Be in line by 2:30 PM on other pickup days, 2:00 PM on Wednesdays;
+  estimated drive 20 minutes. No actual target departure time has been chosen.
+- Hypothesis: a low-effort departure acknowledgment could help initiate pickup
+  rather than merely record that an alert was noticed. Its value should be judged
+  by timely departure and reduced worry, not acknowledgment counts.
+- Known needs: protection against missed/snoozed alerts and a separate Wednesday
+  schedule. Whether a private acknowledgment provides sufficient accountability,
+  what follow-ups should do, and whether "Picked up" needs confirmation remain
+  open. Alert times, escalation and snooze behavior have not been adopted.
+- Authority: product exploration only. No feature implementation, automatic
+  messaging, retirement of existing alarms or deployment is approved here.
+- Next review: [walkthrough draft](School-Pickup-Experience.md), authorized by
+  the owner's "go do that and let me know if you have logistical questions."
+  Departure targets and device/Focus logistics have been asked; no answers are
+  assumed. Proposed alert/snooze policy remains for review.
