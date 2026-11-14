@@ -4,6 +4,10 @@
 <dict>
 	<key>CAPACITOR_DEBUG</key>
 	<string>$(CAPACITOR_DEBUG)</string>
+	<key>NSAlarmKitUsageDescription</key>
+	<string>Boomerang schedules only the disposable sound-test alarm you explicitly start, including its snooze, so you can test alerts through Silent and Focus.</string>
+	<key>NSSupportsLiveActivities</key>
+	<true/>
 	<key>NSRemindersFullAccessUsageDescription</key>
 	<string>Boomerang syncs tasks you give a reminder time with a Boomerang list in Apple Reminders, so the alarm rings on your phone and watch — and so anything you add to that list with Siri comes back into Boomerang.</string>
 	<key>NSRemindersUsageDescription</key>

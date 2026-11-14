@@ -33,6 +33,11 @@
 		5C0AC0000000000000000015 /* TodayView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5C0AC0000000000000000004 /* TodayView.swift */; };
 		5C0AC0000000000000000016 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 5C0AC0000000000000000006 /* Assets.xcassets */; };
 		5C0AC0000000000000000017 /* BoomerangWatch.app in Embed Watch Content */ = {isa = PBXBuildFile; fileRef = 5C0AC0000000000000000008 /* BoomerangWatch.app */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		ABC0A1A00000000000000001 /* BoomerangAlarmProbe.swift in Sources */ = {isa = PBXBuildFile; fileRef = ABC0A1A00000000000000002; };
+		ABC0A1A00000000000000003 /* AlarmProbeMetadata.swift in Sources (App) */ = {isa = PBXBuildFile; fileRef = ABC0A1A00000000000000004; };
+		ABC0A1A00000000000000005 /* AlarmProbeMetadata.swift in Sources (Widget) */ = {isa = PBXBuildFile; fileRef = ABC0A1A00000000000000004; };
+		ABC0A1A00000000000000006 /* AlarmProbeWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = ABC0A1A00000000000000007; };
+		ABC0A1A00000000000000008 /* AlarmProbeWidget.appex in Embed App Extensions */ = {isa = PBXBuildFile; fileRef = ABC0A1A00000000000000009; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -65,6 +70,11 @@
 		5C0AC0000000000000000006 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		5C0AC0000000000000000007 /* WatchBridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchBridge.swift; sourceTree = "<group>"; };
 		5C0AC0000000000000000008 /* BoomerangWatch.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = BoomerangWatch.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		ABC0A1A00000000000000002 /* BoomerangAlarmProbe.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BoomerangAlarmProbe.swift; sourceTree = "<group>"; };
+		ABC0A1A00000000000000004 /* AlarmProbeMetadata.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AlarmProbeMetadata.swift; sourceTree = "<group>"; };
+		ABC0A1A00000000000000007 /* AlarmProbeWidget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AlarmProbeWidget.swift; sourceTree = "<group>"; };
+		ABC0A1A0000000000000000A /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		ABC0A1A00000000000000009 /* AlarmProbeWidget.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = AlarmProbeWidget.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -92,6 +102,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		ABC0A1A0000000000000000D = {isa = PBXFrameworksBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
@@ -104,6 +115,7 @@
 				5C0A220000000000000E0020 /* ShareExtension */,
 				5C0AC0000000000000000020 /* Shared */,
 				5C0AC0000000000000000021 /* BoomerangWatch */,
+				ABC0A1A0000000000000000B /* AlarmProbeWidget */,
 			);
 			sourceTree = "<group>";
 		};
@@ -113,6 +125,7 @@
 				504EC3041FED79650016851F /* App.app */,
 				5C0A220000000000000E0005 /* ShareExtension.appex */,
 				5C0AC0000000000000000008 /* BoomerangWatch.app */,
+				ABC0A1A00000000000000009 /* AlarmProbeWidget.appex */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -121,6 +134,7 @@
 			isa = PBXGroup;
 			children = (
 				5C0AC0000000000000000001 /* WatchProtocol.swift */,
+				ABC0A1A00000000000000004 /* AlarmProbeMetadata.swift */,
 			);
 			path = Shared;
 			sourceTree = "<group>";
@@ -147,6 +161,7 @@
 				5C0A11D2E00000000000B005 /* BoomerangNative.swift */,
 				5C0A11D2E00000000000B105 /* BoomerangReminders.swift */,
 				5C0A11D2E00000000000B205 /* BoomerangLocalNotifs.swift */,
+				ABC0A1A00000000000000002 /* BoomerangAlarmProbe.swift */,
 				5C0A220000000000000E0007 /* BoomerangIntents.swift */,
 				5C0AC0000000000000000007 /* WatchBridge.swift */,
 				504EC30B1FED79650016851F /* Main.storyboard */,
@@ -170,6 +185,12 @@
 			path = ShareExtension;
 			sourceTree = "<group>";
 		};
+		ABC0A1A0000000000000000B /* AlarmProbeWidget */ = {
+			isa = PBXGroup;
+			children = (ABC0A1A00000000000000007 /* AlarmProbeWidget.swift */, ABC0A1A0000000000000000A /* Info.plist */, );
+			path = AlarmProbeWidget;
+			sourceTree = "<group>";
+		};
 /* End PBXGroup section */
 
 /* Begin PBXContainerItemProxy section */
@@ -187,6 +208,7 @@
 			remoteGlobalIDString = 5C0AC0000000000000000040;
 			remoteInfo = BoomerangWatch;
 		};
+		ABC0A1A00000000000000011 = {isa = PBXContainerItemProxy; containerPortal = 504EC2FC1FED79650016851F; proxyType = 1; remoteGlobalIDString = ABC0A1A0000000000000000F; remoteInfo = AlarmProbeWidget; };
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXTargetDependency section */
@@ -200,6 +222,7 @@
 			target = 5C0AC0000000000000000040 /* BoomerangWatch */;
 			targetProxy = 5C0AC0000000000000000041 /* PBXContainerItemProxy */;
 		};
+		ABC0A1A00000000000000012 = {isa = PBXTargetDependency; target = ABC0A1A0000000000000000F; targetProxy = ABC0A1A00000000000000011; };
 /* End PBXTargetDependency section */
 
 /* Begin PBXNativeTarget section */
@@ -218,6 +241,7 @@
 			dependencies = (
 				5C0A220000000000000E0042 /* PBXTargetDependency */,
 				5C0AC0000000000000000042 /* PBXTargetDependency */,
+				ABC0A1A00000000000000012 /* AlarmProbeWidget dependency */,
 			);
 			name = App;
 			packageProductDependencies = (
@@ -265,6 +289,17 @@
 			productReference = 5C0AC0000000000000000008 /* BoomerangWatch.app */;
 			productType = "com.apple.product-type.application";
 		};
+		ABC0A1A0000000000000000F /* AlarmProbeWidget */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = ABC0A1A00000000000000010;
+			buildPhases = (ABC0A1A0000000000000000C, ABC0A1A0000000000000000D, ABC0A1A0000000000000000E, );
+			buildRules = ();
+			dependencies = ();
+			name = AlarmProbeWidget;
+			productName = AlarmProbeWidget;
+			productReference = ABC0A1A00000000000000009;
+			productType = "com.apple.product-type.app-extension";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -309,6 +344,7 @@
 				504EC3031FED79650016851F /* App */,
 				5C0A220000000000000E0040 /* ShareExtension */,
 				5C0AC0000000000000000040 /* BoomerangWatch */,
+				ABC0A1A0000000000000000F /* AlarmProbeWidget */,
 			);
 		};
 /* End PBXProject section */
@@ -321,6 +357,7 @@
 			dstSubfolderSpec = 13;
 			files = (
 				5C0A220000000000000E0011 /* ShareExtension.appex in Embed App Extensions */,
+				ABC0A1A00000000000000008 /* AlarmProbeWidget.appex in Embed App Extensions */,
 			);
 			name = "Embed App Extensions";
 			runOnlyForDeploymentPostprocessing = 0;
@@ -367,6 +404,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		ABC0A1A0000000000000000E = {isa = PBXResourcesBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
@@ -380,6 +418,8 @@
 				5C0A11D2E00000000000B006 /* BoomerangNative.swift in Sources */,
 				5C0A11D2E00000000000B106 /* BoomerangReminders.swift in Sources */,
 				5C0A11D2E00000000000B206 /* BoomerangLocalNotifs.swift in Sources */,
+				ABC0A1A00000000000000001 /* BoomerangAlarmProbe.swift in Sources */,
+				ABC0A1A00000000000000003 /* AlarmProbeMetadata.swift in Sources (App) */,
 				5C0A220000000000000E0008 /* BoomerangIntents.swift in Sources */,
 				5C0AC0000000000000000010 /* WatchBridge.swift in Sources */,
 				5C0AC0000000000000000011 /* WatchProtocol.swift in Sources */,
@@ -405,6 +445,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		ABC0A1A0000000000000000C /* Sources */ = {isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (ABC0A1A00000000000000005, ABC0A1A00000000000000006, ); runOnlyForDeploymentPostprocessing = 0; };
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXVariantGroup section */
@@ -825,7 +866,7 @@
 				OTHER_SWIFT_FLAGS = "$(inherited) \"-D\" \"COCOAPODS\" \"-DDEBUG\"";
 				PRODUCT_BUNDLE_IDENTIFIER = ryakel.boomerang.app.dev;
 				PRODUCT_NAME = "$(TARGET_NAME)";
-				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG BOOMERANG_ALARM_PROBE";
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
 			};
@@ -851,7 +892,7 @@
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = ryakel.boomerang.app.dev;
 				PRODUCT_NAME = "$(TARGET_NAME)";
-				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "";
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = BOOMERANG_ALARM_PROBE;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
 			};
@@ -969,6 +1010,94 @@
 			};
 			name = "Release-Dev";
 		};
+		ABC0A1A00000000000000014 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				CLANG_ENABLE_MODULES = YES;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = L7JZ99D6K5;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = AlarmProbeWidget/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.1;
+				LD_RUNPATH_SEARCH_PATHS = ("$(inherited)", "@executable_path/Frameworks", "@executable_path/../../Frameworks", );
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = ryakel.boomerang.app.AlarmProbeWidget;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = "Debug";
+		};
+		ABC0A1A00000000000000015 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				CLANG_ENABLE_MODULES = YES;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = L7JZ99D6K5;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = AlarmProbeWidget/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.1;
+				LD_RUNPATH_SEARCH_PATHS = ("$(inherited)", "@executable_path/Frameworks", "@executable_path/../../Frameworks", );
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = ryakel.boomerang.app.AlarmProbeWidget;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = "Release";
+		};
+		ABC0A1A00000000000000016 /* Debug-Dev */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				CLANG_ENABLE_MODULES = YES;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = L7JZ99D6K5;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = AlarmProbeWidget/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.1;
+				LD_RUNPATH_SEARCH_PATHS = ("$(inherited)", "@executable_path/Frameworks", "@executable_path/../../Frameworks", );
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = ryakel.boomerang.app.dev.AlarmProbeWidget;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = "Debug-Dev";
+		};
+		ABC0A1A00000000000000017 /* Release-Dev */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				CLANG_ENABLE_MODULES = YES;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = L7JZ99D6K5;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = AlarmProbeWidget/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.1;
+				LD_RUNPATH_SEARCH_PATHS = ("$(inherited)", "@executable_path/Frameworks", "@executable_path/../../Frameworks", );
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = ryakel.boomerang.app.dev.AlarmProbeWidget;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = "Release-Dev";
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -1016,6 +1145,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
+		ABC0A1A00000000000000010 = {isa = XCConfigurationList; buildConfigurations = (ABC0A1A00000000000000014, ABC0A1A00000000000000015, ABC0A1A00000000000000016, ABC0A1A00000000000000017, ); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release; };
 /* End XCConfigurationList section */
 
 /* Begin XCLocalSwiftPackageReference section */

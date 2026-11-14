@@ -201,3 +201,25 @@ below predate those decisions and are historical recommendations, not authority.
   not an adopted architecture. The owner confirmed iOS 27, satisfying AlarmKit's documented iOS 26+
   availability. Native build, permission and audible delivery remain unverified
   and come before relying on a live trial. Proposed alert/snooze policy remains for review.
+
+## D011 — Bounded native alarm delivery experiment
+
+- Date/status: 2026-11-14, **implementation authorized; native validation pending**.
+- Source: after discussing a disposable alarm under Silent/locked/backgrounded
+  conditions, the owner said "Ok. We can patch the apps when ready" and then
+  "Let's build what we can. I will get codex on my Mac today."
+- Build a user-triggered test in Boomerang Dev: separate AlarmKit authorization,
+  one alarm after 60 seconds, system Stop/one-minute Snooze, readback and owned-ID
+  cancellation. Include the required countdown Live Activity widget. Use the
+  iOS 26.1 system Stop API; the owner's iOS 27 meets availability.
+- Keep Stop separate from departure/pickup. No custom departure/completion
+  action, real weekly schedule, calendar write, messaging, global Silent toggle,
+  existing-alarm replacement, provider change or deployment is included.
+- Alternative: ordinary UserNotifications do not supply the required Silent
+  interruption; a separate Shortcut bridge is unresolved. AlarmKit is a delivery
+  candidate, not proof the eventual pickup architecture is selected.
+- Compile-time scheduling gate enables App Dev only. This isolates evaluation
+  while preserving the ordinary App configuration and current reminder ownership.
+- Cloud tests establish synthetic boundary/UI behavior; Mac compilation and the
+  [physical-device matrix](AlarmKit-Probe.md) are still required. Keep a draft PR
+  and document unrun tests; do not merge/deploy under the completed E1–E5 approval.
