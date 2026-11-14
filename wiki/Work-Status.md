@@ -1,5 +1,17 @@
 # Work status and authorization
 
+## Current product work: school-pickup experience (2026-11-14)
+
+The owner requested conversation/recommendations before new implementation,
+then authorized a walkthrough of ordinary-day and Wednesday pickup, missed alerts,
+repeated snoozing and "Leaving now." [Draft](School-Pickup-Experience.md).
+One coordinated pickup responsibility is accepted direction; departure targets,
+alert delivery/persistence and a separate pickup confirmation remain open.
+Logistical questions about departure targets and devices/Silent/Focus are pending.
+This is design/documentation scope; no new app implementation, notification,
+external calendar/messaging action or deployment is authorized by this request.
+
+
 ## Delivered: execution reliability E1–E5 (2026-11-14)
 
 The owner's [standing authorization](https://github.com/ryakel/boomerang/issues/1018#issuecomment-6869543997)

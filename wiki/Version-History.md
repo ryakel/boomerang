@@ -6,6 +6,10 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-11-14
 
+- docs(product): sketch the school pickup experience [M]
+  - Preserve the owner's revised conversational collaboration preferences and daily-use examples; distinguish the accepted one-responsibility direction from trial acknowledgment and unresolved logistics.
+  - Draft ordinary-day/Wednesday, missed-cue, repeated-snooze and departure/completion walkthroughs; inspect existing native reminder delivery and make its reliability limits explicit. No app code, live actions or deployments.
+
 - docs(quokka): record delivered reliability plan and evidence [S]
   - Record merged E1–E5 PRs, final regression/browser/CI/staging outcomes and supported-operation/privacy/durability limits. Retain the earlier pre-deployment test timeout history and identify the superseded proposal.
   - Separate accepted product defaults from completed bounded implementation authority; provider/paid work and production main remain outside the delivered plan. Documentation only.

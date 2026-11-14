@@ -78,3 +78,43 @@ tradeoffs; inspect real code; turn agreed choices into scoped proposals; impleme
 approved work and verify it. No separate assistant review is inherently required.
 Keep durable decisions and evidence in the repository/issues so continuity does
 not depend on chat history. Recommendations do not silently become authorizations.
+
+The owner clarified the working style on 2026-11-14: discuss the user outcome,
+alternatives and recommendation before major work. Bring product experience
+choices and consequential architecture tradeoffs into conversation; repository
+comments preserve the discussion rather than replacing it. During implementation,
+explain milestones in terms of user benefit and tradeoffs. Continue minor technical
+work autonomously within agreed scope. Current focus is product assessment, with
+no new runtime implementation or deployment requested.
+
+## Daily-use evidence under discussion (2026-11-14)
+
+- Hands-free weekend work: voice capture can produce tasks, but the owner could
+  not create an embedded checklist and had to combine tasks or enter items later.
+- Medication support for a recovering partner: ordinary reminders were the
+  available workaround. Scheduling, confirmation and coordination needs remain
+  to be explored; no medication regimen is inferred.
+- School pickup: the owner maintains redundant alarms because an alert might be
+  missed or snoozed and forgotten. The 1:30 PM calendar hold prevents meetings;
+  it is not a declared departure time. The owner needs to be in line by 2:30 PM
+  on other pickup days and 2:00 PM on Wednesdays, with an estimated 20-minute
+  drive. The protected time helps make room for a difficult transition; spare
+  time can also be consumed by distraction or repeated snoozing.
+- Accepted product direction: one school-pickup responsibility should coordinate
+  calendar protection, schedule variations and support for actually leaving,
+  reducing the separate records maintained across Calendar, Clock and Reminders.
+  A departure target and notification/snooze policy remain to be designed.
+- Saying "Leaving now" in a text to the owner's wife already acts as a forcing
+  function for leaving work. The owner is willing to try that acknowledgment for
+  pickup but is unsure whether a separate pickup confirmation is useful. Treat
+  this as a trial hypothesis, not a settled requirement. Whether the benefit comes
+  from the acknowledgment itself or interpersonal accountability remains open.
+
+Use these situations to assess the full experience before choosing an interface
+or architecture. Trial willingness does not authorize building a new feature or
+automatically sending messages to anyone.
+
+The owner authorized an experience walkthrough, including ordinary pickup days,
+Wednesday, missed cues, repeated snoozing and departure acknowledgment. See
+[School Pickup Experience](School-Pickup-Experience.md) for the reviewable draft,
+known delivery constraints and pending logistics.
