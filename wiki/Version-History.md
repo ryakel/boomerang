@@ -6,6 +6,10 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-11-14
 
+- docs(quokka): record delivered reliability plan and evidence [S]
+  - Record merged E1–E5 PRs, final regression/browser/CI/staging outcomes and supported-operation/privacy/durability limits. Retain the earlier pre-deployment test timeout history and identify the superseded proposal.
+  - Separate accepted product defaults from completed bounded implementation authority; provider/paid work and production main remain outside the delivered plan. Documentation only.
+
 - feat(quokka): capture explicit local intentions immediately [L]
   - Add shared pure authority classification and authenticated idempotent task/note capture before model calls. Preserve literal content, no-action restrictions and reviewed boundaries for mixed/scheduled/external work; retain existing direct capture behavior and Claude defaults.
   - Persist request-to-execution identity, separate explicit capture authority, local inverse/receipt and uncertain retry ID; serialize sends and never fall through to a model after lost capture acknowledgement. Retire only an undone matching stopped draft, preserving newer plans.

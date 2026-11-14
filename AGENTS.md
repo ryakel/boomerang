@@ -39,7 +39,7 @@ roadmap, accepted product direction or merged test PR as approval to implement.
 Issue [#1018](https://github.com/ryakel/boomerang/issues/1018) coordinates the
 architecture/testing and execution-reliability work. P1 tests were merged in
 #1019. E1 receipts (#1022), E2 local Undo (#1023), E3 recovery (#1024) and E4
-external evidence (#1025) are merged. E5 is the final capture increment; see
+external evidence (#1025) are merged. E5 capture (#1026) is merged. This bounded implementation plan is complete; see
 [current plan/evidence](wiki/Execution-Reliability-Plan.md) and Work Status for
 actual integration/deployment results. Historical authorization remains in the
 decision log and issue. Green characterization tests are not universal safety.
@@ -56,4 +56,5 @@ Implement/test/document each increment on a separate branch and PR, merge into
 `dev` after checks, including its automatic staging deployments. No production
 `main`, provider migration, paid benchmarks or unrelated changes are authorized.
 See [current plan](wiki/Execution-Reliability-Plan.md). No repeated merge question
-is needed within this explicit standing approval.
+was needed within that approval. It is now delivered; do not infer authority for
+new runtime increments or deployments from this completed plan.

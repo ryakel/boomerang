@@ -72,3 +72,6 @@ budget (5.4s). Its assertions passed in PR/local runs. This increment gives that
 disk-heavy rollover test 30 seconds, with identical assertions and no skips.
 Current CI/staging evidence is linked from issue #1018; production main and
 Claude defaults remain unchanged. Dependency audit is reported per PR.
+
+E5 is merged in [#1026](https://github.com/ryakel/boomerang/pull/1026). Final
+combined validation and staging evidence live in [Work Status](Work-Status.md).
