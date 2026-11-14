@@ -17,4 +17,6 @@ if [ ! -d "$DEVELOPER_DIR" ]; then
 fi
 export BOOMERANG_XCODE_APP DEVELOPER_DIR
 printf 'Using Xcode: %s\n' "$BOOMERANG_XCODE_APP"
+printf 'Developer directory: %s\n' "$DEVELOPER_DIR"
+xcrun --find xcodebuild
 xcodebuild -version

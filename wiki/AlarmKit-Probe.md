@@ -1,10 +1,7 @@
 # Disposable AlarmKit test — Mac handoff
 
-Status: **owner reports successful Mac compilation/packaging with standard Xcode
-27.2 and local edits; physical-device evaluation pending**. The tested local diff
-and exact revision have not yet been posted to the PR. This cloud checkout has
-not independently reproduced that native result. Branch `claude/alarmkit-probe`,
-based on dev `7354b6a`.
+Status: **unsigned simulator compilation/packaging passed; physical-device
+installation and audible evaluation pending**. Branch `claude/alarmkit-probe`, based on dev `7354b6a`.
 This is a delivery experiment before deciding how to implement school pickup.
 See [the product walkthrough](School-Pickup-Experience.md) and
 [D011](Decision-Log.md#d011--bounded-native-alarm-delivery-experiment).
@@ -74,7 +71,9 @@ npm ci
 sh scripts/ios-alarm-probe-check.sh
 ```
 
-The script checks the SDK, runs bridge tests, rebuilds/syncs bundled web assets,
+The script pins `DEVELOPER_DIR` to `/Applications/Xcode.app/Contents/Developer`
+(the standard Xcode app, regardless of `xcode-select` or an inherited beta
+toolchain). It checks the SDK, runs bridge tests, rebuilds/syncs bundled web assets,
 then performs unsigned simulator builds for **App Dev and App**, checking widget
 packaging. It does not install, launch, schedule or deploy. It may download the
 normal Swift packages. Review any files rewritten by `cap sync`; don't use
@@ -104,6 +103,41 @@ after signing is established. The latter really installs, unlike the unsigned
 check. Do not use `npm run ios:prod`. Existing Dev app data and connection
 settings should be preserved; do not uninstall as a troubleshooting first step.
 Keep Dev connected to the dev server; the alarm test itself needs no server.
+
+For this experiment, select and verify standard Xcode for the existing workflow:
+
+```sh
+export BOOMERANG_XCODE_APP=/Applications/Xcode.app
+export DEVELOPER_DIR="$BOOMERANG_XCODE_APP/Contents/Developer"
+xcrun --find xcodebuild
+xcodebuild -version
+npm run ios:dev
+```
+
+The expected compiler path starts with `/Applications/Xcode.app/`; the Mac
+validation used Xcode 27.2 (`27B52`). This process-local selection overrides a
+beta `xcode-select` setting without changing the machine globally. The existing
+install script checks `CFBundleIdentifier == ryakel.boomerang.app.dev` before
+installation and refuses a mismatch. It also checks/updates the existing watch
+companion. Do not use `ios:prod` or uninstall the Dev app.
+
+The owner authorized the Mac commit/push and existing Dev-app installation in
+Codex on 2026-11-14, plus reporting evidence in PR #1028. The owner initiates all
+audible tests; no server deployment, production change or merge is authorized.
+
+## Mac compilation evidence (2026-11-14)
+
+On branch tip `7710921ab3a8b13eecd7579780f393eb6d4a6902` with local
+standard-Xcode script edits and generated package/Watch scheme edits, `sh scripts/ios-alarm-probe-check.sh` passed with
+standard `/Applications/Xcode.app`, Xcode 27.2 (`27B52`): 11/11 bridge tests,
+web build/Capacitor sync, unsigned App Dev and App simulator builds, embedded
+`AlarmProbeWidget.appex`, alarm usage description and Live Activity plist checks.
+The first attempt stopped at a missing installed font dependency; `npm ci`
+resolved that prerequisite without changing the lockfile. Existing local Watch
+scheme and generated Swift package edits were preserved. No native source fix
+was needed. No install, launch, alarm scheduling, merge or deployment occurred.
+Physical-device checks below remain unrun; compilation does not prove audibility
+or delivery reliability.
 
 ## Physical-device evaluation
 
@@ -144,7 +178,8 @@ delivery or Watch behavior has been established in this Linux workspace.** The
 owner separately reported 11 bridge tests, both simulator builds and widget
 packaging passed on standard Xcode 27.2 with local edits preserved. Record the
 tested diff/revision on the PR before attributing that result to an upstream
-commit. The later shared script-selection change needs a Mac recheck.
+commit. The shared script-selection change is validated in the Mac evidence above;
+physical-device results remain pending.
 
 Commands: `npm run test:alarm-probe`; optional browser run with
 `PLAYWRIGHT_MODULE=/path/to/playwright/index.mjs npm run test:alarm-probe:browser`.
