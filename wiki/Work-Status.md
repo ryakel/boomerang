@@ -13,9 +13,19 @@ in 60 seconds, system Stop/1-minute Snooze, countdown widget, owned-ID cancellat
 and daemon readback. App configurations disable scheduling at compile time;
 only App Dev enables it. No server/task/calendar/messaging/Clock changes.
 
-**Mac/Xcode and physical-device tests pending.** Cloud checks cover synthetic
+**Mac recheck and physical-device tests pending.** Cloud checks cover synthetic
 bridge behavior, frontend and project wiring, not native sound or reliability.
 [Mac handoff and unrun device matrix](AlarmKit-Probe.md) are the next steps.
+Subsequent owner report: standard Xcode 27.2 passed 11 bridge tests, both
+simulator builds and widget packaging with local edits preserved. The Mac's
+tested diff/revision is not yet recorded upstream; do not attribute this to a
+specific remote commit. The owner requested sharing standard-Xcode selection
+in the scripts; the shared process-local selector now needs a Mac recheck.
+Physical-device behavior remains unverified.
+Shared-selector validation here: POSIX shell syntax and simulated command checks
+passed for all three entry points (standard default, missing-install refusal,
+explicit app path containing spaces, inherited beta override, and explicit app
+opening). No native tool, installation or deployment was executed by those checks.
 Verified here: 11/11 synthetic bridge boundary tests; 56/56 existing reminder
 schedule/merge/routine regression tests; real React controls/client with a fake
 daemon at 320px and 960px (denial, lost schedule/cancel reply, snooze status,

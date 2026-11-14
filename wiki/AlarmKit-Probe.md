@@ -1,7 +1,10 @@
 # Disposable AlarmKit test — Mac handoff
 
-Status: **implemented for native compilation and phone evaluation; not verified
-on Xcode or a phone yet**. Branch `claude/alarmkit-probe`, based on dev `7354b6a`.
+Status: **owner reports successful Mac compilation/packaging with standard Xcode
+27.2 and local edits; physical-device evaluation pending**. The tested local diff
+and exact revision have not yet been posted to the PR. This cloud checkout has
+not independently reproduced that native result. Branch `claude/alarmkit-probe`,
+based on dev `7354b6a`.
 This is a delivery experiment before deciding how to implement school pickup.
 See [the product walkthrough](School-Pickup-Experience.md) and
 [D011](Decision-Log.md#d011--bounded-native-alarm-delivery-experiment).
@@ -77,6 +80,16 @@ packaging. It does not install, launch, schedule or deploy. It may download the
 normal Swift packages. Review any files rewritten by `cap sync`; don't use
 `npx cap add ios`. A successful script proves compilation/packaging only.
 
+All three iOS entry points (`ios-alarm-probe-check.sh`, `ios-rebuild.sh`, and
+`ios-deploy.sh`) source `ios-xcode-env.sh`: standard `/Applications/Xcode.app`
+is selected for that process, overriding inherited `DEVELOPER_DIR` and global
+beta selections. The selected path and version are printed before build work.
+Rebuild opens that same application explicitly instead of using the project-file
+association. The scripts never run `sudo xcode-select` or change the Mac's global
+selection, and fail if the requested installation is missing rather than falling
+back to beta. An intentional alternative can be selected with
+`BOOMERANG_XCODE_APP=/path/to/Xcode.app`. This changes no SDK version requirement.
+
 To let local Codex use Xcode, enable external Xcode tools under Xcode Settings →
 Intelligence, run `codex mcp add xcode -- xcrun mcpbridge`, and open
 `ios/App/App.xcodeproj`. [Apple setup](https://developer.apple.com/documentation/xcode/giving-external-agents-access-to-xcode).
@@ -127,7 +140,11 @@ controls/client with a fake daemon; they do not exercise AlarmKit. Local Xcode
 project parsing checks source membership, extension embedding/dependency, bundle
 configurations and the Dev-only gate. Build/lint are frontend checks.
 **No native compilation, physical audibility, snooze delivery, offline/restart
-delivery or Watch behavior has been established in this Linux workspace.**
+delivery or Watch behavior has been established in this Linux workspace.** The
+owner separately reported 11 bridge tests, both simulator builds and widget
+packaging passed on standard Xcode 27.2 with local edits preserved. Record the
+tested diff/revision on the PR before attributing that result to an upstream
+commit. The later shared script-selection change needs a Mac recheck.
 
 Commands: `npm run test:alarm-probe`; optional browser run with
 `PLAYWRIGHT_MODULE=/path/to/playwright/index.mjs npm run test:alarm-probe:browser`.

@@ -6,6 +6,11 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-11-14
 
+- fix(ios): default build scripts to standard xcode [S]
+  - Share process-local Xcode selection across probe, rebuild and install scripts; default to `/Applications/Xcode.app`, print path/version, open that app explicitly and fail if missing. Preserve an explicit `BOOMERANG_XCODE_APP` alternative without changing global settings or silently falling back to beta.
+  - Record owner-reported standard Xcode 27.2 simulator/packaging evidence separately from unverified upstream revision and physical-device behavior. New selection changes still need a Mac recheck.
+  - Verify POSIX syntax and simulated command behavior for all three entry points, missing-install refusal, explicit paths with spaces and opening the selected app; no native build or installation in the cloud.
+
 - feat(ios): prepare a disposable dev alarm probe [L]
   - Add explicit Dev-only AlarmKit permission, single-alarm scheduling, system Stop/one-minute Snooze, owned-ID readback/cancellation and the required countdown widget. Preserve existing task/reminder/Clock behavior; no live pickup schedule or production installation/deployment.
   - Test bridge denial, unsupported installs, duplicates, failed readback, lost replies and cleanup; drive real controls with a synthetic daemon at 320/960px. Add Mac-only unsigned build/packaging check and a physical-device handoff with every unrun native check explicit. Reuse existing rebuild/install scripts; Xcode/phone validation remains pending.

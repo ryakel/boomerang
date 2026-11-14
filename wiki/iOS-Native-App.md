@@ -76,6 +76,14 @@ as the App Intent's 10s URLSession timeout above.
 
 ## The standard rebuild (start here every time)
 
+`ios-rebuild.sh`, `ios-deploy.sh`, and the alarm probe check default to standard
+`/Applications/Xcode.app`, using the shared `scripts/ios-xcode-env.sh`. They
+print its path/version and set `DEVELOPER_DIR` only for the script and its child
+processes. An inherited beta override or the Mac's global beta selection does
+not change that default; a missing standard install is an error. Set
+`BOOMERANG_XCODE_APP` explicitly for another installation. Rebuild opens that
+same Xcode app directly. No global `xcode-select` setting is changed.
+
 ```bash
 git checkout main && git pull
 npm run ios:prod    # scheme "App"     → Boomerang      (point it at tasks.kfam.in)
