@@ -62,13 +62,16 @@ export function useAdviser() {
   const saveTimerRef = useRef(null)
 
   const recordExecutions = useCallback((records) => {
+    const active = records.find(r => r.sessionId === sessionIdRef.current)
+    if (['stopped','stopping'].includes(active?.state)) { setRunnerState(active.state); setStatus('idle') }
+    else if (active?.state === 'completed') setRunnerState(prev => ['stopped','stopping'].includes(prev) ? 'idle' : prev)
     setMessages(previous => {
       let changed = false
       const next = previous.map(message => {
         const record = records.find(r => r.revision === message.planRevision)
-        if (!record || (message.executionState === record.state && message.receiptUpdatedAt === record.updatedAt)) return message
+        if (!record || (message.executionState === record.state && message.receiptSequence === record.sequence)) return message
         changed = true
-        return { ...message, executionState: record.state, receiptUpdatedAt: record.updatedAt,
+        return { ...message, executionState: record.state, receiptUpdatedAt: record.updatedAt, receiptSequence: record.sequence,
           committed: record.ok, commitResults: record.results }
       })
       return changed ? next : previous
@@ -170,6 +173,8 @@ export function useAdviser() {
   // `opts.expectingNewTurn` = true when we're starting fresh and the
   // first `turn` event should create an assistant placeholder; false when
   // we already have a placeholder set up by the caller.
+  const cursorRef = useRef(new Map())
+
   const makeEventHandler = useCallback((opts = {}) => {
     let placeholderReady = !opts.expectingNewTurn
     const ensurePlaceholder = () => {
@@ -190,7 +195,27 @@ export function useAdviser() {
     }
 
     return (event, data) => {
+      const sid = sessionIdRef.current
+      if (data.sequence) {
+        if (data.sequence <= (cursorRef.current.get(sid) || 0)) return
+        cursorRef.current.set(sid, data.sequence)
+      }
       switch (event) {
+        case 'snapshot': {
+          // Replace only this turn's assistant view; the snapshot is authoritative
+          // when the bounded stream no longer covers the requested cursor.
+          const current = { role: 'assistant', content: '', toolEvents: [], plan: data.plan || [], planRevision: data.approval?.revision }
+          for (const event of data.snapshotEvents || []) {
+            if (event.type === 'message') current.content += (current.content ? '\n\n' : '') + (event.data.text || '')
+          }
+          pendingAssistantRef.current = current
+          placeholderReady = true
+          setMessages(prev => prev.at(-1)?.role === 'assistant' ? [...prev.slice(0,-1), current] : [...prev, current])
+          cursorRef.current.set(sid, data.cursor)
+          setRunnerState(data.runnerState)
+          setStatus(data.runnerState === 'awaiting_confirm' ? 'awaiting_confirm' : 'idle')
+          break
+        }
         case 'session':
           quokkaLog('stream connected, sessionId=' + data.sessionId, 'runnerState=' + (data.runnerState || 'idle'))
           setSessionId(data.sessionId)
@@ -202,7 +227,7 @@ export function useAdviser() {
           if (data.state === 'running') setStatus(prev => prev === 'error' ? 'error' : 'streaming')
           else if (data.state === 'awaiting_confirm') setStatus('awaiting_confirm')
           else if (data.state === 'idle') setStatus(prev => prev === 'error' ? 'error' : 'idle')
-          else if (data.state === 'aborted') setStatus('idle')
+          else if (['aborted','stopped','stopping','modified'].includes(data.state)) setStatus('idle')
           else if (data.state === 'errored') setStatus('error')
           break
         case 'queue_update':
@@ -282,7 +307,7 @@ export function useAdviser() {
           break
       }
     }
-  }, [refreshChatList])
+  }, [refreshChatList, setSessionId])
 
   // Try to re-attach to an in-flight server session. If alive, opens an
   // SSE stream in subscribe-only mode — buffered events replay first,
@@ -294,6 +319,7 @@ export function useAdviser() {
     streamRef.current = adviserChat({
       sessionId: sid,
       subscribeOnly: true,
+      cursor: cursorRef.current.get(sid) || 0,
       onEvent: handler,
       onError: (err) => {
         if (!String(err?.message || '').includes('404')) {
@@ -322,7 +348,7 @@ export function useAdviser() {
     const tick = async () => {
       await new Promise(r => setTimeout(r, POLL_INTERVAL_MS))
       try {
-        const res = await fetch(`/api/adviser/session/${sid}`)
+        const res = await fetch(`/api/adviser/session/${sid}?cursor=${lastIdx}`)
         if (res.status === 404) {
           quokkaLog('poll: session gone (404)')
           setLastError('Could not retrieve response')
@@ -332,11 +358,11 @@ export function useAdviser() {
         if (res.ok) {
           const result = await res.json()
           const events = result.events || []
-          for (let i = lastIdx; i < events.length; i++) {
-            handler(events[i].type || 'message', events[i].data || events[i])
-          }
-          lastIdx = events.length
-          if (result.runnerState !== 'running') {
+          if (result.gap) handler('snapshot', result)
+          else for (const event of events) handler(event.type || 'message', { ...event.data, sequence: event.sequence })
+          lastIdx = result.cursor ?? (events.at(-1)?.sequence || lastIdx)
+          handler('runner_state', { state: result.runnerState })
+          if (!['running','stopping'].includes(result.runnerState)) {
             quokkaLog('poll complete, runnerState=' + result.runnerState, 'events=' + events.length)
             return
           }
@@ -405,6 +431,7 @@ export function useAdviser() {
       history,
       sessionId,
       chatId,
+      cursor: cursorRef.current.get(sessionId) || 0,
       onEvent: (event, data) => {
         handler(event, data)
         if (event === 'session' && data.sessionId) {
@@ -477,11 +504,24 @@ export function useAdviser() {
       streamRef.current = null
     }
     if (sessionId) {
-      await adviserAbort(sessionId)
-      setSessionId(null)
+      try { await adviserAbort(sessionId); setRunnerState('stopped') }
+      catch (error) { setLastError(error.message); setStatus('error'); return }
     }
     setStatus('idle')
   }, [sessionId])
+
+  const adoptRecovery = useCallback((outcome) => {
+    if (!outcome.sessionId) return
+    setSessionId(outcome.sessionId)
+    setRunnerState(outcome.runnerState || 'idle')
+    setStatus(outcome.runnerState === 'awaiting_confirm' ? 'awaiting_confirm' : 'idle')
+    setLastError(null)
+    if (outcome.plan?.length) {
+      const msg = { role: 'assistant', content: 'Review the remaining changes before applying.', plan: outcome.plan, planRevision: outcome.approval?.revision }
+      pendingAssistantRef.current = msg
+      setMessages(prev => [...prev, msg])
+    }
+  }, [setSessionId])
 
   // "New chat" — create a fresh chat and switch to it. The current chat stays put in the
   // list (it'll archive itself after 30 days idle unless the user starred it).
@@ -496,7 +536,7 @@ export function useAdviser() {
     setLastError(null)
     pendingAssistantRef.current = null
     await refreshChatList()
-  }, [sessionId, refreshChatList])
+  }, [sessionId, refreshChatList, setSessionId])
 
   const switchChat = useCallback(async (id) => {
     if (id === activeId) return
@@ -517,7 +557,7 @@ export function useAdviser() {
     pendingAssistantRef.current = null
     if (chat.sessionId) tryResubscribe(chat.sessionId)
     await refreshChatList()
-  }, [activeId, refreshChatList, tryResubscribe])
+  }, [activeId, refreshChatList, tryResubscribe, setSessionId])
 
   const deleteChat = useCallback(async (id) => {
     await adviserDeleteChat(id)
@@ -529,7 +569,7 @@ export function useAdviser() {
       pendingAssistantRef.current = null
     }
     await refreshChatList()
-  }, [activeId, refreshChatList])
+  }, [activeId, refreshChatList, setSessionId])
 
   const starChat = useCallback(async (id) => {
     await adviserStarChat(id)
@@ -567,7 +607,7 @@ export function useAdviser() {
   return {
     // Active-chat surface
     messages, status, lastError, recordExecutions,
-    send, commit, abort,
+    send, commit, abort, adoptRecovery, sessionId,
     // Background-runner state — UI can show "still working" indicators
     // when reconnecting mid-turn, "queued" pill when a follow-up message
     // is waiting, etc.

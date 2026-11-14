@@ -1,10 +1,30 @@
-import { commitPlan, getPlanApproval } from './adviserTools.js'
+import { commitPlan, getPlanApproval, recoverExecution, stopExecution, sessionSnapshot, recoverSession } from './adviserTools.js'
 import { executionKey, getExecution, listExecutions } from './executionJournal.js'
 import { applyLocalUndo, previewLocalUndo } from './localRecovery.js'
 
 // Mounted behind the application's existing authGate. Inject only request-
 // scoped integration dependencies and the existing coalesced broadcast/queue.
-export function registerExecutionRoutes(app, { dependencies, afterCommit }) {
+export function registerExecutionRoutes(app, { dependencies, afterCommit, onStop = () => {} }) {
+  app.post('/api/adviser/abort', (req, res) => {
+    const outcome = stopExecution(req.body?.sessionId)
+    onStop(req.body?.sessionId)
+    res.json(outcome)
+  })
+  app.post('/api/adviser/session/:id/recover', (req, res) => res.json(recoverSession(req.params.id, req.body?.choice)))
+  app.get('/api/adviser/session/:id', (req, res) => {
+    res.set('Cache-Control', 'no-store')
+    const snapshot = sessionSnapshot(req.params.id, Number(req.query.cursor) || 0)
+    if (!snapshot) return res.status(404).json({ error: 'Session not found' })
+    res.json(snapshot)
+  })
+  app.post('/api/adviser/executions/:id/recover', async (req, res) => {
+    const { sequence, choice } = req.body || {}
+    if (!Number.isSafeInteger(sequence) || !['continue','modify'].includes(choice)) return res.status(409).json({ error: 'Review the current recovery choices.' })
+    const deps = choice === 'continue' ? await dependencies(req) : {}
+    const outcome = await recoverExecution(req.params.id, sequence, choice, deps)
+    if (choice === 'continue' && !outcome.replayed) await afterCommit(req, outcome, deps)
+    res.status(outcome.state === 'conflict' ? 409 : 200).json(outcome)
+  })
   app.get('/api/adviser/executions/:id/undo', (req, res) => {
     res.set('Cache-Control', 'no-store')
     const preview = previewLocalUndo(req.params.id)

@@ -112,3 +112,18 @@ below predate those decisions and are historical recommendations, not authority.
 | What counts as verified completion? | Define evidence by outcome; distinguish task persistence, external API acknowledgment and real-world fulfillment. | Success measures and honest UI state. |
 | What must survive restart, and for how long? | Design durable intent/receipts and recovery policy separately from in-memory sessions. | P1 R8 is not solved by transcript persistence. |
 | What is the next authorized increment? | Review duplicate/uncertain commits, stale writes, cancellation, residual status and event cursors before provider work. | Prioritization is still a product/engineering decision, not P1 authority. |
+
+## D006 — Standing E1–E5 implementation and integration authority
+
+- Date/status: 2026-11-14, **accepted implementation and merge authority**.
+- Source: owner: “keep on building and merging as you go until the whole plan is
+  implemented”; [issue record](https://github.com/ryakel/boomerang/issues/1018#issuecomment-6869543997).
+- Scope: E2 merge, E3 recovery, E4 supported external adapters, E5 capture;
+  separate tested PRs, rebase merges into dev and its automatic staging workflow.
+  Supersedes earlier per-increment merge restrictions within this plan only.
+- Limits: no production main, model/provider migration or paid evaluation.
+- E3 tradeoff: private command/queue/snapshot content persists in the existing
+  plaintext DB/backups to support recovery; dependency credentials never do.
+  No automatic retention pruning. Queued messages stay held after Stop.
+- Evidence/review: [plan](Execution-Reliability-Plan.md), [E3](Stop-Recovery-E3.md).
+  Revisit unsupported action families individually, never imply universal Undo.

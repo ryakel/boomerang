@@ -141,7 +141,7 @@ test('R3b FIXED: field-scoped rollback preserves an intervening edit', { timeout
   assert.deepEqual(s.external.state, fixture.external)
 })
 
-test('R4 REPRO: abort/clear during an awaited commit does not stop later plan steps', { timeout: 5000 }, async t => {
+test('R4 FIXED: Stop during an awaited commit prevents later dispatch', { timeout: 5000 }, async t => {
   const s = await sandbox(t)
   const id = s.session()
   await s.stage(id, 'gcal_create_event', eventInput)
@@ -150,13 +150,12 @@ test('R4 REPRO: abort/clear during an awaited commit does not stop later plan st
   t.after(gate.release)
   const committing = engine.commitPlan(id, s.deps)
   await gate.entered
-  engine.abortSession(id)
-  engine.clearSession(id) // same engine operations as /api/adviser/abort
+  engine.stopExecution(id)
   gate.release()
-  assert.equal((await committing).ok, true)
-  assert.equal(engine.getSession(id), undefined)
+  assert.equal((await committing).state, 'stopped')
+  assert.equal(engine.getSession(id).runnerState, 'stopped')
   assert.equal(newEvents(s).length, 1)
-  assert.equal(taskRow(s).due_date, '2026-11-20', 'post-abort step still executed')
+  assert.equal(taskRow(s).due_date, fixture.tasks.find(t => t.id === 'exam').due_date, 'post-Stop step never dispatched')
 })
 
 test('baseline: failed external step compensates prior task changes in reverse order', async t => {
@@ -218,7 +217,7 @@ test('R7 REPRO: external delete is irreversible when a subsequent step fails', a
   assert.deepEqual(s.persisted(), s.initial)
 })
 
-test('R8 REPRO: fresh process keeps flushed tasks/chats but loses staged plan, queue and receipt', async t => {
+test('R8 FIXED: fresh process retains draft/queue without automatically dispatching it', async t => {
   const s = await sandbox(t)
   const applied = s.session()
   await s.stage(applied, 'update_task', { id: 'exam', notes: 'Applied before restart' })
@@ -238,9 +237,9 @@ test('R8 REPRO: fresh process keeps flushed tasks/chats but loses staged plan, q
   const line = child.stdout.split('\n').find(x => x.startsWith('P1_RESULT='))
   assert.ok(line, child.stdout)
   const result = JSON.parse(line.slice('P1_RESULT='.length))
-  assert.equal(result.hasSession, false)
+  assert.equal(result.hasSession, true)
   assert.equal(result.commit.ok, false)
-  assert.match(result.commit.error, /expired/)
+  assert.match(result.commit.error, /plan changed/)
   assert.deepEqual(result.chats, chats)
   assert.equal(result.tasks.find(r => r.id === 'exam').notes, 'Applied before restart')
   assert.equal(result.tasks.find(r => r.id === 'exam').title, 'Prepare exam')
@@ -273,7 +272,7 @@ test('baseline: detached session replay plus live events changes neither DB nor 
   assert.deepEqual(s.external.state, fixture.external)
 })
 
-test('R9 REPRO: resubscription repeats retained events without event IDs/cursor', async t => {
+test('R9 FIXED: resubscription with a cursor does not repeat delivered events', async t => {
   const s = await sandbox(t)
   const id = s.session()
   engine.appendEvent(id, { type: 'message', data: { text: 'Already delivered' } })
@@ -281,8 +280,8 @@ test('R9 REPRO: resubscription repeats retained events without event IDs/cursor'
   const sub = engine.subscribeSession(id, first.res)
   engine.unsubscribeSession(id, sub)
   const second = sink()
-  engine.subscribeSession(id, second.res)
-  assert.deepEqual(second.chunks, first.chunks)
+  engine.subscribeSession(id, second.res, engine.sessionSnapshot(id).cursor)
+  assert.deepEqual(second.chunks, [])
   assert.equal(second.chunks.some(chunk => /^id:/m.test(chunk)), false)
   assert.deepEqual(s.persisted(), s.initial)
   assert.deepEqual(s.external.state, fixture.external)
@@ -307,14 +306,14 @@ async function poll(s, id, script, startIdx = 0) {
     POLL_BUDGET_MS: 300000, POLL_INTERVAL_MS: 1500,
     Date, setTimeout: fn => queueMicrotask(fn),
     quokkaLog() {}, setStatus() {}, setLastError: error => errors.push(error),
-    fetch: async () => {
+    fetch: async url => {
       script(++reads)
       const session = engine.getSession(id)
       const last = !session || session.runnerState !== 'running'
       // json resolves before observer completion; setImmediate waits for processing.
       if (last) setImmediate(complete.resolve)
       if (!session) return { status: 404 }
-      return { status: 200, ok: true, json: async () => structuredClone({ events: session.events, runnerState: session.runnerState }) }
+      return { status: 200, ok: true, json: async () => structuredClone(engine.sessionSnapshot(id, Number(new URL(url, 'http://fixture').searchParams.get('cursor')) || 0)) }
     },
   }
   const callback = vm.runInNewContext(`${pollSource}\npollSessionForResult`, context)
@@ -330,11 +329,11 @@ test('baseline: actual poll callback delivers buffered completion after disconne
   const id = s.session()
   engine.appendEvent(id, { type: 'message', data: { text: 'Recovered answer' } })
   const result = await poll(s, id, () => {})
-  assert.deepEqual(result.seen, [{ type: 'message', data: { text: 'Recovered answer' } }])
+  assert.ok(result.seen.some(e => e.type === 'message' && e.data.text === 'Recovered answer'))
   assert.deepEqual(result.errors, [])
 })
 
-test('R10 REPRO: actual poll callback misses completion when 500-event buffer rolls over', { timeout: 5000 }, async t => {
+test('R10 FIXED: actual poll callback delivers completion across bounded-buffer rollover', { timeout: 5000 }, async t => {
   const s = await sandbox(t)
   const id = s.session()
   engine.setRunnerState(id, 'running')
@@ -347,10 +346,9 @@ test('R10 REPRO: actual poll callback misses completion when 500-event buffer ro
     }
   })
   assert.equal(result.reads, 2)
-  assert.equal(result.seen.length, 500)
-  assert.equal(result.seen.some(e => e.data.n === 500), false)
-  assert.equal(result.seen.some(e => e.type === 'runner_state' && e.data.state === 'idle'), false)
-  assert.deepEqual(result.errors, [], 'poller silently stops with unseen completion')
+  assert.equal(result.seen.some(e => e.data.n === 500), true)
+  assert.equal(result.seen.some(e => e.type === 'runner_state' && e.data.state === 'idle'), true)
+  assert.deepEqual(result.errors, [], 'completion remains visible')
 })
 
 test('R8: actual poll callback reports missing session instead of inventing completion', { timeout: 5000 }, async t => {

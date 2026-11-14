@@ -45,6 +45,19 @@ test('E1 browser recovery with synthetic HTTP server and no live application int
     s.external.loseResponse('POST', '/calendar/v3/calendars/primary/events')
     res.json(await engine.commitPlan(next, s.deps))
   })
+  let stopGate, stopRun
+  app.post('/__start_stop', async (_req, res) => {
+    const next = s.session()
+    await s.stage(next, 'update_task', { id: 'exam', title: 'Before Stop' })
+    await s.stage(next, 'gcal_create_event', { summary: 'Synthetic stopped event', start: { date: '2026-11-20' }, end: { date: '2026-11-21' } })
+    await s.stage(next, 'update_task', { id: 'exam', notes: 'Continued after Stop' })
+    stopGate = s.external.pause('POST', '/calendar/v3/calendars/primary/events')
+    t.after(stopGate.release)
+    stopRun = engine.commitPlan(next, s.deps)
+    await stopGate.entered
+    res.json({ ok: true })
+  })
+  app.post('/__release_stop', async (_req, res) => { stopGate.release(); res.json(await stopRun) })
   let vite
   const html = `<!doctype html><html data-ui="v2" data-theme="kept-light"><body><div id="root" class="v2-app"></div><script type="module">
     import '/src/index.css';
@@ -79,6 +92,6 @@ test('E1 browser recovery with synthetic HTTP server and no live application int
   const code = await new Promise((resolve, reject) => { driver.once('error', reject); driver.once('exit', resolve) })
   assert.equal(code, 0, output)
   assert.equal(db.getTask('exam').title, 'Prepare exam')
-  assert.equal(s.external.calls.filter(c => c.method === 'POST').length, 1)
+  assert.equal(s.external.calls.filter(c => c.method === 'POST').length, 3)
   console.log(output.trim())
 })

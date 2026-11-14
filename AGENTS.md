@@ -52,3 +52,14 @@ The owner then requested merging E1 and moving on to E2. E1 is merged; E2
 local Undo/stale-edit implementation is prepared for review. See
 [E2 scope and evidence](wiki/Local-Undo-E2.md). E2 merge/deployment and E3–E5
 still require explicit authority.
+
+## Standing execution-reliability authority (2026-11-14)
+
+The owner explicitly requested continuing to build and merge until E1–E5 are
+implemented. [Recorded authority](https://github.com/ryakel/boomerang/issues/1018#issuecomment-6869543997)
+supersedes the earlier per-increment merge restrictions above for this plan.
+Implement/test/document each increment on a separate branch and PR, merge into
+`dev` after checks, including its automatic staging deployments. No production
+`main`, provider migration, paid benchmarks or unrelated changes are authorized.
+See [current plan](wiki/Execution-Reliability-Plan.md). No repeated merge question
+is needed within this explicit standing approval.

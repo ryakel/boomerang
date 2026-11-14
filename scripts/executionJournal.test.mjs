@@ -59,7 +59,7 @@ test('failure after a tool effect remains unknown and cannot repeat it', async t
   await s.stage(id, 'gcal_create_event', { summary: 'Synthetic', start: { date: '2026-11-20' }, end: { date: '2026-11-21' } })
   let saves = 0
   configureExecutionJournal(s.connection, () => {
-    if (++saves === 3) throw new Error('injected result write failure')
+    if (++saves && s.external.calls.some(c => c.method === 'POST')) throw new Error('injected result write failure')
     db.flushNow()
   })
   const result = await engine.commitPlan(id, s.deps)
@@ -125,6 +125,8 @@ test('authenticated commit/status routes require revision and replay without res
   await s.stage(id, 'update_task', { id: 'exam', title: 'Route applied' })
   const approval = engine.getPlanApproval(id)
   assert.equal((await request(app, '/api/adviser/executions?chatId=synthetic-chat')).status, 401)
+  assert.equal((await request(app, '/api/adviser/abort', { method: 'POST', body: { sessionId: id } })).status, 401)
+  assert.equal((await request(app, `/api/adviser/executions/${approval.executionId}/recover`, { method: 'POST', body: { sequence: 1, choice: 'continue' } })).status, 401)
   const options = { method: 'POST', token: 'synthetic-api-token', body: { sessionId: id } }
   assert.equal((await request(app, '/api/adviser/commit', options)).status, 409)
   const empty = s.session()

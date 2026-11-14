@@ -1,5 +1,20 @@
 # Work status and authorization
 
+## Current: execution reliability (2026-11-14)
+
+The owner authorized continuing implementation and merging through E1–E5 in
+Codex, including `dev` automatic staging deployments. [Issue authority](https://github.com/ryakel/boomerang/issues/1018#issuecomment-6869543997).
+E1 #1022 and E2 #1023 are merged; E2 tip `487e478`.
+E3 Stop/recovery is in implementation with synthetic test evidence in
+[Stop Recovery](Stop-Recovery-E3.md). Next: supported E4 external adapters,
+then E5 conversational explicit capture. [Plan tracker](Execution-Reliability-Plan.md).
+Production `main`, providers and paid model benchmarks remain excluded.
+
+The dated sections below preserve earlier authorization/history. Their
+per-increment approval restrictions are superseded within this bounded plan.
+
+## Historical handoff snapshot
+
 As of 2026-11-13; checked against dev `fbae46df6f528c3cf5504326746debdf66b47e37`
 and issue [#1018](https://github.com/ryakel/boomerang/issues/1018). Refresh from
 current code, user instructions and issue comments before continuing. This
