@@ -6,6 +6,11 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-11-14
 
+- docs(ios): record alarm probe build and dev installation [S]
+  - Record exact tested source commit `ae1dcb44e92accbfacc1f855fee2487bdb525c83`, standard Xcode 27.2 (`27B52`), successful simulator checks and signed Dev iPhone installation/launch, including the pre-install bundle guard and preserved local working-tree caveats.
+  - Keep physical audibility, snooze, Stop/cancel and Watch behavior unverified pending owner-initiated tests. No merge, production change or server deployment.
+
+
 - fix(ios): default build scripts to standard xcode [S]
   - Share process-local Xcode selection across probe, rebuild and install scripts; default to `/Applications/Xcode.app`, print path/version, open that app explicitly and fail if missing. Preserve an explicit `BOOMERANG_XCODE_APP` alternative without changing global settings or silently falling back to beta.
   - Record owner-reported standard Xcode 27.2 simulator/packaging evidence separately from unverified upstream revision and physical-device behavior. New selection changes still need a Mac recheck.
