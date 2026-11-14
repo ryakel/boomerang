@@ -1,4 +1,6 @@
 import test from 'node:test'
+import { registerPlugin } from '@capacitor/core'
+let pluginSequence = 0
 import assert from 'node:assert/strict'
 import { startOtaUpdateLifecycle } from '../src/otaUpdateLifecycle.js'
 
@@ -6,7 +8,7 @@ function fixture({ id = 'builtin', bundledOnly = true, currentError = false, res
   const calls = []
   const stages = []
   let resume
-  const updater = {
+  const implementation = {
     current: async () => {
       calls.push('current')
       if (currentError) throw new Error('daemon unavailable')
@@ -18,16 +20,23 @@ function fixture({ id = 'builtin', bundledOnly = true, currentError = false, res
     },
     notifyAppReady: async () => { calls.push('ready'); if (readyError) throw new Error('ready callback failed') },
   }
+  const updater = registerPlugin(`ReadinessUpdater${++pluginSequence}`, { web: () => implementation })
+  const app = registerPlugin(`ReadinessApp${pluginSequence}`, { web: () => ({
+    addListener: async (event, handler) => { calls.push(event); resume = handler },
+  }) })
+  // Exercise actual Capacitor proxy behavior in every lifecycle case.
+  assert.equal(typeof updater.then, 'function')
+  assert.equal(typeof app.then, 'function')
   return {
     calls,
     stages,
     run: () => startOtaUpdateLifecycle({
       bundledOnly,
       onProbeStage: stage => stages.push(stage),
-      loadUpdater: async () => { if (loadError) throw new Error('updater module failed'); return updater },
+      loadUpdater: async () => { if (loadError) throw new Error('updater module failed'); return { CapacitorUpdater: updater } },
       loadApp: async () => {
         calls.push('load-app')
-        return { addListener: async (event, handler) => { calls.push(event); resume = handler } }
+        return { App: app }
       },
       checkOnce: async actual => { assert.equal(actual, updater); calls.push('server-check') },
     }),

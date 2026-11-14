@@ -99,6 +99,16 @@ native modules and verifies builtin readiness with no bundle requests or resume
 updater listener, alongside the real alarm controls at 320px/960px. That is
 browser-level wiring evidence, not a native callback or network-trace result.
 
+## Readiness loader correction (2026-11-14)
+
+Investigation in [PR #1028](https://github.com/ryakel/boomerang/pull/1028#issuecomment-6883240488)
+located the stall before `reading-bundle`: async loaders returned Capacitor's
+plugin proxy, whose synthetic `then` makes Promise resolution wait indefinitely.
+Loaders now return module namespaces; the lifecycle unwraps each plugin after
+awaiting the module. Both updater and App loaders follow this rule. Tests use
+real Capacitor proxies instead of plain objects. No vendor code or update policy
+changes. Native verification results are recorded in subsequent PR comments.
+
 ## Implementation boundaries
 
 - `BoomerangAlarmProbe` is explicitly registered with Capacitor. A main-actor

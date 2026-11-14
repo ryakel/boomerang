@@ -2,6 +2,15 @@
 
 ## Current focus: native alarm delivery experiment (2026-11-14)
 
+Latest continuation: the owner authorized the readiness-loader correction and
+Dev-device update after the [investigation](https://github.com/ryakel/boomerang/pull/1028#issuecomment-6883240488).
+The correction preserves module wrappers around real Capacitor proxies. Current
+verification is recorded in PR #1028; older pending labels below are historical.
+Owner device checks now pass cancellation before fire/during snooze, cold relaunch
+with retained feature build, and audible delivery with Silent on, phone locked,
+Focus off and Watch connected. Nothing was noticed on Watch; routing is unverified.
+No merge, server deployment or production change is authorized.
+
 The owner authorized preparing the narrow disposable AlarmKit test: "Ok. We can
 patch the apps when ready," followed by "Let's build what we can. I will get
 codex on my Mac today." This supersedes design-only scope **only for this

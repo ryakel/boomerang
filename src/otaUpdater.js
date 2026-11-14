@@ -55,8 +55,8 @@ export function initOtaUpdates() {
     try {
       const mode = await startOtaUpdateLifecycle({
         bundledOnly: window.__BOOMERANG_ALARM_PROBE_BUILD__ === true,
-        loadUpdater: async () => (await import('@capgo/capacitor-updater')).CapacitorUpdater,
-        loadApp: async () => (await import('@capacitor/app')).App,
+        loadUpdater: () => import('@capgo/capacitor-updater'),
+        loadApp: () => import('@capacitor/app'),
         checkOnce,
         // Phase-only logs locate a stuck native callback without credentials,
         // bundle URLs or user data. No extra updater call or retry is added.

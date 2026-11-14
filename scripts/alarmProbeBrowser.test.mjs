@@ -43,14 +43,15 @@ test('probe startup stays bundled while alarm controls handle denial, lost repli
       if (id === '\0alarm-fixture') return fake
       if (id === '\0alarm-native-config') return `export const isNativeShell=()=>true; export const getApiBase=()=> 'https://synthetic.invalid';`
       if (id === '\0alarm-native-updater') return `
+        import {registerPlugin} from '@capacitor/core';
         const calls=window.probeOtaCalls=[];
-        export const CapacitorUpdater={
+        export const CapacitorUpdater=registerPlugin('ReadinessBrowserProbe', {web:()=>({
           current:async()=>{calls.push('current');return {bundle:{id:'builtin'}}},
           notifyAppReady:async()=>{calls.push('ready')},
           reset:async()=>{throw Error('Unexpected reset for builtin UI')},
           download:async()=>{throw Error('Unexpected OTA download')},
           set:async()=>{throw Error('Unexpected OTA selection')}
-        };`
+        })});`
       if (id === '\0alarm-native-app') return `window.probeResumeModuleLoaded=true; export const App={addListener:async()=>{throw Error('Unexpected server-update resume listener')}};`
     },
     configureServer(server) {

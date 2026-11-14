@@ -3,7 +3,9 @@
 // this then reconciles the updater's bundle identity using its supported API.
 export async function startOtaUpdateLifecycle({ bundledOnly, loadUpdater, loadApp, checkOnce, onProbeStage = () => {} }) {
   if (bundledOnly) onProbeStage('loading-updater')
-  const updater = await loadUpdater()
+  // Await the module, never the plugin proxy: Capacitor synthesizes a `then`
+  // method, so returning the proxy from an async loader hangs promise resolution.
+  const { CapacitorUpdater: updater } = await loadUpdater()
   if (bundledOnly) {
     onProbeStage('reading-bundle')
     const current = await updater.current()
@@ -24,7 +26,7 @@ export async function startOtaUpdateLifecycle({ bundledOnly, loadUpdater, loadAp
   // Ordinary App builds retain the existing boot and resume update behavior.
   await updater.notifyAppReady()
   await checkOnce(updater)
-  const app = await loadApp()
+  const { App: app } = await loadApp()
   await app.addListener('resume', () => { checkOnce(updater) })
   return 'server-updates'
 }
