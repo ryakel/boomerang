@@ -1,12 +1,8 @@
 #!/bin/sh
 # Mac-only unsigned compilation. Does not install, launch, arm alarms, or deploy.
 set -eu
+. "$(dirname "$0")/ios-xcode-env.sh"
 cd "$(dirname "$0")/.."
-if [ "$(uname -s)" != Darwin ]; then
-  echo "This check needs a Mac with Xcode (26.1+ SDK; use Xcode 27 for the owner's iOS 27 phone)." >&2
-  exit 1
-fi
-xcodebuild -version
 PROBE_SDK=$(xcrun --sdk iphonesimulator --show-sdk-version)
 node --input-type=module -e '
   const [major, minor = 0] = process.argv[1].split(".").map(Number)
