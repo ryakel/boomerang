@@ -1,10 +1,27 @@
 import { commitPlan, getPlanApproval, recoverExecution, stopExecution, sessionSnapshot, recoverSession } from './adviserTools.js'
 import { executionKey, getExecution, listExecutions } from './executionJournal.js'
+import { reconcileExternal, previewExternalUndo, applyExternalUndo } from './externalRecovery.js'
 import { applyLocalUndo, previewLocalUndo } from './localRecovery.js'
 
 // Mounted behind the application's existing authGate. Inject only request-
 // scoped integration dependencies and the existing coalesced broadcast/queue.
 export function registerExecutionRoutes(app, { dependencies, afterCommit, onStop = () => {} }) {
+  app.post('/api/adviser/executions/:id/steps/:step/check', async (req, res) => {
+    const outcome = await reconcileExternal(req.params.id, req.params.step, await dependencies(req))
+    res.json(outcome)
+  })
+  app.get('/api/adviser/executions/:id/steps/:step/undo', async (req, res) => {
+    res.set('Cache-Control', 'no-store')
+    const preview = await previewExternalUndo(req.params.id, req.params.step, await dependencies(req))
+    if (!preview) return res.status(404).json({ error: 'No supported external recovery record.' })
+    res.json(preview)
+  })
+  app.post('/api/adviser/executions/:id/steps/:step/undo', async (req, res) => {
+    if (!/^[a-f0-9]{64}$/.test(req.body?.revision || '')) return res.status(409).json({ error: 'Review Undo before confirming.' })
+    const outcome = await applyExternalUndo(req.params.id, req.params.step, req.body.revision, await dependencies(req))
+    if (outcome.ok && !outcome.replayed) await afterCommit(req, { ...outcome, broadcastNeeded: true }, {})
+    res.status(outcome.state === 'conflict' ? 409 : 200).json(outcome)
+  })
   app.post('/api/adviser/abort', (req, res) => {
     const outcome = stopExecution(req.body?.sessionId)
     onStop(req.body?.sessionId)

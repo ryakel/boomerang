@@ -180,6 +180,7 @@ export function registerTool(def) {
     // Return shape: { id, input } where input is the augmented version
     // with the id stamped in.
     preStage: def.preStage || null,
+    stageGuard: def.stageGuard || null,
     // Optional stagedValidate(input, session) hook: returns null if the
     // staging is valid, or an error string. Useful for "parent_id must
     // refer to a real task OR an earlier staged create" checks that
@@ -341,10 +342,13 @@ export async function handleToolCall(sessionId, toolName, input, deps) {
   let previewText
   try {
     previewText = tool.preview(stagedInput, session)
+    if (/^(gcal|trello|notion)_delete_/.test(toolName)) previewText += ' — irreversible here; Undo unavailable'
   } catch {
     previewText = `Will run ${toolName}`
   }
-  session.plan.push({ stepId, toolName, input: stagedInput, preview: previewText, status: 'staged', localGuard: stageLocalGuard(toolName, stagedInput, session) })
+  const externalGuard = tool.stageGuard ? await tool.stageGuard(stagedInput, deps, session) : null
+  if (session.aborted || session.committing) return { error: 'Session stopped or busy' }
+  session.plan.push({ stepId, toolName, input: stagedInput, preview: previewText, status: 'staged', externalGuard, localGuard: stageLocalGuard(toolName, stagedInput, session) })
   const response = {
     ok: true,
     staged: true,
@@ -442,10 +446,10 @@ export async function commitPlan(sessionId, deps, revision, resume) {
           // Undo is unsupported. Track only our writes, before any async gap.
           outcome = tool.execute(step.input, { ...deps, suppressBroadcast: true })
           trackLocalWrite(step.localGuard, owned)
-        } else outcome = await tool.execute(step.input, { ...deps, suppressBroadcast: true })
+        } else outcome = await tool.execute(step.input, { ...deps, suppressBroadcast: true, execution: { record, index, step } })
       } catch (error) {
-        result.state = error.code === 'STALE_PLAN' ? 'not_started' : 'unknown' // errors do not establish absence of side effects
-        record.error = error.code === 'STALE_PLAN' ? 'A task or note changed. Review a fresh plan before applying.' : 'An action could not be verified. Check what happened before taking further action.'
+        result.state = error.code === 'VERIFIED_UNDONE' ? 'verified_undone' : error.code === 'NO_EFFECT' ? 'verified_no_effect' : error.code === 'STALE_PLAN' ? 'not_started' : 'unknown' // errors do not establish absence of side effects
+        record.error = error.code === 'NO_EFFECT' ? error.message : error.code === 'STALE_PLAN' ? 'A task or note changed. Review a fresh plan before applying.' : 'An action could not be verified. Check what happened before taking further action.'
         if (getExecution(record.executionId)?.stopRequested) {
           record.stopRequested = true
           record.state = 'needs_checking'
@@ -467,20 +471,25 @@ export async function commitPlan(sessionId, deps, revision, resume) {
           record.results[prior.index].ok = false
           saveExecution(record)
         }
-        record.state = index > 0 ? 'partial' : error.code === 'STALE_PLAN' ? 'conflict' : 'needs_checking'
+        record.state = index > 0 ? 'partial' : ['STALE_PLAN','NO_EFFECT'].includes(error.code) ? 'conflict' : error.code === 'VERIFIED_UNDONE' ? 'undone' : 'needs_checking'
+        if (record.results.some(r => r.state === 'verified_undone') && record.results.every(r => ['verified_undone','verified_no_effect','not_started'].includes(r.state))) {
+          record.state = 'undone'
+          record.error = 'The plan did not finish. Recorded changes were restored; remaining actions were not started.'
+        }
         session.executionBlocked = true
         session.runnerState = 'errored'
         saveExecution(record)
         return publicOutcome(record)
       }
-      result.state = 'reported_applied'
+      result.state = outcome?.verified ? 'verified_applied' : 'reported_applied'
       result.ok = true
       // Do not retain task content, credentials, raw settings or provider errors.
       const value = outcome?.result
       result.result = Object.fromEntries(['id', 'event_id', 'deleted', 'created', 'updated']
         .filter(key => ['string', 'boolean'].includes(typeof value?.[key]))
         .map(key => [key, value[key]]))
-      if (outcome?.compensation) compensations.push({ index, run: outcome.compensation })
+      if (/^(gcal|trello|notion)_delete_/.test(step.toolName)) result.undoUnavailable = 'External deletion is irreversible here. Undo is unavailable.'
+      if (outcome?.compensation && !result.undoUnavailable) compensations.push({ index, run: outcome.compensation })
       // Supported local adapters already checkpointed effects, inverse and
       // receipt together. Other tools need their result checkpoint here.
       record.stopRequested ||= getExecution(record.executionId)?.stopRequested || false

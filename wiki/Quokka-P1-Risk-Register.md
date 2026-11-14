@@ -15,6 +15,13 @@ field-scoped restoration preserving later edits. Supported local compensation
 uses readback; unsupported/external risks remain. The table is historical P1
 evidence, not current universal behavior. See [E2 coverage](Local-Undo-E2.md).
 
+**E3/E4 update:** R4/R8/R9/R10 now cover stopped dispatch, durable drafts/queues
+and cursor recovery. R5/R6 assert per-effect checklist evidence, checked cleanup
+and unverified residuals; R7 explicitly bounds irreversible external deletion.
+[External recovery limits](External-Recovery-E4.md) include missing identities,
+Trello's nonconditional cleanup race and unsupported operation families. The
+baseline below remains historical, not a universal safety guarantee.
+
 **P1 reproduces execution risks; it does not repair them or compare models.**
 Green `REPRO` tests mean the documented unsafe behavior still exists. They do
 not certify execution safety. Change these assertions deliberately when a

@@ -6,6 +6,11 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-11-14
 
+- feat(quokka): reconcile calendar and checklist effects [L]
+  - Add preapproved stable Calendar identity, operation markers, staged ETag guards, conditional field updates and readback; journal per-operation previewed Undo with deduplication, conflict checks and interrupted-inverse reconciliation.
+  - Persist Trello checklist/item partial effects; stop subrequest dispatch, check immediate cleanup HTTP/readback and expose residuals. Label external deletion irreversible and avoid no-op restoration claims. Trello's nonconditional cleanup race and unsupported families stay explicit.
+  - Add isolated lost-response, revision/race, checkpoint/restart, partial-cleanup and authenticated browser evidence. No production release, provider change or paid/live tests.
+
 - feat(quokka): add stopped execution recovery and event cursors [L]
   - Standing owner authority covers E1–E5 implementation and dev merges/staging. Merge E2; add durable Stop intent, remaining-only Continue, reviewed Modify, existing local Undo choices and held queued messages. No automatic reversal or unknown replay.
   - Migration 062 persists private commands/owned guards/queues/snapshots; monotonic execution sequences guard recovery races and session cursors recover bounded-log gaps. Preserve plaintext-storage/privacy and power-loss limits.

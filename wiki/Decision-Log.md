@@ -127,3 +127,15 @@ below predate those decisions and are historical recommendations, not authority.
   No automatic retention pruning. Queued messages stay held after Stop.
 - Evidence/review: [plan](Execution-Reliability-Plan.md), [E3](Stop-Recovery-E3.md).
   Revisit unsupported action families individually, never imply universal Undo.
+
+## D007 — Operation-specific external recovery
+
+- Date/status: 2026-11-14, **accepted implementation within D006**.
+- Calendar create/update recovery uses stable identities, operation markers,
+  provider revision checks and readback; review Undo per operation. Preserve
+  uncertain outcomes and later changes rather than infer absence or replay.
+- Trello checklist sub-effects persist as they occur; immediate compensation
+  checks status/readback and exposes residuals. No durable Trello Undo promise:
+  its nonconditional delete retains a final read/delete race.
+- External deletes remain explicitly irreversible. Retention/provider/production
+  scope remains unchanged. [Evidence/limits](External-Recovery-E4.md).
