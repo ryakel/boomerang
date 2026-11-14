@@ -181,7 +181,9 @@ below predate those decisions and are historical recommendations, not authority.
   support as one responsibility. The owner explicitly agreed to that direction.
 - Supplied facts: the 1:30 PM hold blocks meetings, rather than specifying when
   to leave. Be in line by 2:30 PM on other pickup days, 2:00 PM on Wednesdays;
-  estimated drive 20 minutes. No actual target departure time has been chosen.
+  estimated drive 20 minutes. Subsequently supplied departure targets: 2:00 PM
+  on other pickup days and 1:30 PM on Wednesdays, preserving a nominal ten-minute
+  travel buffer. These are user configuration, not code constants.
 - Hypothesis: a low-effort departure acknowledgment could help initiate pickup
   rather than merely record that an alert was noticed. Its value should be judged
   by timely departure and reduced worry, not acknowledgment counts.
@@ -193,5 +195,9 @@ below predate those decisions and are historical recommendations, not authority.
   messaging, retirement of existing alarms or deployment is approved here.
 - Next review: [walkthrough draft](School-Pickup-Experience.md), authorized by
   the owner's "go do that and let me know if you have logistical questions."
-  Departure targets and device/Focus logistics have been asked; no answers are
-  assumed. Proposed alert/snooze policy remains for review.
+  Departure targets and normal Silent-mode use are now supplied. The owner
+  clarified that Shortcuts/alarm coordination is not working; redundant alarms
+  compensate for that gap. AlarmKit on supported iOS is a researched candidate,
+  not an adopted architecture. The owner confirmed iOS 27, satisfying AlarmKit's documented iOS 26+
+  availability. Native build, permission and audible delivery remain unverified
+  and come before relying on a live trial. Proposed alert/snooze policy remains for review.

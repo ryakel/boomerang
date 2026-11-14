@@ -6,6 +6,9 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-11-14
 
+- docs(product): record pickup delivery constraints [S]
+  - Preserve user-supplied departure targets, Silent-mode use, unresolved Shortcuts bridge and iOS 27. Record AlarmKit feasibility and device validation requirements without treating the walkthrough as a live pickup feature.
+
 - docs(product): sketch the school pickup experience [M]
   - Preserve the owner's revised conversational collaboration preferences and daily-use examples; distinguish the accepted one-responsibility direction from trial acknowledgment and unresolved logistics.
   - Draft ordinary-day/Wednesday, missed-cue, repeated-snooze and departure/completion walkthroughs; inspect existing native reminder delivery and make its reliability limits explicit. No app code, live actions or deployments.

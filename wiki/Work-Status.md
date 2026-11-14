@@ -5,9 +5,11 @@
 The owner requested conversation/recommendations before new implementation,
 then authorized a walkthrough of ordinary-day and Wednesday pickup, missed alerts,
 repeated snoozing and "Leaving now." [Draft](School-Pickup-Experience.md).
-One coordinated pickup responsibility is accepted direction; departure targets,
-alert delivery/persistence and a separate pickup confirmation remain open.
-Logistical questions about departure targets and devices/Silent/Focus are pending.
+One coordinated pickup responsibility is accepted direction. The owner supplied
+2:00 PM departure on other pickup days, 1:30 PM on Wednesdays, normally Silent,
+and iOS 27. Alert delivery/persistence, any Watch specifics and a separate pickup
+confirmation remain open. AlarmKit is the recommended candidate to evaluate; its
+OS requirement is met, but no native integration or on-device test is complete.
 This is design/documentation scope; no new app implementation, notification,
 external calendar/messaging action or deployment is authorized by this request.
 
