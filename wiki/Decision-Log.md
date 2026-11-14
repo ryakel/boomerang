@@ -82,7 +82,7 @@ can live in their own linked document; keep their decision summary here.
   change or extra implementation scope authorized by this answer.
 - Next review: reconsider audience when broader use becomes a concrete goal.
 
-## Open decisions before future behavior changes
+## Historical questions before behavior changes (now see D008/D009 and E1–E5)
 
 ### E2 implementation authority — 2026-11-13
 
@@ -152,3 +152,22 @@ below predate those decisions and are historical recommendations, not authority.
   request identity and never asks a model to repeat an uncertain write.
 - Direct capture remains immediate. Capturing a task is not completing its
   real-world commitment. Limits/evidence: [E5](Explicit-Capture-E5.md).
+
+## D009 — Accepted Stop/capture/Undo and uncertainty defaults
+
+- Date/status: accepted in Codex on 2026-11-13; **implemented within supported
+  E1–E5 scope**, integrated 2026-11-14. This records product semantics separately
+  from D006's now-completed implementation authority.
+- Sources: [Stop decision](https://github.com/ryakel/boomerang/issues/1018#issuecomment-6853223055),
+  [accepted defaults](https://github.com/ryakel/boomerang/issues/1018#issuecomment-6856481691).
+- Stop requests no further dispatch and opens Continue/Modify/Undo. It preserves
+  known work and never claims cancellation or reverses it automatically.
+  Continue excludes completed/uncertain work; changed remaining work is reviewed.
+- Explicit local capture stays immediate; consequential/mixed work stays reviewed.
+  Undo survives reopening for supported recent actions and protects later edits.
+  Unknown outcomes need evidence before further action, never blind replay.
+- Supported families, private plaintext storage and conservative refusal limits
+  are explicit in [Work Status](Work-Status.md). A seven-day retention duration
+  was proposed, not approved; no automatic pruning was introduced.
+- Final evidence: merged #1022–#1026, 754 offline tests and authenticated browser
+  recovery/capture. Latest CI/staging outcomes: Work Status and issue #1018.

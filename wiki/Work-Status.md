@@ -1,20 +1,50 @@
 # Work status and authorization
 
-## Current: execution reliability (2026-11-14)
+## Delivered: execution reliability E1–E5 (2026-11-14)
 
-The owner authorized continuing implementation and merging through E1–E5 in
-Codex, including `dev` automatic staging deployments. [Issue authority](https://github.com/ryakel/boomerang/issues/1018#issuecomment-6869543997).
-E1 #1022 and E2 #1023 are merged; E2 tip `487e478`.
-E3 #1024 is merged; staging workflow 43543683763 succeeded. Its evidence is in
-[Stop Recovery](Stop-Recovery-E3.md). E4 #1025 is merged ([scope](External-Recovery-E4.md)); its post-merge workflow
-43545954819 timed out in the 500-event test before deployment. E5 is implemented
-in this final increment ([scope/evidence](Explicit-Capture-E5.md)), including a
-realistic disk-test budget and post-Undo handoff. The issue records actual final
-merge/staging verification; no success is assumed from a merge alone. [Plan tracker](Execution-Reliability-Plan.md).
-Production `main`, providers and paid model benchmarks remain excluded.
+The owner's [standing authorization](https://github.com/ryakel/boomerang/issues/1018#issuecomment-6869543997)
+covered implementation, tested incremental dev merges and automatic staging.
+All five implementation increments are merged into `dev`:
 
-The dated sections below preserve earlier authorization/history. Their
-per-increment approval restrictions are superseded within this bounded plan.
+| Increment | Integrated PR | Scope/evidence |
+|---|---|---|
+| E1 | [#1022](https://github.com/ryakel/boomerang/pull/1022) | [Approval identity and durable evidence](Execution-Records-E1.md) |
+| E2 | [#1023](https://github.com/ryakel/boomerang/pull/1023) | [Supported local Undo and stale edits](Local-Undo-E2.md) |
+| E3 | [#1024](https://github.com/ryakel/boomerang/pull/1024) | [Stop/recovery, held queues, cursors](Stop-Recovery-E3.md) |
+| E4 | [#1025](https://github.com/ryakel/boomerang/pull/1025) | [External evidence and supported Undo](External-Recovery-E4.md) |
+| E5 | [#1026](https://github.com/ryakel/boomerang/pull/1026) | [Explicit capture authority](Explicit-Capture-E5.md) |
+
+Final implementation tip: `347e0e23062cb90cb66c2062e6745531d7f2be3d`.
+[PR CI 43547693062](https://github.com/ryakel/boomerang/actions/runs/43547693062)
+succeeded, including Node 22 tests, build, smoke and PR Docker image.
+[Combined dev/staging run 43547847983](https://github.com/ryakel/boomerang/actions/runs/43547847983):
+**succeeded**. Image publish and Portainer redeploy succeeded (HTTP 204);
+the health/version check confirmed `dev-347e0e2` on its first attempt. This is
+workflow evidence, not an independent live-user-data exercise.
+
+Final local evidence: **754/754 across 43 offline test files**, **92/92 targeted
+execution tests**, authenticated Chromium mobile/desktop recovery and capture,
+including lost responses, UI retry identity, Undo and unsafe-Undo refusal. Build
+passes; lint 0 errors / 13 existing warnings. Required audit: 31 existing findings
+(2 critical, 11 high, 15 moderate, 3 low); dependencies unchanged. No user data,
+live integration or paid model was used in this evaluation.
+
+Production `main` remains `e9563d08896f5897076c87ae4f302cec37b63100`.
+Claude defaults, provider migration and original P2–P5/paid benchmarks remain
+outside this delivery. The bounded E1–E5 implementation authority is consumed;
+new implementation scope requires a new user direction. Product discussion and
+read-only investigation can continue normally.
+
+Supported-operation/privacy/durability limits are part of delivery: this is not
+universal Undo or exactly-once remote execution. Initial revisions lost with a
+provider acknowledgement may prevent Undo; Trello cleanup has no conditional
+DELETE; inverse/history content remains in existing plaintext DB/backups with no
+invented pruning policy. See the [plan tracker](Execution-Reliability-Plan.md).
+
+Earlier workflow history is preserved in issue #1018: E2/E3 staging succeeded;
+E4 post-merge run 43545954819 timed out in a 500-event disk test before deployment.
+E5 increased only that test's budget, retaining its assertions. Latest evidence
+above supersedes earlier implementation/review-pending labels below.
 
 ## Historical handoff snapshot
 
