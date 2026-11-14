@@ -9,6 +9,7 @@ import { useMobilePages } from '../hooks/useMobilePages'
 import ModalShell from './ModalShell'
 import EmptyState from './EmptyState'
 import ExecutionStatus from './ExecutionStatus'
+import SessionRecovery from './ExecutionRecovery'
 import TypingSuggestions from './TypingSuggestions'
 import './AdviserModal.css'
 
@@ -295,7 +296,7 @@ const EASTER_EGG_PHRASE = /\b(?:want to|wanna|let'?s|shall we) play (?:a |an )?g
 export default function AdviserModal({ open, adviser, onClose, onAfterCommit, onOpenEasterEgg, draftSeed = '' }) {
   const {
     messages, status, lastError, recordExecutions,
-    send, commit, abort,
+    send, commit, abort, adoptRecovery, sessionId,
     runnerState, queueLength,
     chats, archivedChats, activeId, activeChat,
     newChat, switchChat, deleteChat, starChat, unstarChat,
@@ -521,7 +522,8 @@ export default function AdviserModal({ open, adviser, onClose, onAfterCommit, on
               </div>
             )}
 
-            <ExecutionStatus chatId={activeId} onRecords={recordExecutions} />
+            <SessionRecovery sessionId={sessionId} runnerState={runnerState} onReview={adoptRecovery} onModify={outcome => { adoptRecovery(outcome); setInput('Change the remaining actions: '); inputRef.current?.focus() }} />
+            <ExecutionStatus chatId={activeId} onRecords={recordExecutions} onModify={outcome => { adoptRecovery(outcome); setInput('Change the remaining actions: '); inputRef.current?.focus() }} />
 
             <form className="v2-adviser-composer" onSubmit={handleSubmit}>
               <textarea

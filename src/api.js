@@ -2072,14 +2072,14 @@ export async function fetchTrelloCardChecklists(cardId) {
 // Closing the stream does NOT cancel any in-flight server-side runner — the runner
 // continues in the background and can be re-attached by calling adviserChat again
 // with `subscribeOnly: true` and the same sessionId.
-export function adviserChat({ message, history, sessionId, chatId, subscribeOnly, onEvent, onError, onDone }) {
+export function adviserChat({ message, history, sessionId, chatId, subscribeOnly, cursor, onEvent, onError, onDone }) {
   const controller = new AbortController()
   ;(async () => {
     try {
       const res = await fetch('/api/adviser/chat', {
         method: 'POST',
         headers: getApiHeaders(),
-        body: JSON.stringify({ message, history, sessionId, chatId, subscribeOnly: !!subscribeOnly }),
+        body: JSON.stringify({ message, history, sessionId, chatId, subscribeOnly: !!subscribeOnly, cursor }),
         signal: controller.signal,
       })
       if (!res.ok) {
@@ -2152,11 +2152,13 @@ export async function adviserCommit(sessionId, revision) {
 
 export async function adviserAbort(sessionId) {
   if (!sessionId) return
-  await fetch('/api/adviser/abort', {
+  const res = await fetch('/api/adviser/abort', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ sessionId }),
-  }).catch(() => {})
+  })
+  if (!res.ok) throw new Error('Stop could not be confirmed. Check execution status.')
+  return res.json()
 }
 
 // Chats: multi-thread Quokka conversations. A chat idle 30 days is archived

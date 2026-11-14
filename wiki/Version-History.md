@@ -4,6 +4,13 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ---
 
+## 2026-11-14
+
+- feat(quokka): add stopped execution recovery and event cursors [L]
+  - Standing owner authority covers E1–E5 implementation and dev merges/staging. Merge E2; add durable Stop intent, remaining-only Continue, reviewed Modify, existing local Undo choices and held queued messages. No automatic reversal or unknown replay.
+  - Migration 062 persists private commands/owned guards/queues/snapshots; monotonic execution sequences guard recovery races and session cursors recover bounded-log gaps. Preserve plaintext-storage/privacy and power-loss limits.
+  - Add synthetic race/restart/Stop/cursor invariants, authenticated real-hook Chromium flows, and update the durable delivery tracker. No production release, provider change or paid/live tests.
+
 ## 2026-11-13
 
 - feat(quokka): add previewed local undo and stale-edit guards [L]

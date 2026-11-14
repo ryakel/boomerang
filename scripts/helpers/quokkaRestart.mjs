@@ -10,7 +10,7 @@ const result = {
   tasks: getAllTasks(),
   chats: getData('adviser_chats'),
   hasSession: !!getSession(sessionId),
-  commit: await commitPlan(sessionId, {}),
+  commit: await commitPlan(sessionId, {}, 'f'.repeat(64)),
   blocked: fence.blocked,
 }
 flushNow()

@@ -4,6 +4,8 @@
 
 ### Quokka (AI Adviser)
 
+**Current execution delivery:** E1/E2 are merged. [E3 Stop recovery](Stop-Recovery-E3.md) adds remaining-only Continue, reviewed Modify, held queues and cursor/snapshot recovery; private approved commands now persist. [Plan/authority](Execution-Reliability-Plan.md) supersedes historical review-pending labels below. External operations still require their own E4 evidence.
+
 **P1 execution/recovery evidence (2026-11-13, #1018):** run
 `npm run test:quokka-p1` for the isolated characterization suite. The
 [P1 risk register](Quokka-P1-Risk-Register.md) documents concurrent commit,
@@ -27,7 +29,7 @@ Free-form natural-language control surface — user says "I've rescheduled my FA
 **Entry point:** `✨` sparkle icon in the header (took the slot where the gear used to be). Settings moved into the overflow `⋯` menu.
 
 **Architecture (5 non-negotiables):**
-1. **Atomic execute-on-confirm.** Nothing mutates during the chat turn. Mutations are staged in a server-side session plan; user reviews the plan, clicks Apply, and the plan runs in order with LIFO rollback compensation on any failure.
+1. **Reviewed execution with honest partial outcomes.** Nothing mutates during the chat turn. Mutations are staged in a server-side session plan; user reviews the plan, clicks Apply, and the plan runs in order with guarded local inverse handling and explicit partial/unknown outcomes. External compensation is not an atomic rollback guarantee.
 2. **Search-first context.** No task dumps in the prompt. The model uses `search_tasks`, `list_routines`, `gcal_list_events`, `notion_search`, etc. to explore before acting. Works the same at 10 tasks or 1000.
 3. **Streaming progress.** SSE events (`turn`, `tool_call`, `tool_result`, `message`, `plan`, `done`, `runner_state`, `queue_update`, `committed`) fire live during the tool-use loop so the user sees what the model is doing. Includes an abort button.
 4. **Coalesced broadcast.** During `commitPlan()` execution, individual record mutations suppress their usual SSE broadcast. A single `bumpVersion() + broadcast('adviser')` fires at the end so connected clients refetch once, not 15 times.

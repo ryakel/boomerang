@@ -152,9 +152,9 @@ export function previewLocalUndo(executionId) {
   if (!original) return null
   const rows = undoRows(executionId).filter(r => r.status === 'available')
   const actions = previewRows(rows)
-  const allowed = original.state === 'completed'
+  const allowed = ['completed','stopped','modified'].includes(original.state)
   if (!allowed) for (const action of actions) { action.available = false; action.reason = 'Check unresolved execution outcomes before Undo.' }
-  const unsupported = original.results.filter(step => !rows.some(r => r.step_id === step.stepId) && step.state !== 'verified_undone').map(step => step.toolName)
+  const unsupported = original.results.filter(step => !rows.some(r => r.step_id === step.stepId) && !['verified_undone','not_started'].includes(step.state)).map(step => step.toolName)
   if (unsupported.length) for (const action of actions) {
     if (action.action === 'create') { action.available = false; action.reason = 'Other actions may refer to this created record. Review those effects first.' }
   }
@@ -221,7 +221,7 @@ export function applyLocalUndo(executionId, revision) {
         const step = original.results.find(s => s.stepId === inverse.step_id)
         Object.assign(step, { state: 'verified_undone', ok: false, undoAvailable: false })
       })
-      original.state = original.results.every(r => r.state === 'verified_undone') ? 'undone' : 'partial'
+      original.state = original.results.every(r => ['verified_undone','not_started'].includes(r.state)) ? 'undone' : 'partial'
       original.ok = false
       original.undoApplied = true
       updateExecution(original)

@@ -11,11 +11,11 @@ export function configureExecutionJournal(db, flush) {
   persist = flush
   poisoned = false
   // A dispatch/compensation interrupted by process exit has an unknown outcome.
-  const interrupted = connection.exec("SELECT receipt_json FROM adviser_executions WHERE state = 'running'")
+  const interrupted = connection.exec("SELECT receipt_json FROM adviser_executions WHERE state IN ('running','stopping')")
   for (const [json] of interrupted[0]?.values || []) {
     const record = JSON.parse(json)
-    if (record.state !== 'running') continue
-    record.state = 'needs_checking'
+    if (!['running', 'stopping'].includes(record.state)) continue
+    record.state = record.results.some(s => ['executing', 'compensating'].includes(s.state)) ? 'needs_checking' : 'stopped'
     record.ok = false
     record.error = 'Execution was interrupted. Check the outcome before taking further action.'
     for (const step of record.results) {
@@ -61,6 +61,7 @@ export function saveExecution(record) {
 }
 
 function writeRecord(record) {
+  record.sequence = (record.sequence || 0) + 1
   record.updatedAt = new Date().toISOString()
   connection.run(`INSERT INTO adviser_executions
       (id, session_id, chat_id, revision, state, receipt_json, created_at, updated_at)
@@ -123,4 +124,20 @@ export function listExecutions({ chatId, sessionId, limit = 50 } = {}) {
     while (stmt.step()) records.push(readable(JSON.parse(stmt.getAsObject().receipt_json)))
     return records
   } finally { stmt.free() }
+}
+
+// Private state shares the journal's fail-closed checkpoint policy. Never store
+// dependency bags (tokens, clients or request objects) or executable closures.
+export function saveRecoveryState(id, value) {
+  executionJournalReady()
+  try {
+    connection.run('INSERT INTO adviser_recovery_state(id,data_json) VALUES (?,?) ON CONFLICT(id) DO UPDATE SET data_json=excluded.data_json', [id, JSON.stringify(value)])
+    persist()
+  } catch (error) { poisoned = true; throw error }
+}
+export function getRecoveryState(id) {
+  if (!connection) return null
+  const stmt = connection.prepare('SELECT data_json FROM adviser_recovery_state WHERE id=?')
+  try { stmt.bind([id]); return stmt.step() ? JSON.parse(stmt.getAsObject().data_json) : null }
+  finally { stmt.free() }
 }
