@@ -6,6 +6,11 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-11-14
 
+- feat(quokka): capture explicit local intentions immediately [L]
+  - Add shared pure authority classification and authenticated idempotent task/note capture before model calls. Preserve literal content, no-action restrictions and reviewed boundaries for mixed/scheduled/external work; retain existing direct capture behavior and Claude defaults.
+  - Persist request-to-execution identity, separate explicit capture authority, local inverse/receipt and uncertain retry ID; serialize sends and never fall through to a model after lost capture acknowledgement. Retire only an undone matching stopped draft, preserving newer plans.
+  - Add synthetic grammar/auth/storage/restart/idempotency and mobile/desktop browser capture/Undo/lost-response/UI-retry evidence. Give the 500-event disk test a realistic 30s budget after the E4 staging workflow timed out before deployment; assertions unchanged. Update delivered-plan context and accurate recovery limits.
+
 - feat(quokka): reconcile calendar and checklist effects [L]
   - Add preapproved stable Calendar identity, operation markers, staged ETag guards, conditional field updates and readback; journal per-operation previewed Undo with deduplication, conflict checks and interrupted-inverse reconciliation.
   - Persist Trello checklist/item partial effects; stop subrequest dispatch, check immediate cleanup HTTP/readback and expose residuals. Label external deletion irreversible and avoid no-op restoration claims. Trello's nonconditional cleanup race and unsupported families stay explicit.

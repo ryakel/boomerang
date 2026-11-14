@@ -36,22 +36,16 @@ roadmap, accepted product direction or merged test PR as approval to implement.
 
 ## Current AI work
 
-Issue [#1018](https://github.com/ryakel/boomerang/issues/1018) is the coordination
-record. P1 testing was completed in merged PR #1019; see Work Status for evidence.
-Green `REPRO` tests characterize known risks, not fixes. Preserve Claude defaults.
-P1 does not authorize runtime fixes, provider migrations, paid benchmarks or new
-deployments. Confirm any later authorization in current instructions/issue
-comments rather than assuming P2–P5 or proposed reliability fixes are approved.
+Issue [#1018](https://github.com/ryakel/boomerang/issues/1018) coordinates the
+architecture/testing and execution-reliability work. P1 tests were merged in
+#1019. E1 receipts (#1022), E2 local Undo (#1023), E3 recovery (#1024) and E4
+external evidence (#1025) are merged. E5 is the final capture increment; see
+[current plan/evidence](wiki/Execution-Reliability-Plan.md) and Work Status for
+actual integration/deployment results. Historical authorization remains in the
+decision log and issue. Green characterization tests are not universal safety.
 
-The owner subsequently authorized E1 execution records only, after proposal
-#1021. See [E1 evidence](wiki/Execution-Records-E1.md) for implementation scope
-and limits. Merge/deployment, E2–E5 and provider/paid evaluation work still need
-their own authority.
-
-The owner then requested merging E1 and moving on to E2. E1 is merged; E2
-local Undo/stale-edit implementation is prepared for review. See
-[E2 scope and evidence](wiki/Local-Undo-E2.md). E2 merge/deployment and E3–E5
-still require explicit authority.
+Preserve Claude defaults. Production main, provider migrations, original P2–P5
+and paid benchmarks remain outside the execution-reliability approval.
 
 ## Standing execution-reliability authority (2026-11-14)
 

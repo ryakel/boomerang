@@ -1,6 +1,7 @@
+import { classifyExplicitCapture } from '../../server/captureAuthority.js'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import {
-  adviserChat, adviserCommit, adviserAbort,
+  adviserChat, adviserCommit, adviserAbort, adviserCapture,
   adviserListChats, adviserGetActiveChat, adviserGetChat,
   adviserCreateChat, adviserUpdateChat, adviserDeleteChat,
 
@@ -58,12 +59,17 @@ export function useAdviser() {
   // a follow-up message will run after the current turn / commit.
   const [queueLength, setQueueLength] = useState(0)
   const streamRef = useRef(null)
+  const sendBusyRef = useRef(false)
   const pendingAssistantRef = useRef(null)
   const saveTimerRef = useRef(null)
 
   const recordExecutions = useCallback((records) => {
     const active = records.find(r => r.sessionId === sessionIdRef.current)
     if (['stopped','stopping'].includes(active?.state)) { setRunnerState(active.state); setStatus('idle') }
+    else if (active?.state === 'undone') {
+      setStatus(prev => prev === 'committed' ? 'idle' : prev)
+      setRunnerState(prev => ['stopped','stopping'].includes(prev) ? 'idle' : prev)
+    }
     else if (active?.state === 'completed') setRunnerState(prev => ['stopped','stopping'].includes(prev) ? 'idle' : prev)
     setMessages(previous => {
       let changed = false
@@ -402,65 +408,95 @@ export function useAdviser() {
 
   const send = useCallback(async (text) => {
     if (!text?.trim()) return
-    if (streamRef.current) return
+    if (streamRef.current || sendBusyRef.current) return
+    sendBusyRef.current = true
+    try {
+      const chatId = await ensureActiveChat()
+      quokkaLog('send: message="' + text.trim().slice(0, 50) + '" sessionId=' + (sessionId || 'null'))
+      setLastError(null)
 
-    const chatId = await ensureActiveChat()
-    quokkaLog('send: message="' + text.trim().slice(0, 50) + '" sessionId=' + (sessionId || 'null'))
-    setLastError(null)
+      // If a server-side runner is busy or has a staged plan, the message
+      // queues server-side. UI shows "queued" status until the runner
+      // catches up. Otherwise: normal start.
+      const willQueue = runnerState === 'running' || runnerState === 'awaiting_confirm'
+      setStatus(willQueue ? 'queued' : 'streaming')
 
-    // If a server-side runner is busy or has a staged plan, the message
-    // queues server-side. UI shows "queued" status until the runner
-    // catches up. Otherwise: normal start.
-    const willQueue = runnerState === 'running' || runnerState === 'awaiting_confirm'
-    setStatus(willQueue ? 'queued' : 'streaming')
+      const captureIntent = classifyExplicitCapture(text.trim())
+      const previousAttempt = [...messages].reverse().find(m => m.role === 'user' && m.captureUncertain && m.content === text.trim())
+      const requestId = captureIntent && previousAttempt?.captureRequestId || globalThis.crypto.randomUUID()
+      const userMsg = { role: 'user', content: text.trim(), captureRequestId: requestId }
+      if (willQueue) {
+        setMessages(prev => [...prev, userMsg])
+      } else {
+        const assistantMsg = { role: 'assistant', content: '', toolEvents: [], plan: [] }
+        pendingAssistantRef.current = assistantMsg
+        setMessages(prev => [...prev, userMsg, assistantMsg])
+      }
 
-    const userMsg = { role: 'user', content: text.trim() }
-    if (willQueue) {
-      setMessages(prev => [...prev, userMsg])
-    } else {
-      const assistantMsg = { role: 'assistant', content: '', toolEvents: [], plan: [] }
-      pendingAssistantRef.current = assistantMsg
-      setMessages(prev => [...prev, userMsg, assistantMsg])
-    }
-
-    const history = buildHistory()
-    const handler = makeEventHandler({ expectingNewTurn: !willQueue })
-
-    streamRef.current = adviserChat({
-      message: text.trim(),
-      history,
-      sessionId,
-      chatId,
-      cursor: cursorRef.current.get(sessionId) || 0,
-      onEvent: (event, data) => {
-        handler(event, data)
-        if (event === 'session' && data.sessionId) {
-          const sid = data.sessionId
-          if (streamRef.current?.abort) streamRef.current.abort()
-          streamRef.current = null
-          // Start from current event count — skip events from prior turns
-          const startFrom = (data.eventCount || 0)
-          quokkaLog('switching to poll, sid=' + sid, 'startFrom=' + startFrom)
-          pollSessionForResult(sid, handler, startFrom)
-        }
-      },
-      onError: (err) => {
-        const sid = sessionIdRef.current
-        quokkaLog('stream error:', err.message || err, 'sessionId=' + (sid || 'null'))
-        streamRef.current = null
-        if (sid) {
-          quokkaLog('stream died before session event, polling with ref sid=' + sid)
-          pollSessionForResult(sid, handler, 0)
-        } else {
-          setLastError(err.message || String(err))
+      if (!willQueue && captureIntent) {
+        try {
+          const captured = await adviserCapture({ message: text.trim(), chatId, sessionId, requestId })
+          if (captured.handled) {
+            const outcome = captured.outcome
+            const assistant = { role: 'assistant', content: captured.message, plan: [], toolEvents: [],
+              planRevision: outcome.revision, executionState: outcome.state, committed: outcome.ok,
+              commitResults: outcome.results, captureKind: captured.kind }
+            pendingAssistantRef.current = null
+            setMessages(prev => [...prev.slice(0, -1).map(m => m.captureRequestId === requestId ? { ...m, captureUncertain: false } : m), assistant])
+            setSessionId(captured.sessionId)
+            setRunnerState('idle')
+            setStatus(outcome.ok ? 'committed' : 'error')
+            if (!outcome.ok) setLastError(captured.message)
+            refreshChatList().catch(() => {})
+            return
+          }
+        } catch {
+          setMessages(prev => prev.map(m => m.captureRequestId === requestId ? { ...m, captureUncertain: true } : m))
+          setLastError('Capture outcome unavailable. Check recent actions before retrying.')
           setStatus('error')
+          return // never fall through to a model after an uncertain capture write
         }
-      },
-      onDone: () => {
-        streamRef.current = null
-      },
-    })
-  }, [buildHistory, sessionId, ensureActiveChat, runnerState, makeEventHandler, pollSessionForResult])
+      }
+
+      const history = buildHistory()
+      const handler = makeEventHandler({ expectingNewTurn: !willQueue })
+
+      streamRef.current = adviserChat({
+        message: text.trim(),
+        history,
+        sessionId,
+        chatId,
+        cursor: cursorRef.current.get(sessionId) || 0,
+        onEvent: (event, data) => {
+          handler(event, data)
+          if (event === 'session' && data.sessionId) {
+            const sid = data.sessionId
+            if (streamRef.current?.abort) streamRef.current.abort()
+            streamRef.current = null
+            // Start from current event count — skip events from prior turns
+            const startFrom = (data.eventCount || 0)
+            quokkaLog('switching to poll, sid=' + sid, 'startFrom=' + startFrom)
+            pollSessionForResult(sid, handler, startFrom)
+          }
+        },
+        onError: (err) => {
+          const sid = sessionIdRef.current
+          quokkaLog('stream error:', err.message || err, 'sessionId=' + (sid || 'null'))
+          streamRef.current = null
+          if (sid) {
+            quokkaLog('stream died before session event, polling with ref sid=' + sid)
+            pollSessionForResult(sid, handler, 0)
+          } else {
+            setLastError(err.message || String(err))
+            setStatus('error')
+          }
+        },
+        onDone: () => {
+          streamRef.current = null
+        },
+      })
+    } finally { sendBusyRef.current = false }
+  }, [buildHistory, sessionId, ensureActiveChat, runnerState, makeEventHandler, pollSessionForResult, refreshChatList, setSessionId, messages])
 
   const commit = useCallback(async () => {
     if (!sessionId) return

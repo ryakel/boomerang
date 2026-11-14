@@ -2137,6 +2137,12 @@ export function adviserChat({ message, history, sessionId, chatId, subscribeOnly
   }
 }
 
+export async function adviserCapture(payload) {
+  const response = await fetch('/api/adviser/capture', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })
+  if (!response.ok) throw new Error('Capture could not be confirmed. Check recent actions before retrying.')
+  return response.json()
+}
+
 export async function adviserCommit(sessionId, revision) {
   const res = await fetch('/api/adviser/commit', {
     method: 'POST',

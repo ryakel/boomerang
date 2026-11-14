@@ -1,0 +1,11 @@
+import { installNetworkFence } from './quokkaNetworkFence.mjs'
+const fence = installNetworkFence()
+await fence.verify()
+const db = await import('../../server/db.js')
+const { registerTaskTools } = await import('../../server/adviserToolsTasks.js')
+const { captureExplicit } = await import('../../server/explicitCapture.js')
+registerTaskTools()
+const connection = await db.initDb(process.argv[2])
+console.log(`CAPTURE=${JSON.stringify(await captureExplicit(JSON.parse(process.argv[3])))}`)
+db.flushNow()
+connection.close()
