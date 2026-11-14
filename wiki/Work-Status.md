@@ -1,80 +1,25 @@
 # Work status and authorization
 
-## Current focus: native alarm delivery experiment (2026-11-14)
+## Current focus: integrate disposable AlarmKit experiment (2026-11-14)
 
-Latest continuation: the owner authorized the readiness-loader correction and
-Dev-device update after the [investigation](https://github.com/ryakel/boomerang/pull/1028#issuecomment-6883240488).
-The correction preserves module wrappers around real Capacitor proxies. Current
-verification is recorded in PR #1028; older pending labels below are historical.
-Owner device checks now pass cancellation before fire/during snooze, cold relaunch
-with retained feature build, and audible delivery with Silent on, phone locked,
-Focus off and Watch connected. Nothing was noticed on Watch; routing is unverified.
-No merge, server deployment or production change is authorized.
+Owner explicitly approved PR #1028 merge into dev and its automatic staging
+deployment: “Deploy it to dev and we will keep building.”
+[Approval source](https://github.com/ryakel/boomerang/pull/1028#issuecomment-6884037809).
+This approval covers this experiment's integration; production main and new
+pickup functionality remain outside the current action.
 
-The owner authorized preparing the narrow disposable AlarmKit test: "Ok. We can
-patch the apps when ready," followed by "Let's build what we can. I will get
-codex on my Mac today." This supersedes design-only scope **only for this
-experiment**. New feature branch `claude/alarmkit-probe` starts at current dev
-`7354b6a` and includes the preceding pickup design notes for continuity.
+Source 5138c77 is installed as v2.61.1-20-g5138c77. Simulator and phone confirm
+builtin identity and completed readiness. Owner confirms resumed build/controls;
+server health recovered to dev-347e0e2 after a transient failed read. Owner delivery,
+snooze/Stop, cancellation, compact layout and Silent/locked results are recorded in
+[AlarmKit Probe](AlarmKit-Probe.md), alongside explicit remaining matrix gaps.
 
-Implemented: explicit Dev-app test controls, separate alarm permission, one test
-in 60 seconds, system Stop/1-minute Snooze, countdown widget, owned-ID cancellation
-and daemon readback. App configurations disable scheduling at compile time;
-only App Dev enables it. No server/task/calendar/messaging/Clock changes.
-
-**Mac recheck and physical-device tests pending.** Cloud checks cover synthetic
-bridge behavior, frontend and project wiring, not native sound or reliability.
-[Mac handoff and unrun device matrix](AlarmKit-Probe.md) are the next steps.
-Mac evidence is now [posted in PR #1028](https://github.com/ryakel/boomerang/pull/1028#issuecomment-6881167198):
-standard Xcode 27.2 (27B52), source b615637 plus preserved local Watch scheme and
-Capacitor-generated package edits; 17 bridge/lifecycle tests, both simulator
-builds/widget packaging and the signed Dev installation passed.
-The existing Dev app was installed and launched after verifying bundle ID
-ryakel.boomerang.app.dev; widget ID matches its Dev prefix. Watch installation
-and behavior remain unverified.
-
-Phone screenshots then showed App build and Server version both dev-347e0e2:
-the older deployed UI was running inside the native shell, so the new alarm
-controls were absent. OTA accepts any different manifest version; its older-UI
-replacement path was reproduced synthetically. The narrow fix pins packaged
-assets and disables server UI updates only behind the native experiment gate,
-reconciling retained bundles through the supported updater reset API. It preserves
-app data and ordinary App OTA behavior. b615637 compiled and installed, and the
-owner's screenshot now shows the new controls, authorized alarm permission and
-countdown state. **Owner confirmed audible alert → native Snooze → audible
-re-alert → native X stops sound → no test alarm.** Exact Silent/lock/Focus/timing
-conditions were not separately reconfirmed; separate cancellation and other
-matrix checks remain pending. No departure/pickup completion is inferred.
-
-The owner reported the Island stretching across the top bar with mostly blank
-black space. The latest follow-up bounds its compact timer to 40 points and adds
-a safe Xcode preview. **New widget/preview compilation and actual phone layout
-remain pending.** The Mac also logged an updater readiness semaphore timeout.
-Vendor source locates it in readiness-event waiting, not a blocking current()
-call; no root cause is confirmed. Phase logs now distinguish loader, current,
-reset and readiness boundaries. Builtin identity/reconciliation and cold-resume
-persistence remain open until the Mac/phone recheck. No vendor change is made.
-Shared-selector validation here: POSIX shell syntax and simulated command checks
-passed for all three entry points (standard default, missing-install refusal,
-explicit app path containing spaces, inherited beta override, and explicit app
-opening). No native tool, installation or deployment was executed by those checks.
-Verified here: 19/19 synthetic bridge/lifecycle boundary tests; 56/56 existing reminder
-schedule/merge/routine regression tests; real React controls/client with a fake
-daemon at 320px and 960px (denial, lost schedule/cancel reply, snooze status,
-cleanup, failed daemon read; no browser errors/overflow). The browser harness also
-exercises the real updater initializer with synthetic native modules, requiring
-builtin readiness with no manifest/download or resume-update registration.
-Frontend build; lint
-0 errors / 13 existing warnings. Xcode project parses with a temporary external
-parser; plugin/shared metadata membership, widget embedding/dependency, all four
-bundle configurations, iOS minimums and Dev-only gate checked. Shell syntax and
-diff whitespace pass. Audit: 31 existing findings (2 critical, 11 high, 15 moderate,
-3 low), unchanged dependency versions. Native build/install of the earlier
-revision is recorded above; the latest widget/diagnostic changes and remaining
-device matrix still need validation.
-Only the existing Dev device installation is authorized. No merge,
-staging/production server deployment, production installation, real pickup scheduling, replacing
-existing alarms or provider changes are authorized by this experiment.
+19 real-proxy alarm/lifecycle tests, browser initializer/control checks, lint,
+native builds and PR CI pass. Clean committed-source build with reused dependencies
+passes without local Watch edits; ordinary App simulator reports probe unavailable.
+Local Watch/SPM edits and untracked files are preserved and excluded from commits.
+Final documentation and integration/deployment outcome: PR #1028. Do not infer
+staging success until its deployment and version verification finish.
 
 ## Product experience context
 

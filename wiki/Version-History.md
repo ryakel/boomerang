@@ -6,6 +6,10 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-11-14
 
+- docs(ios): reconcile alarm probe evidence and dev approval [S]
+  - Consolidate owner/device readiness and cancellation evidence, ordinary-App isolation and clean-source build qualification; preserve explicit untested delivery conditions.
+  - Record owner authority to merge PR #1028 and deploy staging, excluding production and new pickup functionality.
+
 - fix(ios): unwrap capacitor plugins after module loading [S]
   - Preserve module namespace wrappers across async loading so real Capacitor proxies cannot be assimilated as promises. Apply to updater and App loaders without changing update policy.
   - Exercise actual Capacitor proxies in lifecycle and initializer browser tests. Native readiness verification is tracked in PR #1028.

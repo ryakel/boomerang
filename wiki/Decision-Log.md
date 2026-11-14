@@ -229,3 +229,15 @@ below predate those decisions and are historical recommendations, not authority.
   The reported oversized Island is presentation feedback. These results support
   continuing this bounded experiment, not replacing real alarms or implementing
   pickup scheduling before the remaining conditions and product policy are reviewed.
+
+## D012 — Integrate the disposable alarm experiment into dev
+
+- Date/status: 2026-11-14, **accepted merge and staging deployment authority**.
+- Source: owner “Deploy it to dev and we will keep building,” after discussion
+  of final isolation/documentation checks and automatic staging effects;
+  [record](https://github.com/ryakel/boomerang/pull/1028#issuecomment-6884037809).
+- Scope: finish PR #1028 verification/docs, rebase-merge into dev and verify staging.
+  Production main, real pickup schedules and new feature semantics are excluded.
+- Evidence/limits: [AlarmKit Probe](AlarmKit-Probe.md); delivery under Focus-on,
+  offline/restart and detailed Watch routing remain follow-up before a real trial.
+- Review trigger: actual deployment result in PR #1028, then agree next product increment.
