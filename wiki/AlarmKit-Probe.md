@@ -1,7 +1,7 @@
 # Disposable AlarmKit test — Mac handoff
 
 Status: **unsigned simulator compilation/packaging passed; physical-device
-installation and audible evaluation pending**. Branch `claude/alarmkit-probe`, based on dev `7354b6a`.
+installation passed; audible evaluation pending**. Branch `claude/alarmkit-probe`, based on dev `7354b6a`.
 This is a delivery experiment before deciding how to implement school pickup.
 See [the product walkthrough](School-Pickup-Experience.md) and
 [D011](Decision-Log.md#d011--bounded-native-alarm-delivery-experiment).
@@ -25,8 +25,8 @@ unchanged. No server endpoint, credentials or model call is added.
 
 Only App Dev configurations define `BOOMERANG_ALARM_PROBE`. Production App
 configurations return unavailable without requesting permission or scheduling.
-Both configurations embed the extension to keep the existing scheme structure;
-no app is installed or deployed by this PR. No real schedule is armed by opening
+Both configurations embed the extension to keep the existing scheme structure.
+The owner subsequently authorized the Dev-only phone installation recorded below. No real schedule is armed by opening
 Settings, launch, resume, refresh, build, or tests.
 
 ## Implementation boundaries
@@ -138,6 +138,38 @@ scheme and generated Swift package edits were preserved. No native source fix
 was needed. No install, launch, alarm scheduling, merge or deployment occurred.
 Physical-device checks below remain unrun; compilation does not prove audibility
 or delivery reliability.
+
+## Tested revision and Dev installation (2026-11-14)
+
+Tested source commit: `ae1dcb44e92accbfacc1f855fee2487bdb525c83` (includes the
+shared standard-Xcode setup from `d3f9cc5`). Standard developer directory verified
+before build: `/Applications/Xcode.app/Contents/Developer`; resolved compiler:
+`/Applications/Xcode.app/Contents/Developer/usr/bin/xcodebuild`; Xcode **27.2**,
+build **27B52**. `BOOMERANG_XCODE_APP=/Applications/Xcode.app` was explicitly set.
+
+Observed on the Mac:
+
+- `sh scripts/ios-alarm-probe-check.sh`: 11/11 synthetic bridge tests, frontend
+  build/Capacitor sync, unsigned App Dev and App simulator builds and widget/
+  usage-description/Live-Activity packaging checks passed.
+- Repository pre-push lint, regression suite and local smoke checks passed.
+- `npm run ios:dev`: signed App Dev build passed. Before installation the script
+  verified `CFBundleIdentifier = ryakel.boomerang.app.dev` (Boomerang Dev).
+  The packaged extension ID is `ryakel.boomerang.app.dev.AlarmProbeWidget`.
+- `devicectl` reported Dev app installation and launch succeeded on the paired
+  iPhone 17 Pro. The existing app was updated; no uninstall was performed.
+- Existing Watch scheme edits and the generated `CapApp-SPM/Package.swift`
+  remained local and uncommitted. Tests used that working tree plus the tested
+  commit; this is not a claim that the untouched committed package manifest
+  builds without the normal Capacitor sync. Untracked local files were preserved.
+- The watch doctor passed its signature/icon checks, but reported no watch
+  available for device coverage. No Watch installation or routing result is claimed.
+
+Remaining: alarm permission/UI, first audible alert with locked/Silent/background,
+snooze re-alert, Stop and separate cancellation have **not yet been observed**.
+No audible test was initiated by the agent. The owner will start each test and
+report observations; the matrix below stays unrun until then. No merge,
+production app change or server deployment occurred.
 
 ## Physical-device evaluation
 
