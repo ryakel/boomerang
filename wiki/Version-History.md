@@ -6,6 +6,10 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-11-14
 
+- fix(ios): unwrap capacitor plugins after module loading [S]
+  - Preserve module namespace wrappers across async loading so real Capacitor proxies cannot be assimilated as promises. Apply to updater and App loaders without changing update policy.
+  - Exercise actual Capacitor proxies in lifecycle and initializer browser tests. Native readiness verification is tracked in PR #1028.
+
 - fix(ios): constrain the snooze island countdown [M]
   - Bound compact trailing content to 40 points with short non-countdown indicators; add a safe compact Xcode preview without changing AlarmKit snooze behavior. Phone layout/preview compilation still need a Mac check.
   - Add non-sensitive updater lifecycle phase logs and failed-loader/readiness diagnostics. Exercise actual JS initialization alongside the alarm controls in the browser with synthetic native modules, requiring no server UI requests/resume listener.
