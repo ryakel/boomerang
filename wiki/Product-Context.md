@@ -103,7 +103,12 @@ no new runtime implementation or deployment requested.
 - Accepted product direction: one school-pickup responsibility should coordinate
   calendar protection, schedule variations and support for actually leaving,
   reducing the separate records maintained across Calendar, Clock and Reminders.
-  A departure target and notification/snooze policy remain to be designed.
+  The owner subsequently supplied leave-no-later-than targets of 2:00 PM on
+  other pickup days and 1:30 PM on Wednesdays; notification/snooze policy remains
+  to be designed. The phone normally uses Silent. Shortcuts/alarm coordination is
+  an unresolved gap behind the redundant alarms, not an existing working bridge.
+  The owner confirmed iOS 27; native AlarmKit is a feasible candidate by OS
+  availability, with permission and on-device delivery still to validate.
 - Saying "Leaving now" in a text to the owner's wife already acts as a forcing
   function for leaving work. The owner is willing to try that acknowledgment for
   pickup but is unsure whether a separate pickup confirmation is useful. Treat

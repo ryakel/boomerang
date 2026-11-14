@@ -25,17 +25,25 @@ remains open. A separate "Picked up" confirmation is also provisional.
 | Meetings blocked from | 1:30 PM | 1:30 PM |
 | Must be in the pickup line | 2:30 PM | 2:00 PM |
 | Usual drive estimate | 20 minutes | 20 minutes |
-| Desired departure | Not yet supplied | Not yet supplied |
+| Leave no later than | 2:00 PM | 1:30 PM |
 
 The 1:30 hold protects availability; it is not a departure instruction. Calendar
 protection, planned departure and arrival deadline are separate facts belonging
 to one responsibility. The drive estimate is user-supplied, not live traffic.
 A fixed arrival deadline must not silently move with a snooze.
 
-Two questions have been put to the owner, and remain unanswered at this draft:
+The owner has now supplied departure targets of 2:00 PM on other pickup days
+and 1:30 PM on Wednesdays. Each leaves ten minutes between the usual estimated
+arrival and the line deadline. These are editable scenario data, not application
+constants. Wednesday's target coincides with the start of calendar protection;
+an earlier preparation cue is a proposed experience detail, not an adopted change.
 
-1. What are the desired departure times on ordinary pickup days and Wednesdays?
-2. Which devices need to get attention at work, and how are Silent/Focus used?
+The phone is normally on Silent. The owner clarified that the Shortcuts/alarm
+connection is not working; managing redundant alarms manually is the workaround.
+Do not assume an existing Shortcut or interpret this as approval to turn off Silent.
+The unresolved delivery question now takes priority over polishing the interaction.
+The owner confirmed iOS 27. That satisfies AlarmKit's documented iOS 26+
+availability; Watch/Focus specifics and actual on-device behavior remain open.
 
 Before real setup, confirm the actual pickup days, local timezone, existing
 calendar/event and hold end, and how the user wants one-off exceptions handled.
@@ -84,7 +92,7 @@ notification as an alarm with stronger behavior than the platform supports.
    the hold boundary is assumed merely because an event starts.
 2. **At the agreed departure target:** "Time to leave for school pickup. Be in
    line by 2:30" (Wednesday: "by 2:00"). Primary action: **Leaving now**.
-   Alternative: **Remind me at [specific next time]**. Exact target is pending.
+   Alternative: **Remind me at [specific next time]**. Use the supplied target for each day; cue lead time remains for review.
 3. **After a successfully recorded departure acknowledgment:** "Leaving now.
    Pickup is still open." Departure prompts stop. A failed save remains visible;
    neither a tap nor an error message is treated as successful persistence.
@@ -187,7 +195,17 @@ Read-only inspection on dev `7354b6a`:
 The gap between a normal notification and the reliability the owner expects from
 Clock alarms is a consequential platform/product decision. Device/Focus questions
 and on-device evaluation come before promising replacement. No push/AlarmKit/
-critical-alert entitlement capability has been selected or claimed here.
+critical-alert entitlement capability has been selected or implemented here.
+
+Apple's [AlarmKit introduction](https://developer.apple.com/videos/play/wwdc2025/230/)
+describes native app alarms on iOS/iPadOS 26 that break through Silent and Focus
+after per-app authorization, with scheduling and custom App Intent actions. It is
+a candidate to investigate before assuming a Shortcuts bridge is required. The
+repository currently uses ordinary UserNotifications and has no AlarmKit
+integration. The owner's iOS 27 satisfies OS availability. Native build requirements,
+authorization and actual on-device behavior still need validation before reliance. The next
+milestone is proof that Boomerang can arm/manage an audible alarm under Silent,
+not a claim that the present walkthrough can replace Clock.
 
 ## How to judge a trial
 
@@ -203,3 +221,33 @@ only the evidence needed for that evaluation. No new instrumentation is proposed
 Keep medication-support and hands-free checklist capture as separate daily-use
 cases in Product Context. This walkthrough is a product draft; it is not approval
 for a generic obligations engine, medication scheduling or external actions.
+
+## AlarmKit feasibility update — iOS 27 confirmed
+
+The owner confirmed iOS 27; this removes the OS-version question for their trial.
+Read-only inspection found no current AlarmKit import, usage-description key or
+countdown widget extension. The existing project documentation describes native
+builds using Xcode 26+; no Mac/Xcode build or phone test was performed here.
+
+Apple's [current scheduling sample](https://developer.apple.com/documentation/alarmkit/scheduling-an-alarm-with-alarmkit)
+confirms separate per-app authorization, a required `NSAlarmKitUsageDescription`,
+weekly recurrence, system-managed Stop/countdown behavior and App Intent hooks.
+Its important countdown requirement is a widget extension for the Live Activity;
+Apple warns that omitting it can cause alarms to dismiss unexpectedly without
+alerting. This matters to the proposed snooze experience, not just presentation.
+
+Recommendation for discussion: prefer an app-owned AlarmKit path over depending
+on a separate unmute/Clock-setup Shortcut. It requires a native test build and
+alarm permission on the phone; a web/backend deployment cannot add this alone.
+Keep existing Clock alarms as the reference during evaluation. Do not promise
+three arbitrary alarm buttons: the sample's secondary control chooses countdown
+or a custom action. Retain normal Stop/Snooze for an initial delivery experiment,
+and keep any explicit "Leaving now" action semantically separate from dismissing
+sound. Stop never establishes departure or pickup completion.
+
+Proposed first evidence milestone: a disposable test alarm with the phone locked,
+Silent enabled and the app backgrounded; confirm audible presentation, permission
+rejection reporting, snooze re-alert, Stop behavior and cancellation/readback.
+Then test offline/restart behavior and any paired Watch before relying on a pickup
+schedule. This is a recommended experiment, not a completed build/test or approval
+to arm real pickup alarms, change the calendar or message anyone.
