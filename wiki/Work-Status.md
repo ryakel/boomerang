@@ -16,9 +16,10 @@ only App Dev enables it. No server/task/calendar/messaging/Clock changes.
 **Mac recheck and physical-device tests pending.** Cloud checks cover synthetic
 bridge behavior, frontend and project wiring, not native sound or reliability.
 [Mac handoff and unrun device matrix](AlarmKit-Probe.md) are the next steps.
-Mac evidence is now [posted in PR #1028](https://github.com/ryakel/boomerang/pull/1028#issuecomment-6880645401):
-standard Xcode 27.2 (27B52), source ae1dcb4 plus preserved local Watch scheme and
-Capacitor-generated package edits; both simulator builds/widget packaging passed.
+Mac evidence is now [posted in PR #1028](https://github.com/ryakel/boomerang/pull/1028#issuecomment-6881167198):
+standard Xcode 27.2 (27B52), source b615637 plus preserved local Watch scheme and
+Capacitor-generated package edits; 17 bridge/lifecycle tests, both simulator
+builds/widget packaging and the signed Dev installation passed.
 The existing Dev app was installed and launched after verifying bundle ID
 ryakel.boomerang.app.dev; widget ID matches its Dev prefix. Watch installation
 and behavior remain unverified.
@@ -29,23 +30,39 @@ controls were absent. OTA accepts any different manifest version; its older-UI
 replacement path was reproduced synthetically. The narrow fix pins packaged
 assets and disables server UI updates only behind the native experiment gate,
 reconciling retained bundles through the supported updater reset API. It preserves
-app data and ordinary App OTA behavior. **This later fix still needs native
-compilation/reinstall and launch/resume validation on the Mac/phone.** No alarm
-permission, audible delivery or snooze test has yet been observed.
+app data and ordinary App OTA behavior. b615637 compiled and installed, and the
+owner's screenshot now shows the new controls, authorized alarm permission and
+countdown state. **Owner confirmed audible alert → native Snooze → audible
+re-alert → native X stops sound → no test alarm.** Exact Silent/lock/Focus/timing
+conditions were not separately reconfirmed; separate cancellation and other
+matrix checks remain pending. No departure/pickup completion is inferred.
+
+The owner reported the Island stretching across the top bar with mostly blank
+black space. The latest follow-up bounds its compact timer to 40 points and adds
+a safe Xcode preview. **New widget/preview compilation and actual phone layout
+remain pending.** The Mac also logged an updater readiness semaphore timeout.
+Vendor source locates it in readiness-event waiting, not a blocking current()
+call; no root cause is confirmed. Phase logs now distinguish loader, current,
+reset and readiness boundaries. Builtin identity/reconciliation and cold-resume
+persistence remain open until the Mac/phone recheck. No vendor change is made.
 Shared-selector validation here: POSIX shell syntax and simulated command checks
 passed for all three entry points (standard default, missing-install refusal,
 explicit app path containing spaces, inherited beta override, and explicit app
 opening). No native tool, installation or deployment was executed by those checks.
-Verified here: 17/17 synthetic bridge/lifecycle boundary tests; 56/56 existing reminder
+Verified here: 19/19 synthetic bridge/lifecycle boundary tests; 56/56 existing reminder
 schedule/merge/routine regression tests; real React controls/client with a fake
 daemon at 320px and 960px (denial, lost schedule/cancel reply, snooze status,
-cleanup, failed daemon read; no browser errors/overflow); frontend build; lint
+cleanup, failed daemon read; no browser errors/overflow). The browser harness also
+exercises the real updater initializer with synthetic native modules, requiring
+builtin readiness with no manifest/download or resume-update registration.
+Frontend build; lint
 0 errors / 13 existing warnings. Xcode project parses with a temporary external
 parser; plugin/shared metadata membership, widget embedding/dependency, all four
 bundle configurations, iOS minimums and Dev-only gate checked. Shell syntax and
 diff whitespace pass. Audit: 31 existing findings (2 critical, 11 high, 15 moderate,
 3 low), unchanged dependency versions. Native build/install of the earlier
-revision is recorded above; the later fix and audible device matrix remain unrun.
+revision is recorded above; the latest widget/diagnostic changes and remaining
+device matrix still need validation.
 Only the existing Dev device installation is authorized. No merge,
 staging/production server deployment, production installation, real pickup scheduling, replacing
 existing alarms or provider changes are authorized by this experiment.

@@ -6,6 +6,11 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-11-14
 
+- fix(ios): constrain the snooze island countdown [M]
+  - Bound compact trailing content to 40 points with short non-countdown indicators; add a safe compact Xcode preview without changing AlarmKit snooze behavior. Phone layout/preview compilation still need a Mac check.
+  - Add non-sensitive updater lifecycle phase logs and failed-loader/readiness diagnostics. Exercise actual JS initialization alongside the alarm controls in the browser with synthetic native modules, requiring no server UI requests/resume listener.
+  - Record owner-observed alarm, native snooze re-alert and Stop/no-alarm readback; separate pending cancellation, delivery conditions, updater readiness and visual validation from successful earlier b615637 native builds/install.
+
 - fix(ios): retain the bundled alarm experiment ui [M]
   - Diagnose phone App build/Server version dev-347e0e2 and missing test controls; reproduce selection of an older server UI over a feature build using synthetic updater inputs.
   - Behind the native probe gate, select shipped assets before WebView load and reconcile retained OTA assets to builtin through the supported reset API. Skip server UI checks on launch/resume only for that experiment; preserve app data and ordinary App update behavior.

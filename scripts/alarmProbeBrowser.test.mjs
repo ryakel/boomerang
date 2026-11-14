@@ -6,13 +6,15 @@ import assert from 'node:assert/strict'
 import { createServer } from 'vite'
 import react from '@vitejs/plugin-react'
 
-test('alarm test UI handles denial, lost replies, snooze, cleanup and daemon failure', { timeout: 60000 }, async t => {
+test('probe startup stays bundled while alarm controls handle denial, lost replies and cleanup', { timeout: 60000 }, async t => {
   const { chromium } = await import(process.env.PLAYWRIGHT_MODULE || 'playwright')
   const html = `<!doctype html><html data-ui="v2" data-theme="kept-light"><head><link rel="icon" href="data:,"></head><body>
     <div id="root" class="v2-app"></div><script type="module">
     import '/src/index.css'; import '/src/AppV2.css'; import '/src/components/SettingsModal.css';
     import React from 'react'; import {createRoot} from 'react-dom/client';
     import AlarmProbePanel from '/src/components/AlarmProbePanel.jsx';
+    import {initOtaUpdates} from '/src/otaUpdater.js';
+    initOtaUpdates();
     createRoot(document.getElementById('root')).render(React.createElement(AlarmProbePanel));
     </script></body></html>`
   const fake = `import {createAlarmProbeClient} from '/src/alarmProbeClient.js';
@@ -31,8 +33,26 @@ test('alarm test UI handles denial, lost replies, snooze, cleanup and daemon fai
     enforce: 'pre',
     resolveId(source, importer) {
       if (source === '../alarmProbe' && importer?.endsWith('/AlarmProbePanel.jsx')) return '\0alarm-fixture'
+      if (importer?.endsWith('/otaUpdater.js')) {
+        if (source === './apiConfig') return '\0alarm-native-config'
+        if (source === '@capgo/capacitor-updater') return '\0alarm-native-updater'
+        if (source === '@capacitor/app') return '\0alarm-native-app'
+      }
     },
-    load(id) { if (id === '\0alarm-fixture') return fake },
+    load(id) {
+      if (id === '\0alarm-fixture') return fake
+      if (id === '\0alarm-native-config') return `export const isNativeShell=()=>true; export const getApiBase=()=> 'https://synthetic.invalid';`
+      if (id === '\0alarm-native-updater') return `
+        const calls=window.probeOtaCalls=[];
+        export const CapacitorUpdater={
+          current:async()=>{calls.push('current');return {bundle:{id:'builtin'}}},
+          notifyAppReady:async()=>{calls.push('ready')},
+          reset:async()=>{throw Error('Unexpected reset for builtin UI')},
+          download:async()=>{throw Error('Unexpected OTA download')},
+          set:async()=>{throw Error('Unexpected OTA selection')}
+        };`
+      if (id === '\0alarm-native-app') return `window.probeResumeModuleLoaded=true; export const App={addListener:async()=>{throw Error('Unexpected server-update resume listener')}};`
+    },
     configureServer(server) {
       server.middlewares.use(async (req, res, next) => {
         if (req.url !== '/__alarm') return next()
@@ -48,9 +68,17 @@ test('alarm test UI handles denial, lost replies, snooze, cleanup and daemon fai
   for (const width of [320, 960]) {
     const page = await browser.newPage({ viewport: { width, height: 800 } })
     const errors = []
+    const bundleRequests = []
+    await page.addInitScript(() => { window.__BOOMERANG_ALARM_PROBE_BUILD__ = true })
+    await page.route('**/api/bundle/**', route => {
+      bundleRequests.push(route.request().url())
+      return route.abort()
+    })
     page.on('pageerror', error => errors.push(error.message))
     page.on('console', message => { if (message.type() === 'error') errors.push(message.text()) })
     await page.goto(`http://127.0.0.1:${vite.httpServer.address().port}/__alarm`)
+    await page.waitForFunction(() => window.probeOtaCalls?.includes('ready'))
+    await page.getByText('This test build keeps its installed UI;', { exact: false }).waitFor()
     const check = page.getByRole('button', { name: 'Check alarm status' })
     const schedule = page.getByRole('button', { name: 'Sound test in 60 seconds' })
     const cancel = page.getByRole('button', { name: 'Cancel test alarm' })
@@ -87,6 +115,14 @@ test('alarm test UI handles denial, lost replies, snooze, cleanup and daemon fai
     await page.getByRole('status').filter({ hasText: 'daemon unavailable' }).waitFor()
     assert.equal(await schedule.isDisabled(), true)
     assert.equal(await cancel.isEnabled(), true)
+    await page.evaluate(() => {
+      window.dispatchEvent(new Event('focus'))
+      document.dispatchEvent(new Event('visibilitychange'))
+      window.dispatchEvent(new Event('resume'))
+    })
+    assert.deepEqual(await page.evaluate(() => window.probeOtaCalls), ['current', 'ready'])
+    assert.equal(await page.evaluate(() => !!window.probeResumeModuleLoaded), false)
+    assert.deepEqual(bundleRequests, [])
     assert.deepEqual(errors, [])
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true)
     await page.close()

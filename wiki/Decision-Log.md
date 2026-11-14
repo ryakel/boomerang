@@ -223,3 +223,9 @@ below predate those decisions and are historical recommendations, not authority.
 - Cloud tests establish synthetic boundary/UI behavior; Mac compilation and the
   [physical-device matrix](AlarmKit-Probe.md) are still required. Keep a draft PR
   and document unrun tests; do not merge/deploy under the completed E1–E5 approval.
+- Evaluation update: the owner heard the initial alarm and native-snooze
+  re-alert, then confirmed native Stop ended sound and readback showed no test
+  alarm. Native Snooze remains intentional; it does not acknowledge departure.
+  The reported oversized Island is presentation feedback. These results support
+  continuing this bounded experiment, not replacing real alarms or implementing
+  pickup scheduling before the remaining conditions and product policy are reviewed.
