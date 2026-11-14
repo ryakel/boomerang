@@ -5,9 +5,9 @@
 The owner authorized continuing implementation and merging through E1–E5 in
 Codex, including `dev` automatic staging deployments. [Issue authority](https://github.com/ryakel/boomerang/issues/1018#issuecomment-6869543997).
 E1 #1022 and E2 #1023 are merged; E2 tip `487e478`.
-E3 Stop/recovery is in implementation with synthetic test evidence in
-[Stop Recovery](Stop-Recovery-E3.md). Next: supported E4 external adapters,
-then E5 conversational explicit capture. [Plan tracker](Execution-Reliability-Plan.md).
+E3 #1024 is merged; staging workflow 43543683763 succeeded. Its evidence is in
+[Stop Recovery](Stop-Recovery-E3.md). E4 external adapters are in implementation ([scope](External-Recovery-E4.md));
+next is E5 conversational explicit capture. [Plan tracker](Execution-Reliability-Plan.md).
 Production `main`, providers and paid model benchmarks remain excluded.
 
 The dated sections below preserve earlier authorization/history. Their

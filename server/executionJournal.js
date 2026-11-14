@@ -11,11 +11,11 @@ export function configureExecutionJournal(db, flush) {
   persist = flush
   poisoned = false
   // A dispatch/compensation interrupted by process exit has an unknown outcome.
-  const interrupted = connection.exec("SELECT receipt_json FROM adviser_executions WHERE state IN ('running','stopping')")
+  const interrupted = connection.exec("SELECT receipt_json FROM adviser_executions WHERE state IN ('running','stopping','checking','undoing')")
   for (const [json] of interrupted[0]?.values || []) {
     const record = JSON.parse(json)
-    if (!['running', 'stopping'].includes(record.state)) continue
-    record.state = record.results.some(s => ['executing', 'compensating'].includes(s.state)) ? 'needs_checking' : 'stopped'
+    if (!['running', 'stopping', 'checking', 'undoing'].includes(record.state)) continue
+    record.state = ['checking','undoing'].includes(record.state) || record.results.some(s => ['executing', 'compensating'].includes(s.state)) ? 'needs_checking' : 'stopped'
     record.ok = false
     record.error = 'Execution was interrupted. Check the outcome before taking further action.'
     for (const step of record.results) {
@@ -27,7 +27,7 @@ export function configureExecutionJournal(db, flush) {
 
 export function executionIdentity(sessionId, plan) {
   const revision = crypto.createHash('sha256').update(JSON.stringify(plan.map(s => ({
-    stepId: s.stepId, toolName: s.toolName, input: s.input, localGuard: s.localGuard,
+    stepId: s.stepId, toolName: s.toolName, input: s.input, localGuard: s.localGuard, externalGuard: s.externalGuard,
   })))).digest('hex')
   return { revision, executionId: executionKey(sessionId, revision) }
 }
@@ -117,7 +117,7 @@ export function listExecutions({ chatId, sessionId, limit = 50 } = {}) {
   if (sessionId) { clauses.push('session_id = ?'); args.push(sessionId) }
   const stmt = connection.prepare(`SELECT receipt_json FROM adviser_executions
     ${clauses.length ? `WHERE ${clauses.join(' AND ')}` : ''}
-    ORDER BY ${chatId ? "CASE WHEN state IN ('running','needs_checking','partial','conflict') THEN 0 ELSE 1 END," : ''} rowid DESC LIMIT ?`)
+    ORDER BY ${chatId ? "CASE WHEN state IN ('running','stopping','stopped','checking','undoing','needs_checking','partial','conflict') THEN 0 ELSE 1 END," : ''} rowid DESC LIMIT ?`)
   try {
     stmt.bind([...args, Math.min(Math.max(Number(limit) || 50, 1), 10000)])
     const records = []

@@ -4,7 +4,7 @@
 
 ### Quokka (AI Adviser)
 
-**Current execution delivery:** E1/E2 are merged. [E3 Stop recovery](Stop-Recovery-E3.md) adds remaining-only Continue, reviewed Modify, held queues and cursor/snapshot recovery; private approved commands now persist. [Plan/authority](Execution-Reliability-Plan.md) supersedes historical review-pending labels below. External operations still require their own E4 evidence.
+**Current execution delivery:** E1/E2 are merged. [E3 Stop recovery](Stop-Recovery-E3.md) adds remaining-only Continue, reviewed Modify, held queues and cursor/snapshot recovery; private approved commands now persist. [Plan/authority](Execution-Reliability-Plan.md) supersedes historical review-pending labels below. [E4 external recovery](External-Recovery-E4.md) supports Calendar identity/readback/conditional Undo and per-effect Trello checklist evidence. Other external operation families remain unsupported.
 
 **P1 execution/recovery evidence (2026-11-13, #1018):** run
 `npm run test:quokka-p1` for the isolated characterization suite. The

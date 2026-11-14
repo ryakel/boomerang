@@ -152,7 +152,7 @@ export function previewLocalUndo(executionId) {
   if (!original) return null
   const rows = undoRows(executionId).filter(r => r.status === 'available')
   const actions = previewRows(rows)
-  const allowed = ['completed','stopped','modified'].includes(original.state)
+  const allowed = ['completed','stopped','modified','partial'].includes(original.state) && !original.results.some(s => ['unknown','executing','compensating','compensation_unverified'].includes(s.state))
   if (!allowed) for (const action of actions) { action.available = false; action.reason = 'Check unresolved execution outcomes before Undo.' }
   const unsupported = original.results.filter(step => !rows.some(r => r.step_id === step.stepId) && !['verified_undone','not_started'].includes(step.state)).map(step => step.toolName)
   if (unsupported.length) for (const action of actions) {

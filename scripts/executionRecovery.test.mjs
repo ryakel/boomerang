@@ -22,7 +22,7 @@ async function stopped(t) {
   gate.release()
   const record = await running
   assert.equal(record.state, 'stopped')
-  assert.deepEqual(record.results.map(r => r.state), ['reported_applied','reported_applied','not_started'])
+  assert.deepEqual(record.results.map(r => r.state), ['reported_applied','verified_applied','not_started'])
   assert.equal(db.getTask('exam').title, 'First applied', 'Stop never auto-reverses')
   assert.equal(db.getTask('exam').notes, 'Synthetic fixture')
   assert.equal(engine.getSession(id).queue.length, 1)

@@ -10,8 +10,8 @@ unapproved. No production release or paid/live model benchmarks.
 |---|---|
 | E1: approval identity and durable evidence | Merged #1022; [details](Execution-Records-E1.md) |
 | E2: local Undo/stale edits | Merged #1023; [details](Local-Undo-E2.md) |
-| E3: Stop → Continue / Modify / Undo, dependable state delivery | Implementation; [details](Stop-Recovery-E3.md) |
-| E4: external reconciliation and supported Undo | Next: Calendar create/update stable identity/readback, per-effect Trello checklist evidence and checked cleanup. Unsupported deletes remain explicit. |
+| E3: Stop → Continue / Modify / Undo, dependable state delivery | Merged #1024; [details](Stop-Recovery-E3.md) |
+| E4: external reconciliation and supported Undo | Implementation; [scope/evidence/limits](External-Recovery-E4.md). Calendar create/update, per-effect Trello checklist evidence and checked cleanup. Unsupported deletes remain explicit. |
 | E5: explicit capture authority across modes | Next: dependable direct capture stays immediate; narrowly explicit conversational task/note capture shares authority, mixed/consequential requests require review. No universal-entry redesign. |
 
 Each increment gets isolated tests, relevant authenticated/browser coverage,

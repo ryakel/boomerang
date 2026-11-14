@@ -127,6 +127,8 @@ test('authenticated commit/status routes require revision and replay without res
   assert.equal((await request(app, '/api/adviser/executions?chatId=synthetic-chat')).status, 401)
   assert.equal((await request(app, '/api/adviser/abort', { method: 'POST', body: { sessionId: id } })).status, 401)
   assert.equal((await request(app, `/api/adviser/executions/${approval.executionId}/recover`, { method: 'POST', body: { sequence: 1, choice: 'continue' } })).status, 401)
+  assert.equal((await request(app, `/api/adviser/executions/${approval.executionId}/steps/unknown/undo`)).status, 401)
+  assert.equal((await request(app, `/api/adviser/executions/${approval.executionId}/steps/unknown/check`, { method: 'POST' })).status, 401)
   const options = { method: 'POST', token: 'synthetic-api-token', body: { sessionId: id } }
   assert.equal((await request(app, '/api/adviser/commit', options)).status, 409)
   const empty = s.session()

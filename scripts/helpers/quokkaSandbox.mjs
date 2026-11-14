@@ -31,6 +31,7 @@ export class FakeIntegrations {
   unexpected = []
   faults = []
   serial = 0
+  revision = 0
 
   fail(method, pathname, status = 503) {
     this.faults.push({ method, pathname, status })
@@ -71,19 +72,22 @@ export class FakeIntegrations {
     if (url.origin === 'https://www.googleapis.com' && calendar) {
       const id = calendar[1]
       if (!id && method === 'POST') {
-        const event = { id: `created-${++this.serial}`, ...body }
+        const event = { id: `created-${++this.serial}`, ...body, etag: `"synthetic-${++this.revision}"` }
         this.state.events[event.id] = event
         if (fault?.lostResponse) throw new TypeError('injected lost response after remote write')
         return Response.json(event)
       }
       if (id && this.state.events[id]) {
         if (method === 'GET') return Response.json(this.state.events[id])
+        if (['PATCH','DELETE'].includes(method) && init.headers?.['If-Match'] && init.headers['If-Match'] !== this.state.events[id].etag) return Response.json({}, { status: 412 })
         if (method === 'PATCH') {
-          Object.assign(this.state.events[id], body)
+          Object.assign(this.state.events[id], body, { etag: `"synthetic-${++this.revision}"` })
+          if (fault?.lostResponse) throw new TypeError('injected lost PATCH response')
           return Response.json(this.state.events[id])
         }
         if (method === 'DELETE') {
           delete this.state.events[id]
+          if (fault?.lostResponse) throw new TypeError('injected lost DELETE response')
           return new Response(null, { status: 204 })
         }
       }
@@ -95,13 +99,16 @@ export class FakeIntegrations {
       if (method === 'POST' && pathname === '/1/cards/fixture-card/checklists') {
         const checklist = { id: `checklist-${++this.serial}`, name: body.name, items: [] }
         this.state.checklists[checklist.id] = checklist
+        if (fault?.lostResponse) throw new TypeError('injected lost checklist response')
         return Response.json(checklist)
       }
       const match = pathname.match(/^\/1\/checklists\/([^/]+)(\/checkItems)?$/)
       if (match && this.state.checklists[match[1]]) {
+        if (method === 'GET' && !match[2]) return Response.json({ ...this.state.checklists[match[1]], checkItems: this.state.checklists[match[1]].items.map(item => ({ ...item, state: item.state || 'incomplete' })) })
         if (method === 'POST' && match[2]) {
           const item = { id: `item-${++this.serial}`, name: body.name }
           this.state.checklists[match[1]].items.push(item)
+          if (fault?.lostResponse) throw new TypeError('injected lost item response')
           return Response.json(item)
         }
         if (method === 'DELETE' && !match[2]) {
@@ -110,6 +117,7 @@ export class FakeIntegrations {
         }
       }
     }
+    if (url.origin === 'https://api.trello.com' && method === 'GET' && /^\/1\/checklists\/[^/]+$/.test(pathname)) return Response.json({}, { status: 404 })
     this.unexpected.push(`${method} ${url.origin}${pathname}`)
     throw new Error(`P1 unexpected outbound request: ${method} ${url.origin}${pathname}`)
   }

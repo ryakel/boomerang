@@ -6,8 +6,8 @@
   ],
   "external": {
     "events": {
-      "exam-event": { "id": "exam-event", "summary": "Exam", "description": "Synthetic fixture", "start": { "date": "2026-11-18" }, "end": { "date": "2026-11-19" } },
-      "unrelated-event": { "id": "unrelated-event", "summary": "Unrelated sentinel", "start": { "date": "2026-11-25" }, "end": { "date": "2026-11-26" } }
+      "exam-event": { "id": "exam-event", "etag": "\"exam-event-initial\"", "summary": "Exam", "description": "Synthetic fixture", "start": { "date": "2026-11-18" }, "end": { "date": "2026-11-19" } },
+      "unrelated-event": { "id": "unrelated-event", "etag": "\"unrelated-event-initial\"", "summary": "Unrelated sentinel", "start": { "date": "2026-11-25" }, "end": { "date": "2026-11-26" } }
     },
     "checklists": {},
     "cards": { "fixture-card": { "id": "fixture-card", "name": "Synthetic card" } }

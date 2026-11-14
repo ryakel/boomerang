@@ -21,7 +21,7 @@ function assertRestoredContent(s) {
   assert.deepEqual(normalized(s.persisted()), normalized(s.initial))
 }
 
-const newEvents = s => Object.keys(s.external.state.events).filter(id => id.startsWith('created-'))
+const newEvents = s => Object.keys(s.external.state.events).filter(id => !fixture.external.events[id])
 
 test('isolation canaries: providers, HTTP/socket/TLS/UDP cannot escape', async () => {
   await fence.verify()
@@ -174,7 +174,7 @@ test('baseline: failed external step compensates prior task changes in reverse o
   assert.equal(engine.getSession(id).runnerState, 'errored')
 })
 
-test('R5 REPRO: a tool that fails after a remote partial write leaves that write behind', async t => {
+test('R5 FIXED: partial checklist effects are recorded and acknowledged cleanup is read back', async t => {
   const s = await sandbox(t)
   const id = s.session()
   await s.stage(id, 'update_task', { id: 'exam', title: 'Will roll back' })
@@ -183,28 +183,31 @@ test('R5 REPRO: a tool that fails after a remote partial write leaves that write
   const result = await engine.commitPlan(id, s.deps)
   assert.equal(result.ok, false)
   assertRestoredContent(s)
-  assert.deepEqual(s.external.state.checklists, { 'checklist-1': { id: 'checklist-1', name: 'Packing', items: [] } })
+  assert.deepEqual(s.external.state.checklists, {})
+  assert.equal(result.results[1].evidence.cleanup, 'verified_absent')
   assert.deepEqual(s.external.state.events, fixture.external.events)
-  assert.equal(s.external.calls.some(c => c.method === 'DELETE'), false, 'failing tool never returned compensation')
+  assert.equal(s.external.calls.some(c => c.method === 'DELETE'), true, 'partial cleanup is checked explicitly')
 })
 
-test('R6 REPRO: HTTP failure during compensation leaves external divergence without receipt detail', async t => {
+test('R6 FIXED: rejected compensation remains explicitly unverified with residual identity', async t => {
   const s = await sandbox(t)
   const id = s.session()
   await s.stage(id, 'update_task', { id: 'exam', title: 'Will roll back' })
   await s.stage(id, 'gcal_create_event', eventInput)
   await s.stage(id, 'gcal_update_event', { event_id: 'missing-event', summary: 'Force later failure' })
-  s.external.fail('DELETE', `${EVENTS}/created-1`)
+  s.external.fail('DELETE', `${EVENTS}/${engine.getSession(id).plan.find(s => s.toolName === 'gcal_create_event').input.event_id}`)
   const result = await engine.commitPlan(id, s.deps)
   assert.equal(result.ok, false)
   assert.equal(result.state, 'partial')
   assertRestoredContent(s)
   assert.equal(newEvents(s).length, 1)
   assert.equal('compensationErrors' in result, false, 'rollback HTTP status is not surfaced')
-  assert.equal(s.external.calls.at(-1).method, 'DELETE')
+  assert.equal(result.results[1].state, 'compensation_unverified')
+  assert.equal(result.results[1].evidence.phase, 'undoing')
+  assert.ok(result.results[1].evidence.eventId)
 })
 
-test('R7 REPRO: external delete is irreversible when a subsequent step fails', async t => {
+test('R7 BOUNDED: external delete remains irreversible and is explicitly labelled', async t => {
   const s = await sandbox(t)
   const id = s.session()
   await s.stage(id, 'gcal_delete_event', { event_id: 'exam-event' })
@@ -213,7 +216,9 @@ test('R7 REPRO: external delete is irreversible when a subsequent step fails', a
   t.mock.method(console, 'warn', message => warnings.push(message))
   assert.equal((await engine.commitPlan(id, s.deps)).ok, false)
   assert.equal(s.external.state.events['exam-event'], undefined)
-  assert.equal(warnings.some(w => w.includes('cannot restore')), true)
+  assert.equal(warnings.length, 0, 'no no-op compensation is offered as recovery')
+  const receipt = (await import('../server/executionJournal.js')).listExecutions({ sessionId: id })[0]
+  assert.match(receipt.results[0].undoUnavailable, /irreversible/)
   assert.deepEqual(s.persisted(), s.initial)
 })
 
