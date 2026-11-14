@@ -1,5 +1,13 @@
 # iOS Native App (Capacitor)
 
+> **AlarmKit experiment (2026-11-14):** `claude/alarmkit-probe` adds a disposable
+> Dev-only sound test, not a pickup scheduler. See the [Mac handoff and unrun
+> device matrix](AlarmKit-Probe.md). The new code requires SDK/iOS 26.1+; prefer
+> Xcode 27 for the owner's iOS 27 phone. The main app minimum remains iOS 16.
+> `sh scripts/ios-alarm-probe-check.sh` performs unsigned simulator compilation
+> and packaging checks without installing, launching or scheduling. Neither
+> native compilation nor physical sound/snooze has been verified in the cloud.
+
 Boomerang's native iOS app wraps the existing React/Vite web app in a
 [Capacitor](https://capacitorjs.com/) shell and adds native iOS surfaces — a
 **Share Extension** (create a task from a shared Message/email/page), **App

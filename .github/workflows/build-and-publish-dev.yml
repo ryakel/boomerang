@@ -63,6 +63,9 @@ jobs:
       - name: Durable execution and storage tests
         run: npm run test:execution
 
+      - name: Alarm probe bridge boundary tests
+        run: npm run test:alarm-probe
+
       - name: Build frontend
         run: npm run build
 

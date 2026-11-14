@@ -6,6 +6,10 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-11-14
 
+- feat(ios): prepare a disposable dev alarm probe [L]
+  - Add explicit Dev-only AlarmKit permission, single-alarm scheduling, system Stop/one-minute Snooze, owned-ID readback/cancellation and the required countdown widget. Preserve existing task/reminder/Clock behavior; no live pickup schedule or production installation/deployment.
+  - Test bridge denial, unsupported installs, duplicates, failed readback, lost replies and cleanup; drive real controls with a synthetic daemon at 320/960px. Add Mac-only unsigned build/packaging check and a physical-device handoff with every unrun native check explicit. Reuse existing rebuild/install scripts; Xcode/phone validation remains pending.
+
 - docs(product): record pickup delivery constraints [S]
   - Preserve user-supplied departure targets, Silent-mode use, unresolved Shortcuts bridge and iOS 27. Record AlarmKit feasibility and device validation requirements without treating the walkthrough as a live pickup feature.
 

@@ -85,7 +85,9 @@ choices and consequential architecture tradeoffs into conversation; repository
 comments preserve the discussion rather than replacing it. During implementation,
 explain milestones in terms of user benefit and tradeoffs. Continue minor technical
 work autonomously within agreed scope. Current focus is product assessment, with
-no new runtime implementation or deployment requested.
+no broad implementation or deployment requested. A subsequent narrow AlarmKit
+delivery experiment is authorized in D011; it does not authorize the full pickup
+feature or change the conversational collaboration preference.
 
 ## Daily-use evidence under discussion (2026-11-14)
 

@@ -1,5 +1,20 @@
 # Claude Dev Notes — Notifications
 
+## Disposable native AlarmKit experiment (2026-11-14)
+
+On `claude/alarmkit-probe`, Settings → Notifications → Test exposes a direct,
+explicit **Alarm sound test** in a rebuilt Boomerang Dev native shell. The App
+scheme is compile-time disabled. One dedicated UUID, separate permission,
+60-second fixed alarm and 60-second post-alert Snooze; system Stop never marks
+departure/completion. Includes the required countdown widget extension and
+readback/cancel recovery. No background/task send, channel toggle, server,
+ordinary local reminder or Apple Reminders ownership change. As a deliberately
+started test, it can sound through Silent/Focus even during away time; it never
+starts itself on launch/resume/refresh. Existing alarms stay in place.
+
+[Mac handoff / unrun device matrix](AlarmKit-Probe.md). Synthetic bridge/browser
+checks do not establish native audibility or snooze/restart/Watch reliability.
+
 > Moved out of `CLAUDE.md` (2026-07-25) in the context-engineering restructure: `CLAUDE.md` now holds only invariants and gotchas, and deep implementation notes live here, loaded on demand. Content below is preserved from the former CLAUDE.md "Development Notes" and stays maintained — update it the same way CLAUDE.md used to be updated.
 
 ### Notifications System (RESHAPED 2026-07-24 — "The Great Alert Deletion")

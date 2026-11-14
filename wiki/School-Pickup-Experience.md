@@ -6,6 +6,11 @@ alerts, repeated snoozing and departure acknowledgment. This authorizes design
 work, not app implementation, calendar changes, messaging or deployment.
 [Product context](Product-Context.md), [D010](Decision-Log.md#d010--one-school-pickup-responsibility-trial-departure-acknowledgment).
 
+Subsequent bounded authorization: prepare a **disposable native delivery test**
+before implementing this experience. [D011 / Mac handoff](AlarmKit-Probe.md)
+records the Dev-only test and unrun device checks. The full pickup walkthrough
+remains a design draft; no real pickup alarms or external changes are included.
+
 ## What we are trying to improve
 
 The owner currently coordinates Calendar, Clock and Reminders. Redundant alarms

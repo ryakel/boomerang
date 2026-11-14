@@ -1,6 +1,34 @@
 # Work status and authorization
 
-## Current product work: school-pickup experience (2026-11-14)
+## Current focus: native alarm delivery experiment (2026-11-14)
+
+The owner authorized preparing the narrow disposable AlarmKit test: "Ok. We can
+patch the apps when ready," followed by "Let's build what we can. I will get
+codex on my Mac today." This supersedes design-only scope **only for this
+experiment**. New feature branch `claude/alarmkit-probe` starts at current dev
+`7354b6a` and includes the preceding pickup design notes for continuity.
+
+Implemented: explicit Dev-app test controls, separate alarm permission, one test
+in 60 seconds, system Stop/1-minute Snooze, countdown widget, owned-ID cancellation
+and daemon readback. App configurations disable scheduling at compile time;
+only App Dev enables it. No server/task/calendar/messaging/Clock changes.
+
+**Mac/Xcode and physical-device tests pending.** Cloud checks cover synthetic
+bridge behavior, frontend and project wiring, not native sound or reliability.
+[Mac handoff and unrun device matrix](AlarmKit-Probe.md) are the next steps.
+Verified here: 11/11 synthetic bridge boundary tests; 56/56 existing reminder
+schedule/merge/routine regression tests; real React controls/client with a fake
+daemon at 320px and 960px (denial, lost schedule/cancel reply, snooze status,
+cleanup, failed daemon read; no browser errors/overflow); frontend build; lint
+0 errors / 13 existing warnings. Xcode project parses with a temporary external
+parser; plugin/shared metadata membership, widget embedding/dependency, all four
+bundle configurations, iOS minimums and Dev-only gate checked. Shell syntax and
+diff whitespace pass. Audit: 31 existing findings (2 critical, 11 high, 15 moderate,
+3 low), unchanged dependency versions. Native build script/device matrix unrun.
+No merge, staging/production deployment, real pickup scheduling, replacing
+existing alarms or provider changes are authorized by this experiment.
+
+## Product experience context
 
 The owner requested conversation/recommendations before new implementation,
 then authorized a walkthrough of ordinary-day and Wednesday pickup, missed alerts,
@@ -9,9 +37,9 @@ One coordinated pickup responsibility is accepted direction. The owner supplied
 2:00 PM departure on other pickup days, 1:30 PM on Wednesdays, normally Silent,
 and iOS 27. Alert delivery/persistence, any Watch specifics and a separate pickup
 confirmation remain open. AlarmKit is the recommended candidate to evaluate; its
-OS requirement is met, but no native integration or on-device test is complete.
-This is design/documentation scope; no new app implementation, notification,
-external calendar/messaging action or deployment is authorized by this request.
+OS requirement is met. The subsequent authorization above permits the isolated
+native experiment; the full pickup feature is still a design draft. No external
+calendar/messaging action or deployment is authorized by that product discussion.
 
 
 ## Delivered: execution reliability E1–E5 (2026-11-14)
