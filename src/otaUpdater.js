@@ -13,6 +13,7 @@
 // auto-reverts to the previous bundle when a swapped-in bundle never reports
 // ready, so a broken download can't brick the shell.
 import { getApiBase, isNativeShell } from './apiConfig'
+import { startOtaUpdateLifecycle } from './otaUpdateLifecycle'
 
 const CURRENT_VERSION = typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : 'dev'
 
@@ -52,11 +53,13 @@ export function initOtaUpdates() {
   if (!isNativeShell()) return
   ;(async () => {
     try {
-      const { CapacitorUpdater } = await import('@capgo/capacitor-updater')
-      await CapacitorUpdater.notifyAppReady()
-      await checkOnce(CapacitorUpdater)
-      const { App } = await import('@capacitor/app')
-      App.addListener('resume', () => { checkOnce(CapacitorUpdater) })
+      const mode = await startOtaUpdateLifecycle({
+        bundledOnly: window.__BOOMERANG_ALARM_PROBE_BUILD__ === true,
+        loadUpdater: async () => (await import('@capgo/capacitor-updater')).CapacitorUpdater,
+        loadApp: async () => (await import('@capacitor/app')).App,
+        checkOnce,
+      })
+      if (mode !== 'server-updates') console.info(`[OTA] alarm experiment: ${mode}`)
     } catch (e) {
       console.warn('[OTA] updater unavailable:', e?.message || e)
     }

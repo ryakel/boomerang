@@ -16,17 +16,27 @@ only App Dev enables it. No server/task/calendar/messaging/Clock changes.
 **Mac recheck and physical-device tests pending.** Cloud checks cover synthetic
 bridge behavior, frontend and project wiring, not native sound or reliability.
 [Mac handoff and unrun device matrix](AlarmKit-Probe.md) are the next steps.
-Subsequent owner report: standard Xcode 27.2 passed 11 bridge tests, both
-simulator builds and widget packaging with local edits preserved. The Mac's
-tested diff/revision is not yet recorded upstream; do not attribute this to a
-specific remote commit. The owner requested sharing standard-Xcode selection
-in the scripts; the shared process-local selector now needs a Mac recheck.
-Physical-device behavior remains unverified.
+Mac evidence is now [posted in PR #1028](https://github.com/ryakel/boomerang/pull/1028#issuecomment-6880645401):
+standard Xcode 27.2 (27B52), source ae1dcb4 plus preserved local Watch scheme and
+Capacitor-generated package edits; both simulator builds/widget packaging passed.
+The existing Dev app was installed and launched after verifying bundle ID
+ryakel.boomerang.app.dev; widget ID matches its Dev prefix. Watch installation
+and behavior remain unverified.
+
+Phone screenshots then showed App build and Server version both dev-347e0e2:
+the older deployed UI was running inside the native shell, so the new alarm
+controls were absent. OTA accepts any different manifest version; its older-UI
+replacement path was reproduced synthetically. The narrow fix pins packaged
+assets and disables server UI updates only behind the native experiment gate,
+reconciling retained bundles through the supported updater reset API. It preserves
+app data and ordinary App OTA behavior. **This later fix still needs native
+compilation/reinstall and launch/resume validation on the Mac/phone.** No alarm
+permission, audible delivery or snooze test has yet been observed.
 Shared-selector validation here: POSIX shell syntax and simulated command checks
 passed for all three entry points (standard default, missing-install refusal,
 explicit app path containing spaces, inherited beta override, and explicit app
 opening). No native tool, installation or deployment was executed by those checks.
-Verified here: 11/11 synthetic bridge boundary tests; 56/56 existing reminder
+Verified here: 17/17 synthetic bridge/lifecycle boundary tests; 56/56 existing reminder
 schedule/merge/routine regression tests; real React controls/client with a fake
 daemon at 320px and 960px (denial, lost schedule/cancel reply, snooze status,
 cleanup, failed daemon read; no browser errors/overflow); frontend build; lint
@@ -34,8 +44,10 @@ cleanup, failed daemon read; no browser errors/overflow); frontend build; lint
 parser; plugin/shared metadata membership, widget embedding/dependency, all four
 bundle configurations, iOS minimums and Dev-only gate checked. Shell syntax and
 diff whitespace pass. Audit: 31 existing findings (2 critical, 11 high, 15 moderate,
-3 low), unchanged dependency versions. Native build script/device matrix unrun.
-No merge, staging/production deployment, real pickup scheduling, replacing
+3 low), unchanged dependency versions. Native build/install of the earlier
+revision is recorded above; the later fix and audible device matrix remain unrun.
+Only the existing Dev device installation is authorized. No merge,
+staging/production server deployment, production installation, real pickup scheduling, replacing
 existing alarms or provider changes are authorized by this experiment.
 
 ## Product experience context

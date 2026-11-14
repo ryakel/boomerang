@@ -26,6 +26,21 @@ class BoomerangViewController: CAPBridgeViewController {
         bridge?.registerPluginInstance(BoomerangReminders())
         bridge?.registerPluginInstance(BoomerangLocalNotifs())
         bridge?.registerPluginInstance(BoomerangAlarmProbe())
+        #if BOOMERANG_ALARM_PROBE
+        // The updater can retain a server bundle from an earlier installation.
+        // capacitorDidLoad runs after plugin initialization, before loadWebView:
+        // use the shipped UI first, so its probe-only OTA policy can execute.
+        // This changes asset routing only; no task/auth/storage data is cleared.
+        if let resources = Bundle.main.resourceURL {
+            bridge?.setServerBasePath(resources.appendingPathComponent("public").path)
+        }
+        let probeBuild = WKUserScript(
+            source: "window.__BOOMERANG_ALARM_PROBE_BUILD__ = true;",
+            injectionTime: .atDocumentStart,
+            forMainFrameOnly: true)
+        webView?.configuration.userContentController.addUserScript(probeBuild)
+        print("⚡️ [Boomerang] alarm experiment: loading bundled UI; server OTA is paused")
+        #endif
     }
 
     override func viewDidLoad() {

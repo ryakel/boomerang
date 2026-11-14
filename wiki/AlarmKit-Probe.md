@@ -1,7 +1,8 @@
 # Disposable AlarmKit test — Mac handoff
 
 Status: **unsigned simulator compilation/packaging passed; physical-device
-installation passed; audible evaluation pending**. Branch `claude/alarmkit-probe`, based on dev `7354b6a`.
+installation passed for the earlier revision; UI-isolation fix needs Mac rebuild;
+audible evaluation pending**. Branch `claude/alarmkit-probe`, based on dev `7354b6a`.
 This is a delivery experiment before deciding how to implement school pickup.
 See [the product walkthrough](School-Pickup-Experience.md) and
 [D011](Decision-Log.md#d011--bounded-native-alarm-delivery-experiment).
@@ -28,6 +29,38 @@ configurations return unavailable without requesting permission or scheduling.
 Both configurations embed the extension to keep the existing scheme structure.
 The owner subsequently authorized the Dev-only phone installation recorded below. No real schedule is armed by opening
 Settings, launch, resume, refresh, build, or tests.
+
+## Missing controls: deployed UI replaced the feature UI
+
+The owner's phone showed App build **dev-347e0e2** and Server version
+**dev-347e0e2**, with native-only notification controls present but no Alarm sound
+test. The running UI was the old deployed dev UI, not the tested feature UI.
+The existing OTA check accepts any different manifest version, so a feature
+binary can load an older server bundle at launch/resume; this path was reproduced
+with the actual updater code and synthetic inputs, without network or device
+actions. The screenshot does not identify whether the old bundle was retained
+or newly downloaded on that particular launch.
+
+For this experiment only, the native `BOOMERANG_ALARM_PROBE` gate selects the
+shipped `public` assets after updater plugin initialization and before loading
+the WebView. A document-start marker tells the shipped JS to reconcile any
+retained updater bundle with the supported `reset({toLastSuccessful:false})`
+API. Once builtin is selected, it acknowledges readiness and skips server OTA
+checks/listeners entirely, including on resume. That reset selects web assets;
+it does not clear tasks, credentials, settings or app data. No updater private
+storage keys are edited. Ordinary App builds retain their existing OTA policy.
+
+**Mac recheck required:** pull the latest feature branch preserving local edits,
+run `sh scripts/ios-alarm-probe-check.sh` (now 17 boundary/lifecycle tests), then
+use the existing `npm run ios:dev` to update the existing Dev installation.
+Before starting an alarm, verify that Alarm sound test is visible, App build
+identifies the feature revision instead of dev-347e0e2, and the updater reports
+`bundle.id == builtin`. Server version can remain dev-347e0e2; no server rollout
+is needed. Check foreground/resume and a cold relaunch without losing controls
+or triggering manifest/download requests, including recovery from a retained
+OTA bundle. Observe native/update logs without credentials. No uninstall or
+storage clear is needed. The native pin/reset path is unverified until this
+device recheck; earlier build/install passes do not validate the later fix.
 
 ## Implementation boundaries
 
