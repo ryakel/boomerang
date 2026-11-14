@@ -139,3 +139,16 @@ below predate those decisions and are historical recommendations, not authority.
   its nonconditional delete retains a final read/delete race.
 - External deletes remain explicitly irreversible. Retention/provider/production
   scope remains unchanged. [Evidence/limits](External-Recovery-E4.md).
+
+## D008 — Immediate explicit local capture with reviewed consequential work
+
+- Date/status: 2026-11-14, **implemented within D006**.
+- Product source: [accepted defaults](https://github.com/ryakel/boomerang/issues/1018#issuecomment-6856481691).
+- A pure, narrow imperative grammar permits only literal task/note capture before
+  any model call. Conditions, restrictions, scheduling/metadata, mixed actions
+  and external destinations retain review; unknown cases do not grant authority.
+- Server revalidation, immutable request identity, local journal/inverse and
+  actual saved-state evidence protect capture. UI retry preserves uncertain
+  request identity and never asks a model to repeat an uncertain write.
+- Direct capture remains immediate. Capturing a task is not completing its
+  real-world commitment. Limits/evidence: [E5](Explicit-Capture-E5.md).

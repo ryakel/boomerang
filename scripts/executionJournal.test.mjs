@@ -129,6 +129,9 @@ test('authenticated commit/status routes require revision and replay without res
   assert.equal((await request(app, `/api/adviser/executions/${approval.executionId}/recover`, { method: 'POST', body: { sequence: 1, choice: 'continue' } })).status, 401)
   assert.equal((await request(app, `/api/adviser/executions/${approval.executionId}/steps/unknown/undo`)).status, 401)
   assert.equal((await request(app, `/api/adviser/executions/${approval.executionId}/steps/unknown/check`, { method: 'POST' })).status, 401)
+  assert.equal((await request(app, '/api/adviser/capture', { method: 'POST', body: { message: 'add task: milk', chatId: 'synthetic-chat', requestId: 'synthetic-route-request' } })).status, 401)
+  const declined = await request(app, '/api/adviser/capture', { method: 'POST', token: 'synthetic-api-token', body: { message: 'do not add task: milk' } })
+  assert.equal(declined.data.handled, false)
   const options = { method: 'POST', token: 'synthetic-api-token', body: { sessionId: id } }
   assert.equal((await request(app, '/api/adviser/commit', options)).status, 409)
   const empty = s.session()
@@ -160,4 +163,11 @@ test('authenticated commit/status routes require revision and replay without res
   const replayedUndo = await request(app, `/api/adviser/executions/${approval.executionId}/undo`, undoOptions)
   assert.equal(replayedUndo.data.replayed, true)
   assert.equal(broadcasts, 2, 'Undo broadcasts once and its retry does not broadcast')
+  const captureOptions = { method: 'POST', token: 'synthetic-api-token', body: { message: 'add task: Route capture', chatId: 'synthetic-chat', requestId: 'synthetic-route-capture' } }
+  const captured = await request(app, '/api/adviser/capture', captureOptions)
+  assert.equal(captured.data.outcome.ok, true)
+  assert.equal((await request(app, '/api/adviser/capture', captureOptions)).data.outcome.replayed, true)
+  assert.equal(broadcasts, 3, 'capture broadcasts once; replay does not')
+  assert.equal(dependencies, 1, 'explicit local capture never resolves integration credentials')
+
 })

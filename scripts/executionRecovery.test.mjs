@@ -148,3 +148,21 @@ test('fresh process continues only known unstarted local commands', async t => {
   assert.deepEqual(result.blocked, [])
   await s.reopen() // do not let the parent's older in-memory DB overwrite the child
 })
+
+test('settling Undo retires only its own stopped draft and preserves newer staged work', async t => {
+  const s = await sandbox(t)
+  const id = s.session()
+  await s.stage(id, 'update_task', { id: 'exam', title: 'Undo then capture' })
+  await s.stage(id, 'update_task', { id: 'exam', notes: 'Never dispatch' })
+  const running = engine.commitPlan(id, s.deps)
+  engine.stopExecution(id)
+  const record = await running
+  const preview = previewLocalUndo(record.executionId)
+  assert.equal(applyLocalUndo(record.executionId, preview.revision).ok, true)
+  engine.settleUndoneSession(record.executionId)
+  assert.equal(engine.getSession(id).runnerState, 'idle')
+  assert.equal(engine.getSession(id).plan.length, 0)
+  await s.stage(id, 'update_task', { id: 'exam', notes: 'New plan must survive old Undo settlement' })
+  engine.settleUndoneSession(record.executionId)
+  assert.equal(engine.getSession(id).plan.length, 1)
+})

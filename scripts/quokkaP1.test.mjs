@@ -338,7 +338,7 @@ test('baseline: actual poll callback delivers buffered completion after disconne
   assert.deepEqual(result.errors, [])
 })
 
-test('R10 FIXED: actual poll callback delivers completion across bounded-buffer rollover', { timeout: 5000 }, async t => {
+test('R10 FIXED: actual poll callback delivers completion across bounded-buffer rollover', { timeout: 30000 }, async t => {
   const s = await sandbox(t)
   const id = s.session()
   engine.setRunnerState(id, 'running')

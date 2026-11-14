@@ -1,4 +1,5 @@
-import { commitPlan, getPlanApproval, recoverExecution, stopExecution, sessionSnapshot, recoverSession } from './adviserTools.js'
+import { captureExplicit } from './explicitCapture.js'
+import { commitPlan, getPlanApproval, recoverExecution, stopExecution, sessionSnapshot, recoverSession, settleUndoneSession } from './adviserTools.js'
 import { executionKey, getExecution, listExecutions } from './executionJournal.js'
 import { reconcileExternal, previewExternalUndo, applyExternalUndo } from './externalRecovery.js'
 import { applyLocalUndo, previewLocalUndo } from './localRecovery.js'
@@ -6,6 +7,15 @@ import { applyLocalUndo, previewLocalUndo } from './localRecovery.js'
 // Mounted behind the application's existing authGate. Inject only request-
 // scoped integration dependencies and the existing coalesced broadcast/queue.
 export function registerExecutionRoutes(app, { dependencies, afterCommit, onStop = () => {} }) {
+  app.post('/api/adviser/capture', async (req, res) => {
+    try {
+      const result = await captureExplicit(req.body || {})
+      if (result.handled && !result.outcome.replayed) await afterCommit(req, result.outcome, {})
+      res.json(result)
+    } catch (error) {
+      res.status(error.status || 409).json({ error: error.status === 429 ? error.message : 'Capture could not be confirmed. Check recent actions before retrying.' })
+    }
+  })
   app.post('/api/adviser/executions/:id/steps/:step/check', async (req, res) => {
     const outcome = await reconcileExternal(req.params.id, req.params.step, await dependencies(req))
     res.json(outcome)
@@ -19,7 +29,10 @@ export function registerExecutionRoutes(app, { dependencies, afterCommit, onStop
   app.post('/api/adviser/executions/:id/steps/:step/undo', async (req, res) => {
     if (!/^[a-f0-9]{64}$/.test(req.body?.revision || '')) return res.status(409).json({ error: 'Review Undo before confirming.' })
     const outcome = await applyExternalUndo(req.params.id, req.params.step, req.body.revision, await dependencies(req))
-    if (outcome.ok && !outcome.replayed) await afterCommit(req, { ...outcome, broadcastNeeded: true }, {})
+    if (outcome.ok && !outcome.replayed) {
+      settleUndoneSession(req.params.id)
+      await afterCommit(req, { ...outcome, broadcastNeeded: true }, {})
+    }
     res.status(outcome.state === 'conflict' ? 409 : 200).json(outcome)
   })
   app.post('/api/adviser/abort', (req, res) => {
@@ -53,7 +66,10 @@ export function registerExecutionRoutes(app, { dependencies, afterCommit, onStop
     const revision = req.body?.revision
     if (typeof revision !== 'string' || !/^[a-f0-9]{64}$/.test(revision)) return res.status(409).json({ error: 'Review Undo before confirming it.' })
     const outcome = applyLocalUndo(req.params.id, revision)
-    if (outcome.ok && !outcome.replayed) await afterCommit(req, { ...outcome, broadcastNeeded: true }, {})
+    if (outcome.ok && !outcome.replayed) {
+      settleUndoneSession(req.params.id)
+      await afterCommit(req, { ...outcome, broadcastNeeded: true }, {})
+    }
     res.status(outcome.state === 'conflict' ? 409 : 200).json(outcome)
   })
   app.get('/api/adviser/executions', (req, res) => {

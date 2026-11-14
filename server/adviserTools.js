@@ -382,7 +382,7 @@ function publicOutcome(record, replayed = false) {
   return { ...record, replayed, broadcastNeeded: !replayed && record.results.some(r => r.state !== 'not_started') }
 }
 
-export async function commitPlan(sessionId, deps, revision, resume) {
+export async function commitPlan(sessionId, deps, revision, resume, authority = 'reviewed_plan') {
   const session = getSession(sessionId)
   const approval = getPlanApproval(sessionId)
   const requestedRevision = revision || approval?.revision
@@ -401,7 +401,7 @@ export async function commitPlan(sessionId, deps, revision, resume) {
   // public receipts contain hashes/identities and safe per-step evidence.
   const plan = resume?.plan || structuredClone(session.plan)
   const record = resume?.record || {
-    ...approval, sessionId, chatId: session.chatId, state: 'running', ok: false,
+    ...approval, sessionId, authority, chatId: session.chatId, state: 'running', ok: false,
     createdAt: new Date().toISOString(),
     results: plan.map(s => ({ stepId: s.stepId, toolName: s.toolName, state: 'not_started', ok: false })),
   }
@@ -592,4 +592,17 @@ export function recoverSession(sessionId, choice) {
   session.plan = []
   setRunnerState(sessionId, 'modified')
   return { ok: true, sessionId: id, ...sessionSnapshot(id) }
+}
+
+// An explicit Undo ends the original stopped intent. Never discard a newer
+// staged revision in the same session while settling an older receipt.
+export function settleUndoneSession(executionId) {
+  const record = getExecution(executionId)
+  if (!record?.undoApplied) return
+  const session = getSession(record.sessionId)
+  if (!session || session.committing || getPlanApproval(record.sessionId)?.executionId !== executionId) return
+  session.plan = []
+  session.aborted = false
+  session.executionBlocked = false
+  setRunnerState(record.sessionId, 'idle')
 }

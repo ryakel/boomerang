@@ -8,8 +8,10 @@ import react from '@vitejs/plugin-react'
 import { createServer } from 'vite'
 import { sandbox, fence, engine, db } from './helpers/quokkaSandbox.mjs'
 import { registerExecutionRoutes } from '../server/adviserExecutionRoutes.js'
+import { registerMiscTools } from '../server/adviserToolsMisc.js'
 import { authGate } from '../server/auth.js'
 
+registerMiscTools()
 after(() => fence.restore())
 test('E1 browser recovery with synthetic HTTP server and no live application integrations', { timeout: 60000 }, async t => {
   const s = await sandbox(t)
@@ -18,6 +20,7 @@ test('E1 browser recovery with synthetic HTTP server and no live application int
   t.after(() => { delete process.env.AUTH_PASSWORD; delete process.env.API_TOKEN })
   const id = s.session()
   await s.stage(id, 'update_task', { id: 'exam', title: 'Browser applied' })
+  engine.setRunnerState(id, 'awaiting_confirm')
   const approval = engine.getPlanApproval(id)
   const steps = engine.getSession(id).plan.map(step => ({ stepId: step.stepId, toolName: step.toolName, preview: step.preview }))
   const chat = { id: 'synthetic-chat', sessionId: id, messages: [{ role: 'assistant', content: 'Synthetic plan', plan: steps, planRevision: approval.revision }] }
@@ -28,13 +31,18 @@ test('E1 browser recovery with synthetic HTTP server and no live application int
   app.get('/api/adviser/chats', (_req, res) => res.json({ chats: [chat], archived: [], activeId: chat.id }))
   app.get('/api/adviser/chats/active', (_req, res) => res.json({ chat }))
   app.patch('/api/adviser/chats/:id', (_req, res) => res.json({ ok: true }))
+  let chatRequests = 0
+  app.get('/__capture_state', (_req, res) => res.json({ tasks: db.getAllTasks(), notes: db.getAllNotes(), chatRequests }))
   app.post('/api/adviser/chat', (_req, res) => {
+    chatRequests++
     res.setHeader('Content-Type', 'text/event-stream')
+    const session = engine.getSession(id)
+    const current = engine.getPlanApproval(id)
     res.end([
-      ['session', { sessionId: id }],
-      ['plan', { revision: approval.revision, steps }],
+      ['session', { sessionId: id, runnerState: session.runnerState }],
+      ...(current ? [['plan', { ...current, steps }]] : []),
       ['done', {}],
-      ['runner_state', { state: 'awaiting_confirm' }],
+      ['runner_state', { state: session.runnerState }],
     ].map(([event, data]) => `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`).join(''))
   })
   app.post('/api/log', (_req, res) => res.json({ ok: true }))

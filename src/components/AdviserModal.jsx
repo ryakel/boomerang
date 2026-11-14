@@ -517,7 +517,7 @@ export default function AdviserModal({ open, adviser, onClose, onAfterCommit, on
             {status === 'committed' && (
               <div className="v2-adviser-committed-bar">
                 <CheckCircle2 size={16} />
-                <span>Actions reported applied. Ask for more or start a fresh chat.</span>
+                <span>{messages.at(-1)?.captureKind ? `Captured your ${messages.at(-1).captureKind}. Review Undo in recent actions.` : 'Actions reported applied. Ask for more or start a fresh chat.'}</span>
                 <button className="v2-adviser-link" onClick={handleNewChat}>new chat</button>
               </div>
             )}

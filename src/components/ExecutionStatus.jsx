@@ -45,7 +45,7 @@ export default function ExecutionStatus({ chatId, onRecords, onModify }) {
   return <section className="v2-execution-status" aria-label="Execution status" aria-live="polite">
     {error && <p role="status">Execution status unavailable. Check what happened before trying again.</p>}
     {visible.map(record => <details open={['running','stopping','stopped','needs_checking'].includes(record.state) || undefined} key={record.executionId} className="v2-adviser-plan">
-      <summary>{record.undoApplied && record.state === 'partial' ? 'Supported changes undone; other actions remain' : record.undoOf && record.ok ? 'Undo completed' : record.state === 'undone' && record.results.every(s => !s.evidence) ? 'Local changes undone' : labels[record.state] || 'Outcome needs checking'} · {new Date(record.createdAt).toLocaleString()}</summary>
+      <summary>{record.undoApplied && record.state === 'partial' ? 'Supported changes undone; other actions remain' : record.undoOf && record.ok ? 'Undo completed' : record.authority === 'explicit_capture' && record.ok ? 'Explicit capture saved' : record.state === 'undone' && record.results.every(s => !s.evidence) ? 'Local changes undone' : labels[record.state] || 'Outcome needs checking'} · {new Date(record.createdAt).toLocaleString()}</summary>
       {record.error && <p>{record.error}</p>}
       <ul>{record.results.map(step => <li key={step.stepId}>
         {step.toolName.replace(/^gcal_/, 'calendar_').replaceAll('_', ' ')}: {stepLabels[step.state] || 'Outcome not verified'}
