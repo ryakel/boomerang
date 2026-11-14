@@ -8,6 +8,15 @@
 > and packaging checks without installing, launching or scheduling. Neither
 > native compilation nor physical sound/snooze has been verified in the cloud.
 
+The Dev alarm experiment now keeps its bundled UI: `BOOMERANG_ALARM_PROBE`
+selects packaged assets before WebView load and injects a marker for a
+bundled-only updater lifecycle. Retained server bundles are reset to builtin
+through the updater's public API; no app data is cleared. No server OTA check or
+resume listener is installed in this experiment. Ordinary App builds retain
+their existing updates. This prevents the deployed dev UI from hiding an
+unmerged native-test UI; the [handoff](AlarmKit-Probe.md) requires App build,
+updater bundle identity and controls to remain stable across launch/resume.
+
 Boomerang's native iOS app wraps the existing React/Vite web app in a
 [Capacitor](https://capacitorjs.com/) shell and adds native iOS surfaces — a
 **Share Extension** (create a task from a shared Message/email/page), **App

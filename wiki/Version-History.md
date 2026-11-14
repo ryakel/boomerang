@@ -6,6 +6,11 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-11-14
 
+- fix(ios): retain the bundled alarm experiment ui [M]
+  - Diagnose phone App build/Server version dev-347e0e2 and missing test controls; reproduce selection of an older server UI over a feature build using synthetic updater inputs.
+  - Behind the native probe gate, select shipped assets before WebView load and reconcile retained OTA assets to builtin through the supported reset API. Skip server UI checks on launch/resume only for that experiment; preserve app data and ordinary App update behavior.
+  - Add retained/builtin/error/reload/ordinary-resume lifecycle tests and document the required Mac rebuild and phone launch/resume validation. Earlier installation evidence does not validate this new native bootstrap change.
+
 - docs(ios): record alarm probe build and dev installation [S]
   - Record exact tested source commit `ae1dcb44e92accbfacc1f855fee2487bdb525c83`, standard Xcode 27.2 (`27B52`), successful simulator checks and signed Dev iPhone installation/launch, including the pre-install bundle guard and preserved local working-tree caveats.
   - Keep physical audibility, snooze, Stop/cancel and Watch behavior unverified pending owner-initiated tests. No merge, production change or server deployment.

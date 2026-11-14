@@ -54,6 +54,7 @@ export default function AlarmProbePanel() {
     <SettingsGroup caption="Alarm sound test">
       <div className="v2-settings-row" style={{ flexDirection: 'column', alignItems: 'stretch', gap: 12 }}>
         <p className="v2-settings-row-hint">
+          {window.__BOOMERANG_ALARM_PROBE_BUILD__ === true && 'This test build keeps its installed UI; server UI updates are paused. '}
           One disposable alarm in 60 seconds, with a 1-minute snooze. It can sound through
           Silent and Focus. Stop ends the sound; it does not record departure or pickup.
           Keep your existing alarms while we test this.
