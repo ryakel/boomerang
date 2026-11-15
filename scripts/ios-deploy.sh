@@ -13,6 +13,7 @@
 # need ONE interactive Xcode build (Cmd-R) to register with Apple. After that
 # this script is all you need.
 set -e
+. "$(dirname "$0")/ios-xcode-env.sh"
 
 SCHEME="${1:-App}"
 UDID="${2:-}"

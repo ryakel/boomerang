@@ -1,5 +1,22 @@
 # iOS Native App (Capacitor)
 
+> **AlarmKit experiment (2026-11-14):** `claude/alarmkit-probe` adds a disposable
+> Dev-only sound test, not a pickup scheduler. See the [Mac handoff and unrun
+> device matrix](AlarmKit-Probe.md). The new code requires SDK/iOS 26.1+; prefer
+> Xcode 27 for the owner's iOS 27 phone. The main app minimum remains iOS 16.
+> `sh scripts/ios-alarm-probe-check.sh` performs unsigned simulator compilation
+> and packaging checks without installing, launching or scheduling. Neither
+> native compilation nor physical sound/snooze has been verified in the cloud.
+
+The Dev alarm experiment now keeps its bundled UI: `BOOMERANG_ALARM_PROBE`
+selects packaged assets before WebView load and injects a marker for a
+bundled-only updater lifecycle. Retained server bundles are reset to builtin
+through the updater's public API; no app data is cleared. No server OTA check or
+resume listener is installed in this experiment. Ordinary App builds retain
+their existing updates. This prevents the deployed dev UI from hiding an
+unmerged native-test UI; the [handoff](AlarmKit-Probe.md) requires App build,
+updater bundle identity and controls to remain stable across launch/resume.
+
 Boomerang's native iOS app wraps the existing React/Vite web app in a
 [Capacitor](https://capacitorjs.com/) shell and adds native iOS surfaces — a
 **Share Extension** (create a task from a shared Message/email/page), **App
@@ -67,6 +84,14 @@ as the App Intent's 10s URLSession timeout above.
 ---
 
 ## The standard rebuild (start here every time)
+
+`ios-rebuild.sh`, `ios-deploy.sh`, and the alarm probe check default to standard
+`/Applications/Xcode.app`, using the shared `scripts/ios-xcode-env.sh`. They
+print its path/version and set `DEVELOPER_DIR` only for the script and its child
+processes. An inherited beta override or the Mac's global beta selection does
+not change that default; a missing standard install is an error. Set
+`BOOMERANG_XCODE_APP` explicitly for another installation. Rebuild opens that
+same Xcode app directly. No global `xcode-select` setting is changed.
 
 ```bash
 git checkout main && git pull

@@ -1,0 +1,60 @@
+# Working on Boomerang
+
+Be a product-thinking engineering partner. Discuss strategy, UX and tradeoffs;
+inspect the relevant code before technical claims. A product conversation can
+end in a recommendation or an open question; it need not become implementation.
+
+## Start here
+
+1. Read [CLAUDE.md](CLAUDE.md) for engineering invariants and branch/release rules.
+2. Read [Product Context](wiki/Product-Context.md) for goals and product principles.
+3. Read [Work Status](wiki/Work-Status.md) and the current issue's latest comments
+   for scope, approvals, evidence and outstanding work.
+4. Read [Decision Log](wiki/Decision-Log.md) and the relevant subsystem docs.
+
+These are complementary documents. Current explicit user instructions govern
+authorization. Verify dated status against GitHub and code; do not treat an old
+roadmap, accepted product direction or merged test PR as approval to implement.
+
+## Collaborate and preserve continuity
+
+- Distinguish product direction, proposed implementation, approved work and
+  completed/verified work. Record material decisions and approval sources in
+  the decision log; link code evidence and outcomes from issues/PRs.
+- Keep enduring goals in Product Context, choices/tradeoffs in Decision Log,
+  current authorization/evidence in Work Status, and implementation mechanics in
+  existing subsystem docs. Avoid copying whole discussions into every file.
+- Follow through on authorized work without repeatedly asking for the same
+  approval. Surface only decisions that affect scope or unresolved product
+  semantics; do not invent assumptions to fill them.
+- Inspect changes and run appropriate tests. Preserve unrelated local work;
+  start new branches from current `origin/dev`. Follow CLAUDE.md's documentation
+  and commit conventions. Never merge a PR without explicit approval for it.
+- Check deployment side effects before merging. `dev` normally auto-deploys
+  staging; `main` is production. A one-time deployment approval is not standing
+  permission for subsequent deployments.
+
+## Current AI work
+
+Issue [#1018](https://github.com/ryakel/boomerang/issues/1018) coordinates the
+architecture/testing and execution-reliability work. P1 tests were merged in
+#1019. E1 receipts (#1022), E2 local Undo (#1023), E3 recovery (#1024) and E4
+external evidence (#1025) are merged. E5 capture (#1026) is merged. This bounded implementation plan is complete; see
+[current plan/evidence](wiki/Execution-Reliability-Plan.md) and Work Status for
+actual integration/deployment results. Historical authorization remains in the
+decision log and issue. Green characterization tests are not universal safety.
+
+Preserve Claude defaults. Production main, provider migrations, original P2–P5
+and paid benchmarks remain outside the execution-reliability approval.
+
+## Standing execution-reliability authority (2026-11-14)
+
+The owner explicitly requested continuing to build and merge until E1–E5 are
+implemented. [Recorded authority](https://github.com/ryakel/boomerang/issues/1018#issuecomment-6869543997)
+supersedes the earlier per-increment merge restrictions above for this plan.
+Implement/test/document each increment on a separate branch and PR, merge into
+`dev` after checks, including its automatic staging deployments. No production
+`main`, provider migration, paid benchmarks or unrelated changes are authorized.
+See [current plan](wiki/Execution-Reliability-Plan.md). No repeated merge question
+was needed within that approval. It is now delivered; do not infer authority for
+new runtime increments or deployments from this completed plan.

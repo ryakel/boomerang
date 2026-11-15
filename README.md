@@ -38,6 +38,7 @@ Open `http://localhost:3001` and add your API keys in Settings.
 ## Features
 
 - **Persistent nagging** — snooze requires "then when", reframe after too many snoozes
+- **Quokka capture and recovery** — explicit local task/note capture stays immediate; consequential plans require approval, with durable receipts, Stop/recovery and supported Undo. [Scope and limits](wiki/Execution-Reliability-Plan.md)
 - **AI-powered assistance** — task suggestions, note polishing, date inference, reframing, and "What Now?" task picker
 - **Energy/capacity tagging** — AI-inferred energy type (desk, people, errand, creative, physical) and drain level (1-3) on every task, tap-to-cycle override
 - **AI toast messages** — pre-generated contextual one-liners on task complete/reopen, speed-aware

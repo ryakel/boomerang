@@ -20,6 +20,7 @@ import Toggle from './Toggle'
 import CalendarRulesEditor from './CalendarRulesEditor'
 import { GrowthAreasPanel } from './GrowthAreasModal'
 import AutosaveIndicator from './AutosaveIndicator'
+import AlarmProbePanel from './AlarmProbePanel'
 import { applyTheme } from '../theme'
 import './SettingsModal.css'
 import { MODEL_CATALOG as AI_MODEL_CATALOG, TIER_DEFAULTS as AI_TIER_DEFAULTS } from '../../server/aiModels.js'
@@ -2949,6 +2950,7 @@ function NotificationsPanel({ settings, update, page, setPage }) {
       </>)}
 
       {sub === 'test' && (<>
+        {isNativeShell() && <AlarmProbePanel />}
         <div className="v2-notif-tests">
           {[
             { key: 'push', label: 'Test push', enabled: settings.push_notifications_enabled === true,

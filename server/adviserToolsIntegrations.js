@@ -6,6 +6,7 @@
 // - delete → cannot perfectly restore (logs a warning; external deletes are final)
 
 import { registerTool } from './adviserTools.js'
+import { stampCalendarCreate, stageCalendarUpdate, createCalendar, updateCalendar, createChecklist } from './externalRecovery.js'
 import * as notionProxy from './notionMCPProxy.js'
 import { markNotionPageAuthored } from './db.js'
 
@@ -92,35 +93,14 @@ export function registerGCalTools() {
       },
       required: ['summary', 'start', 'end'],
     },
-    preview: (a) => `Create GCal event "${a.summary}"`,
-    execute: async (args, deps) => {
-      ensure(deps.gcalToken, 'Google Calendar not connected')
-      const calId = encodeURIComponent(args.calendar_id || 'primary')
-      const event = {
-        summary: args.summary,
-        description: args.description || '',
-        start: args.start,
-        end: args.end,
-      }
-      const data = await httpJson(`${GCAL_BASE}/calendars/${calId}/events`, {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${deps.gcalToken}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify(event),
-      }, 'GCal create')
-      return {
-        result: { event_id: data.id, htmlLink: data.htmlLink },
-        compensation: async () => {
-          await fetch(`${GCAL_BASE}/calendars/${calId}/events/${encodeURIComponent(data.id)}`, {
-            method: 'DELETE', headers: { Authorization: `Bearer ${deps.gcalToken}` },
-          }).catch(() => {})
-        },
-      }
-    },
+    preview: (a) => `Create GCal event "${a.summary}" on calendar ${a.calendar_id || 'primary'}`,
+    preStage: stampCalendarCreate,
+    execute: createCalendar,
   })
 
   registerTool({
     name: 'gcal_update_event',
-    description: 'Patch an existing calendar event. Only provided fields change. Captures the event body first so rollback can restore it. Always include summary_hint (the event title you saw in gcal_list_events) so the plan preview reads as a human name, not an opaque ID.',
+    description: 'Patch an existing calendar event. Only provided fields change. Checks the reviewed event revision and reads back changed fields for recovery. Always include summary_hint (the event title you saw in gcal_list_events) so the plan preview reads as a human name, not an opaque ID.',
     schema: {
       type: 'object',
       properties: {
@@ -134,36 +114,9 @@ export function registerGCalTools() {
       },
       required: ['event_id'],
     },
-    preview: (a) => `Update GCal event "${a.summary_hint || a.summary || a.event_id.slice(0, 8)}"`,
-    execute: async (args, deps) => {
-      ensure(deps.gcalToken, 'Google Calendar not connected')
-      const calId = encodeURIComponent(args.calendar_id || 'primary')
-      const evId = encodeURIComponent(args.event_id)
-      const before = await httpJson(`${GCAL_BASE}/calendars/${calId}/events/${evId}`, {
-        headers: { Authorization: `Bearer ${deps.gcalToken}` },
-      }, 'GCal fetch')
-      const patch = {}
-      for (const k of ['summary', 'description', 'start', 'end']) if (args[k] !== undefined) patch[k] = args[k]
-      await httpJson(`${GCAL_BASE}/calendars/${calId}/events/${evId}`, {
-        method: 'PATCH',
-        headers: { Authorization: `Bearer ${deps.gcalToken}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify(patch),
-      }, 'GCal update')
-      return {
-        result: { event_id: args.event_id, updated: Object.keys(patch) },
-        compensation: async () => {
-          const restore = {
-            summary: before.summary, description: before.description,
-            start: before.start, end: before.end,
-          }
-          await fetch(`${GCAL_BASE}/calendars/${calId}/events/${evId}`, {
-            method: 'PATCH',
-            headers: { Authorization: `Bearer ${deps.gcalToken}`, 'Content-Type': 'application/json' },
-            body: JSON.stringify(restore),
-          }).catch(() => {})
-        },
-      }
-    },
+    preview: (a) => `Update GCal event "${a.summary_hint || a.summary || a.event_id.slice(0, 8)}" on calendar ${a.calendar_id || 'primary'}`,
+    stageGuard: stageCalendarUpdate,
+    execute: updateCalendar,
   })
 
   registerTool({
@@ -465,26 +418,6 @@ export function registerTrelloTools() {
       required: ['card_id', 'name'],
     },
     preview: (a) => `Add checklist "${a.name}" to Trello card "${a.card_name_hint || a.card_id.slice(0, 8)}"`,
-    execute: async (args, deps) => {
-      ensure(deps.trello?.key && deps.trello?.token, 'Trello not connected')
-      const cl = await httpJson(`${TRELLO_BASE}/cards/${args.card_id}/checklists?${trelloQs(deps.trello)}`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: args.name }),
-      }, 'Trello checklist create')
-      const itemIds = []
-      for (const item of args.items || []) {
-        const ci = await httpJson(`${TRELLO_BASE}/checklists/${cl.id}/checkItems?${trelloQs(deps.trello)}`, {
-          method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ name: item, checked: 'false' }),
-        }, 'Trello item')
-        itemIds.push(ci.id)
-      }
-      return {
-        result: { checklist_id: cl.id, item_ids: itemIds },
-        compensation: async () => {
-          await fetch(`${TRELLO_BASE}/checklists/${cl.id}?${trelloQs(deps.trello)}`, { method: 'DELETE' }).catch(() => {})
-        },
-      }
-    },
+    execute: createChecklist,
   })
 }

@@ -3,12 +3,33 @@
 > Moved out of `CLAUDE.md` (2026-07-25) in the context-engineering restructure: `CLAUDE.md` now holds only invariants and gotchas, and deep implementation notes live here, loaded on demand. Content below is preserved from the former CLAUDE.md "Development Notes" and stays maintained — update it the same way CLAUDE.md used to be updated.
 
 ### Quokka (AI Adviser)
+
+**Current execution delivery:** [E5 explicit capture](Explicit-Capture-E5.md) adds immediate journaled task/note capture with strict authority and no model fallthrough on uncertainty. E1/E2 are merged. [E3 Stop recovery](Stop-Recovery-E3.md) adds remaining-only Continue, reviewed Modify, held queues and cursor/snapshot recovery; private approved commands now persist. [Plan/authority](Execution-Reliability-Plan.md) supersedes historical review-pending labels below. [E4 external recovery](External-Recovery-E4.md) supports Calendar identity/readback/conditional Undo and per-effect Trello checklist evidence. Other external operation families remain unsupported.
+
+**P1 execution/recovery evidence (2026-11-13, #1018):** run
+`npm run test:quokka-p1` for the isolated characterization suite. The
+[P1 risk register](Quokka-P1-Risk-Register.md) documents concurrent commit,
+uncertain retry, stale-plan/rollback, abort, partial compensation, restart and
+event-rollover results. Green `REPRO` tests reproduce known risks, not safety.
+No runtime behavior or provider defaults changed.
+
+**E1 implementation (review pending):** [Execution Records](Execution-Records-E1.md)
+documents approved-revision deduplication, durable receipts, restart uncertainty,
+status API/UI, tests and limits. This changes runtime execution handling but
+does not implement Undo, full Stop recovery or provider migration.
+
+**E2 implementation (review pending):** [Local Undo](Local-Undo-E2.md) adds
+previewed, durable local field/create inverses and database version guards.
+Supported local compensation is verified and conflict-aware; unsupported tools
+remain best effort. Direct capture, provider defaults and full Stop flow are
+unchanged.
+
 Free-form natural-language control surface — user says "I've rescheduled my FAA exam to May 12, adjust everything" and Quokka finds related tasks/GCal events/routines and queues the fix. Named after the quokka (a small, perpetually-smiling Australian marsupial). User-facing branding uses "Quokka"; internal code (module names, CSS classes, endpoints under `/api/adviser/`, state vars like `showAdviser`) stays as `adviser`/`Adviser` — renaming plumbing provides no value.
 
 **Entry point:** `✨` sparkle icon in the header (took the slot where the gear used to be). Settings moved into the overflow `⋯` menu.
 
 **Architecture (5 non-negotiables):**
-1. **Atomic execute-on-confirm.** Nothing mutates during the chat turn. Mutations are staged in a server-side session plan; user reviews the plan, clicks Apply, and the plan runs in order with LIFO rollback compensation on any failure.
+1. **Reviewed execution with honest partial outcomes.** Model-issued mutations are staged. Narrow explicit local capture is handled deterministically before the model ([E5](Explicit-Capture-E5.md)). Mutations are staged in a server-side session plan; user reviews the plan, clicks Apply, and the plan runs in order with guarded local inverse handling and explicit partial/unknown outcomes. External compensation is not an atomic rollback guarantee.
 2. **Search-first context.** No task dumps in the prompt. The model uses `search_tasks`, `list_routines`, `gcal_list_events`, `notion_search`, etc. to explore before acting. Works the same at 10 tasks or 1000.
 3. **Streaming progress.** SSE events (`turn`, `tool_call`, `tool_result`, `message`, `plan`, `done`, `runner_state`, `queue_update`, `committed`) fire live during the tool-use loop so the user sees what the model is doing. Includes an abort button.
 4. **Coalesced broadcast.** During `commitPlan()` execution, individual record mutations suppress their usual SSE broadcast. A single `bumpVersion() + broadcast('adviser')` fires at the end so connected clients refetch once, not 15 times.

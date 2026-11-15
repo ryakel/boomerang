@@ -4,6 +4,97 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ---
 
+## 2026-11-14
+
+- docs(ios): reconcile alarm probe evidence and dev approval [S]
+  - Consolidate owner/device readiness and cancellation evidence, ordinary-App isolation and clean-source build qualification; preserve explicit untested delivery conditions.
+  - Record owner authority to merge PR #1028 and deploy staging, excluding production and new pickup functionality.
+
+- fix(ios): unwrap capacitor plugins after module loading [S]
+  - Preserve module namespace wrappers across async loading so real Capacitor proxies cannot be assimilated as promises. Apply to updater and App loaders without changing update policy.
+  - Exercise actual Capacitor proxies in lifecycle and initializer browser tests. Native readiness verification is tracked in PR #1028.
+
+- fix(ios): constrain the snooze island countdown [M]
+  - Bound compact trailing content to 40 points with short non-countdown indicators; add a safe compact Xcode preview without changing AlarmKit snooze behavior. Phone layout/preview compilation still need a Mac check.
+  - Add non-sensitive updater lifecycle phase logs and failed-loader/readiness diagnostics. Exercise actual JS initialization alongside the alarm controls in the browser with synthetic native modules, requiring no server UI requests/resume listener.
+  - Record owner-observed alarm, native snooze re-alert and Stop/no-alarm readback; separate pending cancellation, delivery conditions, updater readiness and visual validation from successful earlier b615637 native builds/install.
+
+- fix(ios): retain the bundled alarm experiment ui [M]
+  - Diagnose phone App build/Server version dev-347e0e2 and missing test controls; reproduce selection of an older server UI over a feature build using synthetic updater inputs.
+  - Behind the native probe gate, select shipped assets before WebView load and reconcile retained OTA assets to builtin through the supported reset API. Skip server UI checks on launch/resume only for that experiment; preserve app data and ordinary App update behavior.
+  - Add retained/builtin/error/reload/ordinary-resume lifecycle tests and document the required Mac rebuild and phone launch/resume validation. Earlier installation evidence does not validate this new native bootstrap change.
+
+- docs(ios): record alarm probe build and dev installation [S]
+  - Record exact tested source commit `ae1dcb44e92accbfacc1f855fee2487bdb525c83`, standard Xcode 27.2 (`27B52`), successful simulator checks and signed Dev iPhone installation/launch, including the pre-install bundle guard and preserved local working-tree caveats.
+  - Keep physical audibility, snooze, Stop/cancel and Watch behavior unverified pending owner-initiated tests. No merge, production change or server deployment.
+
+
+- fix(ios): default build scripts to standard xcode [S]
+  - Share process-local Xcode selection across probe, rebuild and install scripts; default to `/Applications/Xcode.app`, print path/version, open that app explicitly and fail if missing. Preserve an explicit `BOOMERANG_XCODE_APP` alternative without changing global settings or silently falling back to beta.
+  - Record owner-reported standard Xcode 27.2 simulator/packaging evidence separately from unverified upstream revision and physical-device behavior. New selection changes still need a Mac recheck.
+  - Verify POSIX syntax and simulated command behavior for all three entry points, missing-install refusal, explicit paths with spaces and opening the selected app; no native build or installation in the cloud.
+- fix(ios): report selected alarm probe toolchain [S]
+  - Preserve the shared standard Xcode selection; print the selected developer directory and compiler path alongside the Xcode version before iOS build work. Document the same process-local selection for the existing `npm run ios:dev` workflow and its pre-install Dev bundle guard.
+  - Record Mac simulator compilation/packaging evidence separately from pending phone audibility. Preserve unrelated Watch schemes/generated package edits outside this commit; no merge, production or server deployment.
+
+- feat(ios): prepare a disposable dev alarm probe [L]
+  - Add explicit Dev-only AlarmKit permission, single-alarm scheduling, system Stop/one-minute Snooze, owned-ID readback/cancellation and the required countdown widget. Preserve existing task/reminder/Clock behavior; no live pickup schedule or production installation/deployment.
+  - Test bridge denial, unsupported installs, duplicates, failed readback, lost replies and cleanup; drive real controls with a synthetic daemon at 320/960px. Add Mac-only unsigned build/packaging check and a physical-device handoff with every unrun native check explicit. Reuse existing rebuild/install scripts; Xcode/phone validation remains pending.
+
+- docs(product): record pickup delivery constraints [S]
+  - Preserve user-supplied departure targets, Silent-mode use, unresolved Shortcuts bridge and iOS 27. Record AlarmKit feasibility and device validation requirements without treating the walkthrough as a live pickup feature.
+
+- docs(product): sketch the school pickup experience [M]
+  - Preserve the owner's revised conversational collaboration preferences and daily-use examples; distinguish the accepted one-responsibility direction from trial acknowledgment and unresolved logistics.
+  - Draft ordinary-day/Wednesday, missed-cue, repeated-snooze and departure/completion walkthroughs; inspect existing native reminder delivery and make its reliability limits explicit. No app code, live actions or deployments.
+
+- docs(quokka): record delivered reliability plan and evidence [S]
+  - Record merged E1–E5 PRs, final regression/browser/CI/staging outcomes and supported-operation/privacy/durability limits. Retain the earlier pre-deployment test timeout history and identify the superseded proposal.
+  - Separate accepted product defaults from completed bounded implementation authority; provider/paid work and production main remain outside the delivered plan. Documentation only.
+
+- feat(quokka): capture explicit local intentions immediately [L]
+  - Add shared pure authority classification and authenticated idempotent task/note capture before model calls. Preserve literal content, no-action restrictions and reviewed boundaries for mixed/scheduled/external work; retain existing direct capture behavior and Claude defaults.
+  - Persist request-to-execution identity, separate explicit capture authority, local inverse/receipt and uncertain retry ID; serialize sends and never fall through to a model after lost capture acknowledgement. Retire only an undone matching stopped draft, preserving newer plans.
+  - Add synthetic grammar/auth/storage/restart/idempotency and mobile/desktop browser capture/Undo/lost-response/UI-retry evidence. Give the 500-event disk test a realistic 30s budget after the E4 staging workflow timed out before deployment; assertions unchanged. Update delivered-plan context and accurate recovery limits.
+
+- feat(quokka): reconcile calendar and checklist effects [L]
+  - Add preapproved stable Calendar identity, operation markers, staged ETag guards, conditional field updates and readback; journal per-operation previewed Undo with deduplication, conflict checks and interrupted-inverse reconciliation.
+  - Persist Trello checklist/item partial effects; stop subrequest dispatch, check immediate cleanup HTTP/readback and expose residuals. Label external deletion irreversible and avoid no-op restoration claims. Trello's nonconditional cleanup race and unsupported families stay explicit.
+  - Add isolated lost-response, revision/race, checkpoint/restart, partial-cleanup and authenticated browser evidence. No production release, provider change or paid/live tests.
+
+- feat(quokka): add stopped execution recovery and event cursors [L]
+  - Standing owner authority covers E1–E5 implementation and dev merges/staging. Merge E2; add durable Stop intent, remaining-only Continue, reviewed Modify, existing local Undo choices and held queued messages. No automatic reversal or unknown replay.
+  - Migration 062 persists private commands/owned guards/queues/snapshots; monotonic execution sequences guard recovery races and session cursors recover bounded-log gaps. Preserve plaintext-storage/privacy and power-loss limits.
+  - Add synthetic race/restart/Stop/cursor invariants, authenticated real-hook Chromium flows, and update the durable delivery tracker. No production release, provider change or paid/live tests.
+
+## 2026-11-13
+
+- feat(quokka): add previewed local undo and stale-edit guards [L]
+  - Authorized E2 after owner requested merging E1 and moving on. Migration 061 tracks all task/note writers; stage/Apply/Undo version checks preserve later edits. Synchronous local mutations, inverses and receipts share a transaction and atomic checkpoint; unsupported tools retain existing behavior.
+  - Add authenticated Undo preview/confirmation, durable deduplicated inverse execution and UI Cancel/reopen/confirm flow. Cover supported task/note fields and safe simple creates; reject later edits, dependencies, connected/critical tasks and unsafe mixed creation plans. No external Undo or full Stop flow.
+  - Convert P1 R3/R3b into safety invariants and test fresh-process Undo, checkpoint failure, same-field conflict, unrelated-field preservation, compatibility and browser recovery. No dependency/provider changes, paid calls, E2 merge or deployment. See Local-Undo-E2.md for scope/privacy/retention limits and final PR evidence.
+  - 692 offline tests pass across 40 files; actual-hook mobile/desktop preview, Cancel, reopen, confirm and repeated Undo pass. Build/lint pass (18 existing warnings). Audit remains 32 vulnerabilities in unchanged dependencies.
+
+- fix(quokka): reject unknown approvals before resolving tokens [S]
+  - E1 review found that a valid-format revision on an empty session could report empty success. Reject absent/mismatched current approvals before request-scoped integration credentials are resolved; retain read-only replay of genuine persisted receipts after session expiry.
+  - Extend the authenticated route regression with an empty-session case, zero dependency resolution and independent engine rejection. E1 journal/P1 checks pass (25 tests); changed files lint clean. No E2 implementation, merge or deployment.
+
+- fix(quokka): persist execution receipts and prevent duplicate apply [L]
+  - Authorized E1 only (#1018, proposal #1021): migration 060, immutable approval revisions, durable execution receipts, per-step dispatch/evidence checkpoints and no automatic retry of uncertain effects. Interrupted dispatch is unknown on restart; journal persistence failure blocks new actions.
+  - Add authenticated status routes and Quokka outcome UI; recover receipts by chat independently of sessions and suppress stale Apply controls. Preserve direct capture and Claude defaults. Atomic DB snapshot replacement avoids truncating the live file; no power-loss guarantee or storage-engine migration.
+  - Convert P1 R1/R2/R2b into safety invariants; retain other known-risk REPRO cases. 671 offline tests, 28 targeted E1/P1/storage checks, actual-hook mobile/desktop browser validation, build and lint pass (18 existing warnings). Audit: 32 existing vulnerabilities, dependencies unchanged.
+  - No E2–E5, provider migration, paid calls, merge or deployment. Existing compensation and Stop remain limited; explicit readback, safe Undo and event cursors are later work. See Execution-Records-E1.md.
+
+- docs(product): record workspace handoff and decision structure [M]
+  - Capture the product-owner handoff in Product Context, Decision Log and Work Status; add AGENTS.md as a concise entry point and link it from CLAUDE.md. Record execution-first goals, the confirmed owner-daily-use-first audience, Flourish observations as supplied research, collaboration expectations and unresolved product decisions.
+  - Reconcile #1018 with completed/merged P1 and its specifically approved staging workflow; retain current limits on runtime changes, providers, benchmarks and deployments. File organization remains a documentation proposal, not new implementation authority.
+  - Recheck all 19 isolated P1 cases on merged dev and validate documentation links. Fresh audit reports 32 vulnerabilities against unchanged dependencies (2 critical, 11 high, 16 moderate, 3 low); no runtime/test/dependency changes or new deployment.
+
+- test(quokka): characterize isolated execution and recovery risks [M]
+  - Issue #1018 P1 only: 19 deterministic tests use disposable synthetic sql.js databases, real staging/commit tools, fake Calendar/Trello endpoints and notification sinks, and verified fetch/socket/TLS/UDP fences. No runtime files or model defaults change.
+  - Reproduce concurrent duplicate commits, uncertain external retry, stale plans and rollback erasing newer edits, abort during commit, partial/failed compensation, restart/session loss and polling rollover. Sequential retry after completed commit does not duplicate. Green characterization tests document defects, not fixes.
+  - Add `npm run test:quokka-p1`, dev PR CI coverage and `wiki/Quokka-P1-Risk-Register.md` with reproduction steps, severities, limitations and recommended approval gate. 131 adjacent regression tests pass; lint has 0 errors/18 existing warnings. Audit flags 31 existing vulnerabilities; dependencies unchanged. No deployment, live calls, provider work or merge.
+
 ## 2026-11-12
 
 - fix(today): a loop credited in loops stops listing its leftover task [S]
