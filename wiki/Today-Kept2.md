@@ -1,5 +1,12 @@
 # Today, Kept 2.0
 
+> **2026-11-15: the Tasks list follows these rules too (BOOM-37).** The Upcoming
+> tab shows the same Worth doing next pick (it calls `buildTodayModel`, with the
+> same events and Not now state), then cards from `src/tasksModel.js`: Today,
+> This week, a quiet Slipped card with Tomorrow / Next week / Let it go, Later,
+> Started, Anytime, Waiting. Shared pieces moved to `src/kept/today2Hooks.js`
+> and `today2Parts.jsx`.
+>
 > **Status (2026-11-11): selection model corrected after the first dev test.**
 > Ticket BOOM-32. The first build (§3, as shipped to dev on 2026-11-10) put the
 > old task-manager behaviour under new names: at 9:39 PM it opened on seven
