@@ -278,10 +278,13 @@ twice. All-day events are ignored for now.
 
 ## 4. Visual spec (Kept dark; light derives the same proportions)
 
-Fonts are `'Fraunces Variable'` and `'DM Sans Variable'` from Fontsource, a
-different family name from the Google-loaded `Fraunces`/`DM Sans` the rest of
-the app uses, so only Today changes. The wordmark, header and nav keep the
-production fonts.
+Fonts are `'Fraunces Variable'` and `'DM Sans Variable'` from Fontsource.
+When this page was written only Today used them; since 2026-11-15 (BOOM-34)
+every Kept surface does, through `src/kept/type.css`: `Kept Serif` (Fraunces,
+weight capped at 540, SOFT 100) and `Kept Sans` (DM Sans opsz, capped at 600)
+behind `--v2-font-display`/`--v2-font-body`, plus the `bm-row-title` task row
+at 500 to match Today. The wordmark keeps Fraunces 700 with no SOFT. Today's
+own `.bm-t2` tokens are unchanged.
 
 | Role | Current production | Kept 2.0 Today |
 |---|---|---|

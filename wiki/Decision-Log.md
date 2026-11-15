@@ -299,3 +299,13 @@ below predate those decisions and are historical recommendations, not authority.
   (BOOM-34); Loops gets its own redesign around routine modes (BOOM-35,
   needs a spec and owner decisions before code).
 - Merge authority: not included. PRs to `dev` wait for explicit approval.
+
+## D017 — Standing authority to merge into `dev`
+
+- Date/status: 2026-11-15, **accepted (standing)**.
+- Source: owner, in conversation: "you are always permitted to run the runs to
+  push the app in dev. Let me know if/when we need to rebuild the iOS app or
+  push to prod."
+- Covers: merging PRs into `dev` and the automatic `boomerang-dev` deploy.
+- Excludes: `dev → main` promotion (production) and iOS rebuilds/installs.
+  For those, say when one is needed and wait for explicit approval.
