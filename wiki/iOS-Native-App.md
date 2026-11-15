@@ -1150,3 +1150,13 @@ suggest-then-confirm over silent action.
 - **Token handling.** The `API_TOKEN` lives in `localStorage` (and, in Phase 2,
   an App Group / Keychain) on the device — not in the repo or the app bundle.
   Rotate it by re-running `scripts/auth-setup.js` and updating the device.
+
+## Configurable alarm rules — Dev trial
+
+[Alarm Rules](Alarm-Rules.md) extends AlarmKit through a separate explicitly
+registered BoomerangAlarmRules bridge. Shared widget metadata supports configured
+titles; the ordinary App native service stays disabled. Rule configuration is
+source-linked and server-durable; explicit reviewed arming owns UUIDs on one phone.
+Launch/resume performs read/cancel/outbox sync only, never automatic scheduling.
+The same standard-Xcode check script builds both schemes. Dev installation still
+uses npm run ios:dev; no audible test is initiated by build/install or the agent.

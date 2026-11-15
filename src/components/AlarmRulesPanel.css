@@ -1,0 +1,15 @@
+.alarm-rules { display: block; line-height: 1.5; }
+.alarm-rules > p, .alarm-rules > label, .alarm-rules > details { display: block; margin: 0 0 16px; }
+.alarm-rules h3 { margin: 24px 0 14px; font-family: var(--v2-font-display, inherit); font-size: 1.2rem; }
+.alarm-rules label { display: block; }
+.alarm-rules fieldset { min-width: 0; margin: 20px 0; padding: 12px; border: 1px solid var(--v2-border, #ddd); border-radius: 12px; }
+.alarm-rules fieldset label { margin-bottom: 10px; }
+.alarm-rules legend { padding: 0 6px; }
+.alarm-rules input, .alarm-rules select { box-sizing: border-box; max-width: 100%; font: inherit; }
+.alarm-rules input[type="checkbox"] { margin-right: 8px; accent-color: var(--v2-accent, #d65326); }
+.alarm-rules .v2-settings-btn { margin: 4px 8px 12px 0; white-space: normal; text-align: left; }
+.alarm-rule-week > div { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 42px; }
+.alarm-rule-week > div label { margin: 0; }
+.alarm-rule-week input[type="time"] { padding: 6px; border-radius: 6px; background: transparent; }
+.alarm-rules details { color: var(--v2-text-secondary, #666); }
+.alarm-rules hr { border: 0; border-top: 1px solid var(--v2-border, #ddd); margin: 20px 0; }

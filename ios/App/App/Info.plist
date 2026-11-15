@@ -2,16 +2,10 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<key>BoomerangAppGroup</key>
+	<string>$(BOOMERANG_APP_GROUP)</string>
 	<key>CAPACITOR_DEBUG</key>
 	<string>$(CAPACITOR_DEBUG)</string>
-	<key>NSAlarmKitUsageDescription</key>
-	<string>Boomerang schedules only the disposable sound-test alarm you explicitly start, including its snooze, so you can test alerts through Silent and Focus.</string>
-	<key>NSSupportsLiveActivities</key>
-	<true/>
-	<key>NSRemindersFullAccessUsageDescription</key>
-	<string>Boomerang syncs tasks you give a reminder time with a Boomerang list in Apple Reminders, so the alarm rings on your phone and watch — and so anything you add to that list with Siri comes back into Boomerang.</string>
-	<key>NSRemindersUsageDescription</key>
-	<string>Boomerang syncs tasks you give a reminder time with a Boomerang list in Apple Reminders, so the alarm rings on your phone and watch — and so anything you add to that list with Siri comes back into Boomerang.</string>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>en</string>
 	<key>CFBundleDisplayName</key>
@@ -24,6 +18,10 @@
 	<string>6.0</string>
 	<key>CFBundleName</key>
 	<string>$(PRODUCT_NAME)</string>
+	<key>CFBundlePackageType</key>
+	<string>APPL</string>
+	<key>CFBundleShortVersionString</key>
+	<string>$(MARKETING_VERSION)</string>
 	<key>CFBundleURLTypes</key>
 	<array>
 		<dict>
@@ -35,17 +33,19 @@
 			</array>
 		</dict>
 	</array>
-	<key>CFBundlePackageType</key>
-	<string>APPL</string>
-	<key>CFBundleShortVersionString</key>
-	<string>$(MARKETING_VERSION)</string>
 	<key>CFBundleVersion</key>
 	<string>$(CURRENT_PROJECT_VERSION)</string>
-	<key>BoomerangAppGroup</key>
-	<string>$(BOOMERANG_APP_GROUP)</string>
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
 	<key>LSRequiresIPhoneOS</key>
+	<true/>
+	<key>NSAlarmKitUsageDescription</key>
+	<string>Boomerang schedules alarms you explicitly review and arm for your tasks and routines, including snooze and sound tests. These alarms can sound through Silent and Focus.</string>
+	<key>NSRemindersFullAccessUsageDescription</key>
+	<string>Boomerang syncs tasks you give a reminder time with a Boomerang list in Apple Reminders, so the alarm rings on your phone and watch — and so anything you add to that list with Siri comes back into Boomerang.</string>
+	<key>NSRemindersUsageDescription</key>
+	<string>Boomerang syncs tasks you give a reminder time with a Boomerang list in Apple Reminders, so the alarm rings on your phone and watch — and so anything you add to that list with Siri comes back into Boomerang.</string>
+	<key>NSSupportsLiveActivities</key>
 	<true/>
 	<key>UIApplicationSceneManifest</key>
 	<dict>

@@ -109,6 +109,15 @@ export async function initDb(filePath) {
 }
 
 // ============================================================
+// Alarm rules have their own durable state, outside whole-blob sync and dev seed.
+export function getAlarmRuleState() {
+  const stmt = db.prepare('SELECT data_json FROM alarm_rule_state WHERE id = 1')
+  try { return stmt.step() ? JSON.parse(stmt.getAsObject().data_json) : null } finally { stmt.free() }
+}
+export function setAlarmRuleState(value) {
+  db.run('INSERT INTO alarm_rule_state (id,data_json) VALUES (1,?) ON CONFLICT(id) DO UPDATE SET data_json=excluded.data_json', [JSON.stringify(value)])
+  schedulePersist()
+}
 // Legacy app_data operations (settings, labels, _version)
 // ============================================================
 

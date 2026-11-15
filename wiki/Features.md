@@ -784,3 +784,11 @@ first-class version of this: same `/api/capture` target, plus an on-device
 offline queue — a capture made with no connectivity (car, dead zones) is
 stored in the App Group and replayed on the next capture or app open, so a
 thought is never lost to a network blip. See `wiki/iOS-Native-App.md`.
+
+### Configurable task/routine alarms — Dev native trial
+
+[Alarm rules](Alarm-Rules.md) attach editable weekly/on-demand clocks, timezone,
+early cues, snooze and acknowledgment to an existing source. Saved rules require
+explicit preview/arming on one Dev phone. Native Stop is not task completion;
+acknowledgment cancels that date's remaining cues. Owner-led physical delivery
+checks remain pending; no live configuration is seeded by the feature.

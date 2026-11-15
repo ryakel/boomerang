@@ -15,6 +15,7 @@ import { registerPlugin } from '@capacitor/core'
 import { isNativeShell } from './apiConfig'
 import { safeSetItem, loadSettings } from './store'
 import { planLocalReminders } from './reminderSchedule'
+import { reconcileAlarmRuleSources } from './alarmRules'
 
 const Notifs = registerPlugin('BoomerangLocalNotifs')
 
@@ -60,6 +61,10 @@ export async function refreshLocalReminders(tasks = [], routines = [], { force =
   // Away reaches the device through the day list the server stamps for the
   // streak — one durable fact driving both, rather than a second channel that
   // can disagree with the first.
+  // Cancel owned strong alarms before restoring a source's ordinary reminder.
+  try { await reconcileAlarmRuleSources(tasks, routines) } catch(error) {
+    return {ok:false,error:`Could not reconcile alarm ownership: ${error.message}`}
+  }
   const s = settings || loadSettings() || {}
   const plan = planLocalReminders({
     tasks, routines,
