@@ -1,6 +1,7 @@
 @import './tokens.css';
 @import './kept/wb-compat.css';
 @import './kept/palette.css';
+@import './kept/type.css';
 @import './kept/settings.css';
 @import './kept/analytics.css';
 @import './kept/modals.css';

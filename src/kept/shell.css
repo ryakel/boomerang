@@ -188,7 +188,7 @@
   text-align: left; cursor: pointer;
   color: inherit; font: inherit;
 }
-.bm-row-title { font-size: 15px; font-weight: 550; line-height: 1.3; color: var(--bm-text); }
+.bm-row-title { font-size: 15px; font-weight: 500; line-height: 1.32; color: var(--bm-text); } /* Kept 2.0 task row (Today-Kept2 §4): DM Sans 500, same as Today */
 .bm-row-title.is-done { color: var(--bm-text-meta); text-decoration: line-through; }
 .bm-row-meta {
   display: flex; flex-wrap: wrap; align-items: center; gap: 10px;

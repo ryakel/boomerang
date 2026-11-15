@@ -6,6 +6,11 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-11-15
 
+- style(kept): carry the kept 2.0 type to every mobile surface [M]
+  - New `src/kept/type.css`: the Kept themes' display/body tokens now use the bundled variable Fraunces and DM Sans that Today already ships (no new font files; offline-safe on iOS). Two clamped families do the work without touching every rule: `Kept Serif` caps weight at 540 with SOFT 100, so page/sheet titles, stat numbers and loop names soften from 700; `Kept Sans` caps at 600, exactly what the old Google DM Sans rendered, so no body text gets heavier. Clamping measured in Chromium.
+  - Task rows (`bm-row-title`) drop from 550 to 500 to match Today. The wordmark keeps Fraunces 700. Today is pixel-unchanged; non-Kept themes are untouched.
+  - Checked: before/after screenshots of Today, Tasks, Loops, loop detail, More, capture, Analytics and Settings in Kept dark and light on the dev seed, no page errors; npm test 647/647; lint at the dev baseline; build passes. Ticket BOOM-34.
+
 - feat(kept): remove points and rally; count completions instead [L]
   - Points are gone as a product concept (BOOM-33, owner decision 2026-11-15): no "+N pts" on the completion toast, no points arc, goal, "pts left", session points or project budget, no 20% stack-clear bonus, no point for an escalation attempt or the tic-tac-toe win. `scoring.js` keeps only completion counts (`computeDailyStats` → `{ tasksToday }`, `computeRecords` → `{ bestTasks }`) plus `impactRank`.
   - Rally (the day streak and per-loop cycle rallies) went with it: the toast's "Streak updated", the legacy 🔥 stats line, rally/best rally in Analytics, the habit streak, loop-card ↻ chips, loop-detail rally/best (now "last done" + lifetime) and the digest's "day N of your rally". `computeStreak`, `server/streakWalk.js`, `cycleRally` and the heatmap streak helpers are deleted with their tests.
