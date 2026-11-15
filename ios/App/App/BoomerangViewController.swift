@@ -26,6 +26,7 @@ class BoomerangViewController: CAPBridgeViewController {
         bridge?.registerPluginInstance(BoomerangReminders())
         bridge?.registerPluginInstance(BoomerangLocalNotifs())
         bridge?.registerPluginInstance(BoomerangAlarmProbe())
+        bridge?.registerPluginInstance(BoomerangAlarmRules())
         #if BOOMERANG_ALARM_PROBE
         // The updater can retain a server bundle from an earlier installation.
         // capacitorDidLoad runs after plugin initialization, before loadWebView:

@@ -152,3 +152,12 @@ Digest emails to your inbox (not spam) require sender authentication. The defaul
 - **Clear completed tasks** — removes all done tasks
 - **Reset streaks** — clears all streak and analytics data (requires double confirmation)
 - **Clear all data** — deletes all tasks, routines, settings, labels, and history (requires confirmation)
+
+## Alarm rules (Dev native trial)
+
+[Alarm rules](Alarm-Rules.md) attach editable alarm policies to existing tasks or
+routines. Weekly times, dated overrides/skips, IANA timezone, early-cue offset,
+snooze interval and acknowledgment text are stored in their own migration-063
+table with revision/device checks. They are not settings-blob keys. No rules are
+seeded or armed by default. A separate review/arm step owns a bounded schedule
+on one phone; ordinary App builds and production API reject this dev trial.
