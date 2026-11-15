@@ -54,7 +54,12 @@ export function initOtaUpdates() {
   ;(async () => {
     try {
       const mode = await startOtaUpdateLifecycle({
-        bundledOnly: window.__BOOMERANG_ALARM_PROBE_BUILD__ === true,
+        // The Dev build with alarm features used to pin its packaged UI here
+        // (bundledOnly). Since the alarm code ships in the dev server's bundle
+        // (#1031), every build takes web updates; only native changes need a
+        // rebuild (BOOM-38). The lifecycle still supports bundledOnly for a
+        // future native-only experiment.
+        bundledOnly: false,
         loadUpdater: () => import('@capgo/capacitor-updater'),
         loadApp: () => import('@capacitor/app'),
         checkOnce,
@@ -62,7 +67,7 @@ export function initOtaUpdates() {
         // bundle URLs or user data. No extra updater call or retry is added.
         onProbeStage: stage => console.log(`[OTA] alarm experiment stage: ${stage}`),
       })
-      if (mode !== 'server-updates') console.info(`[OTA] alarm experiment: ${mode}`)
+      if (mode !== 'server-updates') console.info(`[OTA] update mode: ${mode}`)
     } catch (e) {
       console.warn('[OTA] updater unavailable:', e?.message || e)
     }

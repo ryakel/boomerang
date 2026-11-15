@@ -6,7 +6,7 @@ import assert from 'node:assert/strict'
 import { createServer } from 'vite'
 import react from '@vitejs/plugin-react'
 
-test('probe startup stays bundled while alarm controls handle denial, lost replies and cleanup', { timeout: 60000 }, async t => {
+test('alarm build takes web updates while alarm controls handle denial, lost replies and cleanup', { timeout: 60000 }, async t => {
   const { chromium } = await import(process.env.PLAYWRIGHT_MODULE || 'playwright')
   const html = `<!doctype html><html data-ui="v2" data-theme="kept-light"><head><link rel="icon" href="data:,"></head><body>
     <div id="root" class="v2-app"></div><script type="module">
@@ -52,7 +52,7 @@ test('probe startup stays bundled while alarm controls handle denial, lost repli
           download:async()=>{throw Error('Unexpected OTA download')},
           set:async()=>{throw Error('Unexpected OTA selection')}
         })});`
-      if (id === '\0alarm-native-app') return `window.probeResumeModuleLoaded=true; export const App={addListener:async()=>{throw Error('Unexpected server-update resume listener')}};`
+      if (id === '\0alarm-native-app') return `window.probeResumeModuleLoaded=true; export const App={addListener:async(event)=>{(window.probeResumeListeners=window.probeResumeListeners||[]).push(event)}};`
     },
     configureServer(server) {
       server.middlewares.use(async (req, res, next) => {
@@ -71,15 +71,16 @@ test('probe startup stays bundled while alarm controls handle denial, lost repli
     const errors = []
     const bundleRequests = []
     await page.addInitScript(() => { window.__BOOMERANG_ALARM_PROBE_BUILD__ = true })
+    // The alarm build takes ordinary web updates (BOOM-38): it asks for the
+    // manifest, and with nothing newer available it downloads nothing.
     await page.route('**/api/bundle/**', route => {
-      bundleRequests.push(route.request().url())
-      return route.abort()
+      bundleRequests.push(new URL(route.request().url()).pathname)
+      return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ available: false }) })
     })
     page.on('pageerror', error => errors.push(error.message))
     page.on('console', message => { if (message.type() === 'error') errors.push(message.text()) })
     await page.goto(`http://127.0.0.1:${vite.httpServer.address().port}/__alarm`)
     await page.waitForFunction(() => window.probeOtaCalls?.includes('ready'))
-    await page.getByText('This test build keeps its installed UI;', { exact: false }).waitFor()
     const check = page.getByRole('button', { name: 'Check alarm status' })
     const schedule = page.getByRole('button', { name: 'Sound test in 60 seconds' })
     const cancel = page.getByRole('button', { name: 'Cancel test alarm' })
@@ -121,9 +122,11 @@ test('probe startup stays bundled while alarm controls handle denial, lost repli
       document.dispatchEvent(new Event('visibilitychange'))
       window.dispatchEvent(new Event('resume'))
     })
-    assert.deepEqual(await page.evaluate(() => window.probeOtaCalls), ['current', 'ready'])
-    assert.equal(await page.evaluate(() => !!window.probeResumeModuleLoaded), false)
-    assert.deepEqual(bundleRequests, [])
+    await page.waitForFunction(() => window.probeResumeListeners?.length > 0)
+    assert.deepEqual(await page.evaluate(() => window.probeOtaCalls), ['ready'])
+    assert.deepEqual(await page.evaluate(() => window.probeResumeListeners), ['resume'])
+    assert.deepEqual(bundleRequests, ['/api/bundle/manifest'])
+    assert.equal(await page.locator('text=server UI updates are paused').count(), 0)
     assert.deepEqual(errors, [])
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true)
     await page.close()

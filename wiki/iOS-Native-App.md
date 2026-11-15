@@ -8,6 +8,13 @@
 > and packaging checks without installing, launching or scheduling. Neither
 > native compilation nor physical sound/snooze has been verified in the cloud.
 
+> **2026-11-15 (BOOM-38):** the Dev build no longer pins its packaged UI. The
+> `BOOMERANG_ALARM_PROBE` marker still enables the alarm features, but the
+> forced packaged base path and the `bundledOnly` lifecycle are gone, because
+> the dev server's web bundle carries the alarm code since #1031. Both apps now
+> take web updates over the air; only native changes need a rebuild. The
+> paragraph below is history.
+
 The Dev alarm experiment now keeps its bundled UI: `BOOMERANG_ALARM_PROBE`
 selects packaged assets before WebView load and injects a marker for a
 bundled-only updater lifecycle. Retained server bundles are reset to builtin
