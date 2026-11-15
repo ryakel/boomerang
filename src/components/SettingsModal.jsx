@@ -21,6 +21,7 @@ import CalendarRulesEditor from './CalendarRulesEditor'
 import { GrowthAreasPanel } from './GrowthAreasModal'
 import AutosaveIndicator from './AutosaveIndicator'
 import AlarmProbePanel from './AlarmProbePanel'
+import AlarmRulesPanel from './AlarmRulesPanel'
 import { applyTheme } from '../theme'
 import './SettingsModal.css'
 import { MODEL_CATALOG as AI_MODEL_CATALOG, TIER_DEFAULTS as AI_TIER_DEFAULTS } from '../../server/aiModels.js'
@@ -250,6 +251,7 @@ const PAGE_TITLES = {
   'Notifications/links': 'Deep links',
   'Notifications/email': 'Email deliverability',
   'Notifications/test': 'Test channels',
+  'Notifications/alarms': 'Alarm rules',
   'Notifications/history': 'History',
   // One per integration. Duplicated from IntegrationsPanel's own list rather
   // than derived, because the page title has to resolve before that component
@@ -2641,6 +2643,7 @@ function NotificationsPanel({ settings, update, page, setPage }) {
           onPress={() => setPage('Notifications/email')}
           info="Recipient, From header overrides for SPF/DKIM/DMARC, and batch mode."
         />
+        {window.__BOOMERANG_ALARM_PROBE_BUILD__ === true && <NavRow label="Alarm rules" summary="Dev trial" onPress={() => setPage('Notifications/alarms')} info="Configure alarm-backed cues for a task or routine. Saving does not arm alarms."/>}
         <NavRow
           label="Test channels"
           onPress={() => setPage('Notifications/test')}
@@ -2697,6 +2700,7 @@ function NotificationsPanel({ settings, update, page, setPage }) {
         </div>
       </>)}
 
+      {sub === 'alarms' && <AlarmRulesPanel/>}
       {sub === 'vacation' && (<>
         {/* persistentInfo rather than folded ⓘ: this row silences the app, and
             §1.5 reserves always-visible descriptions for exactly that. */}

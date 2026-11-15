@@ -1,4 +1,6 @@
 import express from 'express'
+import { registerAlarmRuleRoutes } from './alarmRuleRoutes.js'
+import { getAlarmRuleState, setAlarmRuleState } from './db.js'
 import cors from 'cors'
 import { readFileSync, existsSync } from 'fs'
 import { fileURLToPath } from 'url'
@@ -3729,6 +3731,12 @@ app.post('/api/pushover/test-emergency', async (req, res) => {
   const { userKey, appToken } = req.body || {}
   const result = await sendTestPushoverEmergency({ userKey, appToken })
   res.json(result)
+})
+
+registerAlarmRuleRoutes(app, {
+  get: getAlarmRuleState, set: setAlarmRuleState, flush: flushNow,
+  source: (kind, id) => kind === 'task' ? getTask(id) : getRoutine(id),
+  isDev: () => isDevEnv,
 })
 
 // Pushover link mode — whether deep links use the native boomerang:// scheme.

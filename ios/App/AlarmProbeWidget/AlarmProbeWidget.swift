@@ -12,9 +12,9 @@ struct AlarmProbeActivity: Widget {
     var body: some WidgetConfiguration {
         ActivityConfiguration(for: AlarmAttributes<AlarmProbeMetadata>.self) { context in
             VStack(alignment: .leading, spacing: 8) {
-                Label("Boomerang sound test", systemImage: "alarm")
-                ProbeCountdown(state: context.state)
-                Text("Test only • not a pickup reminder").font(.caption)
+                Label(context.attributes.metadata?.title ?? "Boomerang sound test", systemImage: "alarm")
+                ProbeCountdown(state: context.state, title: context.attributes.metadata?.title ?? "Sound test")
+                Text(context.attributes.metadata?.detail ?? "Test only • not a pickup reminder").font(.caption)
             }
             .padding()
             .activityBackgroundTint(.black)
@@ -24,7 +24,7 @@ struct AlarmProbeActivity: Widget {
             DynamicIsland {
                 DynamicIslandExpandedRegion(.leading) { Image(systemName: "alarm") }
                 DynamicIslandExpandedRegion(.bottom) {
-                    ProbeCountdown(state: context.state)
+                    ProbeCountdown(state: context.state, title: context.attributes.metadata?.title ?? "Sound test")
                 }
             } compactLeading: {
                 Image(systemName: "alarm")
@@ -49,9 +49,9 @@ private struct CompactProbeCountdown: View {
             case .countdown(let countdown):
                 Text(countdown.fireDate, style: .timer).monospacedDigit()
             case .paused:
-                Image(systemName: "pause.fill").accessibilityLabel("Test paused")
+                Image(systemName: "pause.fill").accessibilityLabel("Alarm paused")
             case .alert:
-                Image(systemName: "alarm").accessibilityLabel("Sound test")
+                Image(systemName: "alarm").accessibilityLabel("Alarm")
             @unknown default:
                 Image(systemName: "exclamationmark").accessibilityLabel("Check test status")
             }
@@ -65,14 +65,15 @@ private struct CompactProbeCountdown: View {
 
 private struct ProbeCountdown: View {
     let state: AlarmPresentationState
+    let title: String
     var body: some View {
         switch state.mode {
         case .countdown(let countdown):
             Text(countdown.fireDate, style: .timer).monospacedDigit()
         case .paused:
-            Text("Test paused")
+            Text("Alarm paused")
         case .alert:
-            Text("Sound test")
+            Text(title)
         @unknown default:
             Text("Check alarm status in Boomerang")
         }

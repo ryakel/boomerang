@@ -125,3 +125,11 @@ The owner authorized an experience walkthrough, including ordinary pickup days,
 Wednesday, missed cues, repeated snoozing and departure acknowledgment. See
 [School Pickup Experience](School-Pickup-Experience.md) for the reviewable draft,
 known delivery constraints and pending logistics.
+
+## Configurable alarm support (2026-11-15)
+
+The owner explicitly corrected pickup-specific implementation framing: alarm
+support should be reusable around tasks and routines, with schedule and behavior
+stored as editable data. Pickup is the first configured use case, not a compiled
+special case. Weekly and on-demand dates, timezone, cue timing, snooze and
+acknowledgment remain user-controlled. [Current dev trial](Alarm-Rules.md).

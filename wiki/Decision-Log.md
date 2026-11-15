@@ -241,3 +241,27 @@ below predate those decisions and are historical recommendations, not authority.
 - Evidence/limits: [AlarmKit Probe](AlarmKit-Probe.md); delivery under Focus-on,
   offline/restart and detailed Watch routing remain follow-up before a real trial.
 - Review trigger: actual deployment result in PR #1028, then agree next product increment.
+
+## D013 — Production promotion of the accumulated dev batch
+
+- Date/status: 2026-11-14, **approved and deployed**.
+- Source: owner “Get the changes from dev into prod and then build the next batch into dev.”
+- Evidence: release [#1029](https://github.com/ryakel/boomerang/pull/1029),
+  [production workflow](https://github.com/ryakel/boomerang/actions/runs/43658383877)
+  confirmed v2.62.0; content-neutral [#1030](https://github.com/ryakel/boomerang/pull/1030)
+  restored main ancestry in dev. This production approval is consumed by that release.
+
+## D014 — Configurable alarm support for tasks/routines
+
+- Date/status: 2026-11-15, **next dev batch implementation approved**.
+- Sources: owner's next-batch instruction; chose active alarms and approved
+  editable Snooze/Stop/separate acknowledgment, no automatic messages; clarified
+  Wednesday recurring and other dates on demand, America/Chicago. Departure
+  target wins over an overlapping early Snooze. Corrected hard-coded pickup
+  framing; reusable task/routine alarm configuration is the implementation scope.
+- Pickup values are user configuration. No pickup schedule is compiled in or armed
+  by the agent. No calendar write, provider change, location inference or new
+  production rollout is included. The owner continues to initiate audible tests.
+- Implementation mechanics, bounded scheduling/ownership, checks and device-test
+  limits: [Alarm Rules](Alarm-Rules.md). Build/review the next batch in dev; do not
+  infer approval for later production releases or automatic activation.

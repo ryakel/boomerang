@@ -4,6 +4,13 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ---
 
+## 2026-11-15
+
+- feat(ios): add configurable task and routine alarm rules [L]
+  - Add editable source-linked weekly/on-demand clocks, timezone, early cues, snooze and acknowledgment; preview then explicitly arm a bounded schedule in Dev.
+  - Persist revision/device-bound rules outside settings sync and dev reseeding; keep atomic native ownership/acknowledgment outbox and conservative no-rearm recovery. Stop is separate from acknowledgment/task completion.
+  - Cover calendar/DST, conflicts, API/persistence and real-proxy browser flows; native builds are separate from still-unrun owner-led device delivery checks. No default live schedule, calendar write or automatic message.
+
 ## 2026-11-14
 
 - docs(ios): reconcile alarm probe evidence and dev approval [S]

@@ -222,3 +222,11 @@ Duplicates reported as "server pushing Pushover while my app does iOS push" with
 - **Centralized notification dispatcher** — refactor three independent transport loops into one shared dispatcher when the 4th transport lands.
 - **Default-off web push if Pushover dominates analytics** — 2-week decision criterion. Not a code change; a config flip if data warrants.
 
+
+### Configurable alarm rules (Dev trial)
+
+See [Alarm Rules](Alarm-Rules.md) for source ownership, native acknowledgment
+outbox, preview/arm boundary and current test limits. Rules are held when ordinary
+source reminders are enabled. Local source changes cancel owned strong alarms
+before ordinary notifications refresh. Server-confirmed missing/paused sources
+are reconciled on launch/resume; no refresh path adds/recreates an alarm.

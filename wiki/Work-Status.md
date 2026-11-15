@@ -1,25 +1,24 @@
 # Work status and authorization
 
-## Current focus: integrate disposable AlarmKit experiment (2026-11-14)
+## Current focus: configurable task/routine alarm rules (2026-11-15)
 
-Owner explicitly approved PR #1028 merge into dev and its automatic staging
-deployment: “Deploy it to dev and we will keep building.”
-[Approval source](https://github.com/ryakel/boomerang/pull/1028#issuecomment-6884037809).
-This approval covers this experiment's integration; production main and new
-pickup functionality remain outside the current action.
+The owner requested accumulated dev changes promoted to production, then the next
+batch built in dev. Release #1029 deployed v2.62.0 and #1030 reconciled ancestry.
+The active batch adds reusable source-linked alarm configuration, not a hard-coded
+pickup feature. Owner-approved controls and pickup configuration are in D014 and
+[Alarm Rules](Alarm-Rules.md). No schedule has been created/armed by the agent.
 
-Source 5138c77 is installed as v2.61.1-20-g5138c77. Simulator and phone confirm
-builtin identity and completed readiness. Owner confirms resumed build/controls;
-server health recovered to dev-347e0e2 after a transient failed read. Owner delivery,
-snooze/Stop, cancellation, compact layout and Silent/locked results are recorded in
-[AlarmKit Probe](AlarmKit-Probe.md), alongside explicit remaining matrix gaps.
+Implementation is in isolated branch claude/pickup-alarm-trial. The native
+status-only simulator check, 29 alarm tests, browser suites, lint and both CLI
+native builds pass; physical alarm-rule flows remain unrun. Original local
+Watch/SPM edits and untracked files remain in the original checkout. Dev-only UI,
+API and native gate protect the trial; no next-batch production deployment is
+included. Native physical-device behavior still requires owner-led evaluation.
 
-19 real-proxy alarm/lifecycle tests, browser initializer/control checks, lint,
-native builds and PR CI pass. Clean committed-source build with reused dependencies
-passes without local Watch edits; ordinary App simulator reports probe unavailable.
-Local Watch/SPM edits and untracked files are preserved and excluded from commits.
-Final documentation and integration/deployment outcome: PR #1028. Do not infer
-staging success until its deployment and version verification finish.
+Previous batch: #1028 merged/staging passed at dev-5175d22. Phone source 5138c77
+was installed as v2.61.1-20-g5138c77; readiness, resumed controls and probe device
+results are recorded in [AlarmKit Probe](AlarmKit-Probe.md). Current PR/evidence
+will supersede that installation only when a newer native build is actually installed.
 
 ## Product experience context
 
@@ -64,7 +63,8 @@ passes; lint 0 errors / 13 existing warnings. Required audit: 31 existing findin
 (2 critical, 11 high, 15 moderate, 3 low); dependencies unchanged. No user data,
 live integration or paid model was used in this evaluation.
 
-Production `main` remains `e9563d08896f5897076c87ae4f302cec37b63100`.
+At that historical delivery checkpoint, production main remained e9563d0;
+subsequent approved production release #1029 deployed v2.62.0.
 Claude defaults, provider migration and original P2–P5/paid benchmarks remain
 outside this delivery. The bounded E1–E5 implementation authority is consumed;
 new implementation scope requires a new user direction. Product discussion and
