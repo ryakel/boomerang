@@ -21,7 +21,7 @@ export default function KeptShell({
   dailyStats = {},
   onCompleteTask, onOpenTask, onToggleHabit, onRescheduleTask, onDeleteTask,
   onLogSession, onGmailKeep, onGmailDismiss, onReconcileYesterday, onReconcileKeep, onWhatNow, onToggleItem, onUnsnooze,
-  onCycleImpact,
+  onCycleImpact, onStatusChange,
   onThrow, onThrowNote, onOpenFullAdd, onScanSchedule, onEditLoop, onAddLoop, onSpawnNow, onSkipCycle, onMarkLoopDay, onUnmarkLoopDay, onSkipLoopDay, onPushLoopOut,
   onOpenQuokka, onOpenSettings, onOpenPackages, onOpenAnalytics,
   onOpenProjects, onOpenActivity, onOpenSuggestions, onOpenNotifications,
@@ -45,7 +45,7 @@ export default function KeptShell({
         routines={routines} weatherByDate={weatherByDate}
         onToggleComplete={onCompleteTask} onToggleItem={onToggleItem} onOpenTask={onOpenTask}
         onDelete={onDeleteTask} onReschedule={onRescheduleTask} onUnsnooze={onUnsnooze}
-        onCycleImpact={onCycleImpact}
+        onCycleImpact={onCycleImpact} onStatusChange={onStatusChange}
       />
     )
   } else if (tab === 'more') {

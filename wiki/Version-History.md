@@ -6,6 +6,11 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-11-15
 
+- feat(kept): rebuild the tasks list on kept 2.0 rules [L]
+  - Upcoming (default due order) becomes Today-style cards: **Worth doing next** (the same `buildTodayModel` pick as Today, same calendar events and Not now state, never repeated below), Today, This week, **Slipped past their dates** (neutral "was due…", one-tap Tomorrow / Next week / Let it go with inline Undo, no red), Later, Started, Anytime (5 + "Show N more"), Waiting on someone ("maybe check in" after 7 days). Critical keeps its own red card; rows lose impact dots and show at most two tags.
+  - Grouping is pure in `src/tasksModel.js`, pinned by `scripts/tasksModel.test.mjs` (12 scenarios, including "every task lands once" and "Tasks and Today agree on the pick"). Let it go goes through `handleStatusChange` (chain prompt, loop deferral, Trello), now passed to the mobile shell. Today's calendar hook, clock helpers, Ring/Head and the Worth doing next card moved to `src/kept/today2Hooks.js` / `today2Parts.jsx` so both screens share them.
+  - Other sort modes and the Snoozed/Backlog/Done tabs are unchanged. Checked on the dev seed in Kept light and dark at a midday timezone: same pick on Today and Tasks; Not now on Tasks advances Today's pick; Tomorrow moves a task out of Slipped; Let it go shows Undo and Undo restores it; no red overdue labels; npm test 659/659; lint at the dev baseline; build passes. Ticket BOOM-37.
+
 - style(kept): carry the kept 2.0 type to every mobile surface [M]
   - New `src/kept/type.css`: the Kept themes' display/body tokens now use the bundled variable Fraunces and DM Sans that Today already ships (no new font files; offline-safe on iOS). Two clamped families do the work without touching every rule: `Kept Serif` caps weight at 540 with SOFT 100, so page/sheet titles, stat numbers and loop names soften from 700; `Kept Sans` caps at 600, exactly what the old Google DM Sans rendered, so no body text gets heavier. Clamping measured in Chromium.
   - Task rows (`bm-row-title`) drop from 550 to 500 to match Today. The wordmark keeps Fraunces 700. Today is pixel-unchanged; non-Kept themes are untouched.

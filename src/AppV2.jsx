@@ -1562,6 +1562,7 @@ export default function AppV2() {
       {isKept && !isDesktop && (
         <KeptShell
           tasks={tasks}
+          onStatusChange={handleStatusChange}
           routines={routines}
           labels={labels}
           weatherByDate={weather.enabled ? weather.byDate : null}

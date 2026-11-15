@@ -9,7 +9,8 @@ overdue rows. Owner decisions are in D016. Tracked in It's a Plan:
 | Ticket | Work | State |
 |---|---|---|
 | BOOM-33 | Remove points and rally app-wide; Analytics counts completions; classic Today gated off | Merged to `dev` (#1034); dev deploy verified by workflow 43736032458. Not in production. |
-| BOOM-34 | Carry the Kept 2.0 type (Fraunces/DM Sans variable) to every mobile surface | PR to `dev` |
+| BOOM-34 | Carry the Kept 2.0 type (Fraunces/DM Sans variable) to every mobile surface | Merged to `dev` (#1035) |
+| BOOM-37 | Tasks list on Kept 2.0 rules: Worth doing next, quiet Slipped card, grouped cards | Built from the approved mockup ("build it and let's see how it goes"); PR to `dev` |
 | BOOM-35 | Redesign Loops around routine modes instead of tracking | Needs a spec and owner decisions before code |
 
 Desktop is deferred by the owner. BOOM-32 (Kept 2.0 Today) is closed; its

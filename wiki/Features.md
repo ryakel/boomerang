@@ -65,9 +65,24 @@ Reached from More → Settings. It opens on an **index of six categories, each s
 - **Labels** — custom labels with a 10-color picker, drag-to-reorder in Settings. On mobile, labels appear as a compact dropdown selector; on desktop, they show as a horizontal pill bar. In task modals, labels use a dropdown picker with colored removable pills showing selected labels.
 - **T-shirt sizing** — XS, S, M, L, XL effort estimates. Set manually or auto-inferred by AI during polish. Displayed as a pill on each task card.
 
-## Task Sections
+## Tasks (Kept)
 
-Tasks are organized into sections on the main screen:
+The **Tasks** tab's **Upcoming** list, in its default due-date order, follows the same rules as Today (2026-11-15):
+
+- **Worth doing next** at the top: the same pick as Today's card, with **Open task** / **Not now**. Not now on either screen hides it on both, and the picked task doesn't repeat further down.
+- **Today**: due today, picked for today, and open loop instances.
+- **This week**: due in the next 7 days, with the weekday on the left.
+- **Slipped past their dates**: anything past its date, quietly, with no red and no "Nd overdue". It reads "was due Sat, Nov 7", with one-tap **Tomorrow**, **Next week** or **Let it go** (cancels it; an **Undo** stays on the card). Tap the task for any other date. Three show; the rest sit behind "Show N more".
+- **Later**: due more than a week out.
+- **Started**: things you've marked as doing that have no date.
+- **Anytime**: everything undated. Five show; the rest sit behind "Show N more".
+- **Waiting on someone**: how long, and "maybe check in" after a week.
+
+Only tasks tagged critical get red, in their own card at the top. Rows show at most two tags and no impact dots. The other sort orders (impact, newest, oldest, A–Z) and the Snoozed, Backlog and Done tabs keep their plain list.
+
+## Task Sections (classic light/dark layout)
+
+In the classic light/dark layout, tasks are organized into sections on the main screen:
 
 - **Stale** — tasks untouched for longer than the staleness threshold (default: 2 days)
 - **Up Next** — active tasks (not started + doing) that are not stale or snoozed
