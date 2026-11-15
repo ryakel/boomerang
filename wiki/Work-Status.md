@@ -10,7 +10,8 @@ overdue rows. Owner decisions are in D016. Tracked in It's a Plan:
 |---|---|---|
 | BOOM-33 | Remove points and rally app-wide; Analytics counts completions; classic Today gated off | Merged to `dev` (#1034); dev deploy verified by workflow 43736032458. Not in production. |
 | BOOM-34 | Carry the Kept 2.0 type (Fraunces/DM Sans variable) to every mobile surface | Merged to `dev` (#1035) |
-| BOOM-37 | Tasks list on Kept 2.0 rules: Worth doing next, quiet Slipped card, grouped cards | Built from the approved mockup ("build it and let's see how it goes"); PR to `dev` |
+| BOOM-37 | Tasks list on Kept 2.0 rules: Worth doing next, quiet Slipped card, grouped cards | Merged to `dev` (#1036) |
+| BOOM-38 | Dev iPhone build takes web updates again (only native changes need a rebuild) | PR to `dev`; needs one final Dev rebuild |
 | BOOM-35 | Redesign Loops around routine modes instead of tracking | Needs a spec and owner decisions before code |
 
 Desktop is deferred by the owner. BOOM-32 (Kept 2.0 Today) is closed; its
@@ -22,10 +23,10 @@ the runs to push the app in dev." Merging PRs into `dev`, and the automatic
 promoting to `main`/production and rebuilding or installing the iOS app; for
 those, tell the owner when one is needed and wait for their go-ahead (D017).
 
-**iOS note:** the Dev phone build has the alarm-experiment flag on, which makes
-it bundled-only (`src/otaUpdater.js`): it does not pull new web UI from the
-server, so web-only changes reach the Dev phone app only after a rebuild. The
-ordinary production App still takes web updates over the air from prod.
+**iOS note:** both apps take web changes over the air from their server. The
+Dev build pinned its packaged UI during the alarm experiment; BOOM-38 removed
+that, which itself needs one rebuild. After that, only native changes need a
+rebuild, and the owner is told to rebuild only then.
 
 ## Alarm rules: code in production, feature Dev-only (2026-11-15)
 

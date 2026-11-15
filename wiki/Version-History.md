@@ -6,6 +6,11 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-11-15
 
+- fix(ios): let the dev build take web updates again [S]
+  - The alarm-experiment Dev build pinned its packaged UI twice: natively (`BoomerangViewController` forced the bundled base path on every launch) and in JS (`otaUpdater` passed `bundledOnly` whenever the alarm marker was set). That was right while the dev server's UI lacked the alarm screens; since #1031 it carries them, so the pin only made every web-only change need an Xcode rebuild. Both pins are removed; the marker still gates the alarm features. The lifecycle keeps its `bundledOnly` option (tested) for a future native-only experiment.
+  - The alarm test panel drops "server UI updates are paused". The alarm-probe browser test now pins the new behaviour: ready, a manifest check, the resume listener, and no download when nothing newer is available.
+  - CLAUDE.md: tell the owner to rebuild only for native changes. Needs one final Dev rebuild; after that web-only changes reach the phone on launch. Checked: alarm suite 29/29; both alarm browser suites pass run one at a time (4/4); run in parallel they time out intermittently on first page load at the same rate on unchanged `dev` (3/6) as with this change (4/6), so that flakiness is the sandbox, not this change. Ticket BOOM-38.
+
 - feat(kept): rebuild the tasks list on kept 2.0 rules [L]
   - Upcoming (default due order) becomes Today-style cards: **Worth doing next** (the same `buildTodayModel` pick as Today, same calendar events and Not now state, never repeated below), Today, This week, **Slipped past their dates** (neutral "was due…", one-tap Tomorrow / Next week / Let it go with inline Undo, no red), Later, Started, Anytime (5 + "Show N more"), Waiting on someone ("maybe check in" after 7 days). Critical keeps its own red card; rows lose impact dots and show at most two tags.
   - Grouping is pure in `src/tasksModel.js`, pinned by `scripts/tasksModel.test.mjs` (12 scenarios, including "every task lands once" and "Tasks and Today agree on the pick"). Let it go goes through `handleStatusChange` (chain prompt, loop deferral, Trello), now passed to the mobile shell. Today's calendar hook, clock helpers, Ring/Head and the Worth doing next card moved to `src/kept/today2Hooks.js` / `today2Parts.jsx` so both screens share them.
