@@ -189,7 +189,7 @@ evolution of Kept, not a new design system. Priorities in order:
 | `scripts/todayModel.test.mjs` | 34 tests pinning those rules (in `npm test`). Pass in UTC and America/Chicago. |
 | `src/kept/TodayKept2.jsx` | Renders the model, wires existing handlers. |
 | `src/kept/today2.css` | Styles scoped to `.bm-t2`; nothing outside Today changes. |
-| `src/kept/KeptShell.jsx`, `KeptDesktop.jsx` | Pick `TodayKept2` or the classic `TodayView` from `settings.today_classic`. Same props. |
+| `src/kept/KeptShell.jsx`, `KeptDesktop.jsx` | Pick `TodayKept2` or the classic `TodayView` via `classicTodayOn()` (src/kept/classicToday.js). Classic is gated off since 2026-11-15 (BOOM-33). Same props. |
 | `src/store.js` | `today_classic: false` default. |
 | `src/components/SettingsModal.jsx` | Settings → General → Home screen → **Classic Today screen** toggle. |
 | `server/server.js` | The GCal events mapping gained `transparency` (busy vs free). Nothing else server-side. |
@@ -395,7 +395,7 @@ Kept here so the plans aren't lost:
 - Commit convention and a `wiki/Version-History.md` entry for every commit.
 - The model is the spec. Any behaviour change: test in
   `scripts/todayModel.test.mjs` first.
-- Keep `today_classic` working until he says the classic screen can go.
+- The classic screen is gated off, not deleted (BOOM-33, 2026-11-15): `CLASSIC_TODAY_ENABLED` is false, so the Settings switch is hidden and a stored `today_classic: true` is ignored. Don't delete `TodayView.jsx` until he says the classic screen can go; flipping the flag brings it back (points arc and rally chip are gone from it either way).
 - The user asked: no new focus timer, no AI recommendation engine, no new
   notification behaviour, no scoring or routine-engine rewrites, no redesign
   of Tasks or Loops, no more mockup cycles. Stop after each version and let him

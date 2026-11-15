@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { cycleWindows, loopGaps, cycleRally, isWindowPaused, bridgedAwayKeys, stampLoopDay, unstampLoopDay } from '../src/kept/cycles.js'
+import { cycleWindows, loopGaps, isWindowPaused, bridgedAwayKeys, stampLoopDay, unstampLoopDay } from '../src/kept/cycles.js'
 import { localYMD as localDay } from '../src/dates.js'
 
 // Regression for: Quokka creates a weekly routine today with
@@ -145,43 +145,14 @@ test('no away days means nothing changes', () => {
   assert.equal(loopGaps(dailyLoop(), [], 12, []).missed.length, bare)
 })
 
-test('the rally steps over an away cycle instead of breaking on it', () => {
-  // Caught 12..9 days ago, away 8..3, caught 2..0. The trip must neither
-  // break the run nor pad it: 4 + 3 = 7, not 0 and not 13.
-  const caught = [...spanAgo(12, 9), ...spanAgo(2, 0)]
-  const routine = {
-    id: 'r', cadence: 'daily',
-    created_at: daysAgo(12).toISOString(),
-    completed_history: caught.map(d => `${d}T12:00:00.000Z`),
-  }
-  const wins = cycleWindows(routine, 60)
-  const away = new Set(spanAgo(8, 3))
-  assert.equal(cycleRally(wins, 1, away).rally, 7)
-  // Without the away days the same history reads as a 3-cycle rally: the
-  // trip broke it. That is exactly what the user saw.
-  assert.equal(cycleRally(wins, 1).rally, 3)
-})
-
-test('an away cycle does not inflate best, either', () => {
-  const routine = {
-    id: 'r', cadence: 'daily',
-    created_at: daysAgo(12).toISOString(),
-    completed_history: spanAgo(12, 9).map(d => `${d}T12:00:00.000Z`),
-  }
-  const wins = cycleWindows(routine, 60)
-  // 4 caught cycles, then away, then nothing done since coming home. Best is
-  // the 4 real ones — the trip adds nothing.
-  assert.equal(cycleRally(wins, 1, new Set(spanAgo(8, 3))).best, 4)
-})
-
-
 // --- The away bucket + the trail bridge (2026-08-23) ------------------
 //
 // Away cycles used to be dropped from loopGaps entirely: protected, but
 // invisible, so a trip left no trace and no way to say "start again next
 // week". They now come back in their own `away` bucket, which drives the
-// "While you were away" prompt. They stay OUT of `missed`, so the rally
-// protection and the "N to fix" badge are unchanged.
+// "While you were away" prompt. They stay OUT of `missed`, so the "N to
+// fix" badge is unchanged. (Loop rallies were removed with points, BOOM-33;
+// the rally-specific away tests went with cycleRally.)
 
 test('away cycles come back in their own bucket, not as missed', () => {
   const away = new Set(spanAgo(8, 3))

@@ -386,18 +386,17 @@ export function registerSettingsTools() {
 
   registerTool({
     name: 'get_analytics',
-    description: 'Fetch analytics summary: today\'s tasks + points, streak, completion rate, distributions.',
+    description: 'Fetch analytics summary: tasks completed today and the best day ever (by tasks completed). Boomerang has no points or streaks.',
     readOnly: true,
     schema: { type: 'object', properties: {} },
     execute: async () => {
-      const settings = getData('settings') || {}
-      return { result: getAnalytics(settings) }
+      return { result: getAnalytics() }
     },
   })
 
   registerTool({
     name: 'get_analytics_history',
-    description: 'Fetch historical daily completion + points data for charting. Default 30 days.',
+    description: 'Fetch historical completion counts (daily, and by tag, energy, size, impact and weekday). Default 30 days.',
     readOnly: true,
     schema: {
       type: 'object',

@@ -8,7 +8,7 @@ import {
   upsertTask, getTask, deleteTask, queryTasks, updateTaskPartial, mergeTasks,
   upsertRoutine, getRoutine, getAllRoutines, deleteRoutine, updateRoutinePartial,
   reconcileRoutineHistory,
-  getChildTasks, computeProjectBudget, computeSessionPoints, logProjectSession,
+  getChildTasks, logProjectSession,
   PROJECT_CONSTANTS,
   setEscalationLadder, logEscalationAttempt, advanceEscalationRung,
   resolveEscalation,
@@ -314,7 +314,7 @@ export function registerTaskTools() {
         },
         assignee: {
           type: 'string',
-          description: 'Set when this task is actually for someone else the user supervises (e.g. a kid\'s chore), not the user\'s own task — a name, e.g. "Jack". Leave unset for the user\'s own tasks. Scores a flat 1 point on completion instead of the size x energy formula, but still counts toward the user\'s own daily total.',
+          description: 'Set when this task is actually for someone else the user supervises (e.g. a kid\'s chore), not the user\'s own task — a name, e.g. "Jack". Leave unset for the user\'s own tasks. Still counts toward the user\'s own daily total.',
         },
         impact: {
           type: 'integer',
@@ -638,14 +638,10 @@ export function registerTaskTools() {
       const project = getTask(project_id)
       if (!project) throw new Error(`Project not found: ${project_id}`)
       const children = getChildTasks(project_id)
-      const budget = computeProjectBudget(project)
-      const sessionPoints = computeSessionPoints(project)
       return {
         result: {
           project: summarizeTask(project),
           children: children.map(summarizeTask),
-          budget,
-          session_points: sessionPoints,
           session_count: project.session_count || 0,
           session_cap: PROJECT_CONSTANTS.SESSION_CAP,
           pinned_to_today: !!project.pinned_to_today,
@@ -681,7 +677,7 @@ export function registerTaskTools() {
 
   registerTool({
     name: 'log_project_session',
-    description: 'Log a "worked on this" session for a project — awards a fraction of the project effort budget as points, bumps the streak, and writes an activity-log entry. Capped at 10 sessions per project before requiring a child completion.',
+    description: 'Log a "worked on this" session for a project — counts toward the day\'s done total and writes an activity-log entry. Capped at 10 sessions per project before requiring a child completion.',
     schema: {
       type: 'object',
       properties: { project_id: { type: 'string' } },
@@ -700,7 +696,6 @@ export function registerTaskTools() {
       }
       return {
         result: {
-          points: result.points,
           session_count: result.sessionCount,
           session_cap: result.sessionCap,
           timestamp: result.timestamp,
@@ -849,7 +844,7 @@ export function registerTaskTools() {
         trigger_time: { type: 'string', description: '"HH:MM" 24h surface-at time. Spawned tasks are hidden/silent until this time on their due day. Omit for any time.' },
         members: {
           type: 'array',
-          description: 'Stack members — makes this a "stack" routine that spawns one INDEPENDENT task per member each cycle (sharing the cadence + trigger_time). Different from follow_ups (a dependent chain). Each member scores its own points; clearing every member of a cycle pays a 20% bonus. Provide 2+ items, e.g. an "Evening" routine with members "start dishwasher", "take out trash", "refill milk".',
+          description: 'Stack members — makes this a "stack" routine that spawns one INDEPENDENT task per member each cycle (sharing the cadence + trigger_time). Different from follow_ups (a dependent chain). Clearing every member completes that cycle. Provide 2+ items, e.g. an "Evening" routine with members "start dishwasher", "take out trash", "refill milk".',
           items: {
             type: 'object',
             properties: {
@@ -863,7 +858,7 @@ export function registerTaskTools() {
         },
         assignee: {
           type: 'string',
-          description: 'Set when this loop is actually for someone else the user supervises (e.g. a kid\'s chore), not the user\'s own task — a name, e.g. "Jack". Leave unset for the user\'s own loops. Every spawned task inherits it and scores a flat 1 point on completion instead of the size x energy formula, but still counts toward the user\'s own daily total.',
+          description: 'Set when this loop is actually for someone else the user supervises (e.g. a kid\'s chore), not the user\'s own task — a name, e.g. "Jack". Leave unset for the user\'s own loops. Every spawned task inherits it and still counts toward the user\'s own daily total.',
         },
         impact: {
           type: 'integer',
@@ -949,7 +944,7 @@ export function registerTaskTools() {
         trigger_time: { type: ['string', 'null'], description: '"HH:MM" 24h surface-at time, or null to clear. Spawned tasks stay hidden/silent until this time on their due day.' },
         members: {
           type: 'array',
-          description: 'Replace the stack members (the full array). Non-empty ⇒ this is a "stack" routine spawning one independent task per member each cycle; clearing all members pays a 20% bonus. Pass [] to convert back to an ordinary single-task routine. Edits take effect on the NEXT cycle — already-spawned tasks are untouched.',
+          description: 'Replace the stack members (the full array). Non-empty ⇒ this is a "stack" routine spawning one independent task per member each cycle; clearing all members completes that cycle. Pass [] to convert back to an ordinary single-task routine. Edits take effect on the NEXT cycle — already-spawned tasks are untouched.',
           items: {
             type: 'object',
             properties: {
@@ -1525,7 +1520,7 @@ Keep it under 400 words. Plain prose + short bulleted lists are fine. No preambl
 
   registerTool({
     name: 'log_escalation_attempt',
-    description: 'Log a contact attempt at the task\'s CURRENT escalation rung — e.g. "I called again just now, still nothing." Awards 1 point.',
+    description: 'Log a contact attempt at the task\'s CURRENT escalation rung — e.g. "I called again just now, still nothing." Counts toward the day\'s done total.',
     schema: {
       type: 'object',
       properties: { task_id: { type: 'string' }, note: { type: 'string' } },

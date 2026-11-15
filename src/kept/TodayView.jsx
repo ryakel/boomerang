@@ -1,13 +1,12 @@
 import { useMemo, useState, useEffect } from 'react'
 import { Check, Repeat2, Flame, FolderKanban, Inbox, X, Compass, Sprout, StickyNote, Moon } from 'lucide-react'
 import { getTodayGrowthArea } from '../api'
-import DayArc from './DayArc'
 import FlightTrail from './FlightTrail'
 import { localYMD, parseLocalDate } from '../dates'
-import { historyByDay, currentStreak } from './heatmapUtils'
+import { historyByDay } from './heatmapUtils'
 import { isSnoozed, isStale, formatSnoozeLabel, getNextDueDate, loadSettings, isCrisisTask, isRoutineEnded, safeSetItem } from '../store'
 import { reconcileCandidates } from '../creditYesterday'
-import { calculateTaskPoints, impactRank } from '../scoring'
+import { impactRank } from '../scoring'
 import { buildImpactCtx } from '../impactContext'
 import ImpactDots from './ImpactDots'
 import { routineFeathers } from './feathers'
@@ -27,7 +26,7 @@ const ACTIVE = ['not_started', 'doing', 'waiting', 'in_progress']
 // route through the canonical onToggleHabit/onCompleteTask completion paths.
 export default function TodayView({
   tasks = [], routines = [], labels = [], weatherByDate = null,
-  dailyStats = {}, pointsGoal = 15, streak = 0,
+  dailyStats = {},
   onCompleteTask, onOpenTask, onToggleHabit, onDeleteTask, onEditLoop,
   onLogSession, onGmailKeep, onGmailDismiss, onWhatNow, onCycleImpact,
   onReconcileYesterday, onReconcileKeep,
@@ -240,7 +239,6 @@ export default function TodayView({
         : null
       return {
         r, color: feathers[r.id], byDay, isStack, cycles, weatherDay,
-        rally: currentStreak(byDay),
         // Stacks stay keyed on the completed_history stamp (written only when
         // the last member clears — see their cycle accounting). Ordinary loops
         // also credit a today-completed spawned task, so completing from the
@@ -275,26 +273,26 @@ export default function TodayView({
   const catches = dailyStats.tasksToday ?? 0
 
   // Stats for a non-today breakdown selection — the hero swaps to that
-  // day's numbers. Catches/points computed the same way the breakdown's
-  // item list is, so the arc total always matches the itemization. Loops
+  // day's numbers. Catches counted the same way the breakdown's item list
+  // is, so the total always matches the itemization. Loops
   // shown as a plain done-count (historical due-ness isn't reconstructable).
   const selStats = useMemo(() => {
     if (!showBreakdown || !breakdownDay || breakdownDay === todayKey) return null
-    let pts = 0, n = 0
+    let n = 0
     for (const t of tasks) {
       const ts = t.status === 'done' && t.completed_at ? t.completed_at
         : t.status === 'waiting' && t.waiting_at ? t.waiting_at
         : null
       if (!ts || localYMD(new Date(ts)) !== breakdownDay) continue
-      n++; pts += calculateTaskPoints(t)
+      n++
     }
-    if ((loadSettings().easter_egg_wins || {})[breakdownDay]) { n++; pts += 1 }
+    if ((loadSettings().easter_egg_wins || {})[breakdownDay]) n++
     let loopsDone = 0
     for (const r2 of routines) {
       if (historyByDay(r2.completed_history)[breakdownDay]) loopsDone++
     }
     const d = parseLocalDate(breakdownDay)
-    return { pts, n, loopsDone, date: d }
+    return { n, loopsDone, date: d }
   }, [showBreakdown, breakdownDay, todayKey, tasks, routines])
 
   return (
@@ -333,7 +331,6 @@ export default function TodayView({
         <div className="bm-hero-date">
           <span className="bm-hero-day">{(selStats ? selStats.date : new Date()).toLocaleDateString('en-US', { weekday: 'long' })}</span>
           <span className="bm-hero-sub">{(selStats ? selStats.date : new Date()).toLocaleDateString('en-US', { month: 'long', day: 'numeric' })}</span>
-          {streak > 0 && <span className="bm-rally-chip">↻ {streak}-day rally</span>}
         </div>
         <button
           className="bm-hero-tap"
@@ -346,23 +343,16 @@ export default function TodayView({
           aria-expanded={showBreakdown}
           aria-label="Show daily breakdown"
         >
-          <DayArc
-            value={selStats ? selStats.pts : (dailyStats.pointsToday ?? 0)}
-            goal={pointsGoal}
-            caption={selStats ? 'points that day' : 'points today'}
-          />
           <div className="bm-hero-meta">
             {selStats ? (
               <>
                 <span><b>{selStats.n}</b> {selStats.n === 1 ? 'catch' : 'catches'}</span>
                 <span><b>{selStats.loopsDone}</b> {selStats.loopsDone === 1 ? 'loop' : 'loops'}</span>
-                <span><b>{selStats.pts}</b> pts</span>
               </>
             ) : (
               <>
                 <span><b>{catches}</b> {catches === 1 ? 'catch' : 'catches'}</span>
                 <span><b>{loopsDone}/{loops.length}</b> loops</span>
-                <span><b>{Math.max(0, pointsGoal - (dailyStats.pointsToday ?? 0))}</b> pts left</span>
               </>
             )}
           </div>
@@ -597,7 +587,7 @@ export default function TodayView({
       {loops.length > 0 && (
         <Section id="loops" label="Loops" count={`${loopsDone}/${loops.length}`} collapsed={!!collapsed.loops} onToggle={toggleSection}>
           <div className="bm-rows">
-            {loops.map(({ r, color, byDay, rally, doneToday, isStack, cycles, weatherDay }) => {
+            {loops.map(({ r, color, byDay, doneToday, isStack, cycles, weatherDay }) => {
               if (isStack && cycles.length === 0 && doneToday) {
                 // Cleared-today receipt: the folder is done, keep the loop
                 // visible + credited until midnight. Check is display-only —
@@ -608,7 +598,7 @@ export default function TodayView({
                     <button className="bm-loop-body" onClick={() => onEditLoop?.(r)} aria-label={`Edit ${r.title}`}>
                       <div className="bm-loop-title">{r.title}</div>
                       <div className="bm-loop-sub">
-                        {r.cadence || 'routine'}{rally > 0 && <> · <span className="bm-loop-rally">↻ {rally}</span></>}
+                        {r.cadence || 'routine'}
                       </div>
                     </button>
                     <span className="bm-loop-trail"><FlightTrail valueByDay={byDay} color={color} mini /></span>
@@ -650,7 +640,7 @@ export default function TodayView({
                 <button className="bm-loop-body" onClick={() => onEditLoop?.(r)} aria-label={`Edit ${r.title}`}>
                   <div className="bm-loop-title">{r.title}</div>
                   <div className="bm-loop-sub">
-                    {r.cadence || 'routine'}{rally > 0 && <> · <span className="bm-loop-rally">↻ {rally}</span></>}
+                    {r.cadence || 'routine'}
                     {weatherDay && <> · <WeatherBadge day={weatherDay} /></>}
                   </div>
                 </button>

@@ -1,7 +1,7 @@
 /* ════════════════════════════════════════════════════════════════════════
  * Kept — the Boomerang design language (wiki/Kept-Design-Language.md).
  * Warm-neutral canvases (Smoke dark / Linen light), ONE ember hero accent
- * (the brand orange) with gold as the warm rally/feather companion, six
+ * (the brand orange) with gold as the warm feather companion, six
  * "feather" identity colors. Like Wallaby, the kept-* themes
  * OVERRIDE the shared --v2-* tokens so every token-consuming component
  * re-skins; Kept-specific structural tokens are namespaced --bm-*.
@@ -23,7 +23,7 @@
   --bm-text-meta: rgba(243, 238, 229, 0.56);
   --bm-text-faint: rgba(243, 238, 229, 0.34);
   --bm-ember: #F26640;
-  --bm-gold: #E8B04B;          /* warm companion: rally chips, ochre feather */
+  --bm-gold: #E8B04B;          /* warm companion: active tabs, ochre feather */
   --bm-ember-soft: rgba(242, 102, 64, 0.14);
   --bm-gold-soft: rgba(232, 176, 75, 0.14);
   --bm-on-ember: #2A1206;

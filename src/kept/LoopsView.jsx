@@ -5,7 +5,7 @@ import DensityRibbon from './DensityRibbon'
 import CycleChips from './CycleChips'
 import LoopDetail from './LoopDetail'
 import LoopSwipe from './LoopSwipe'
-import { cycleWindows, habitWindows, cycleUnitLabel, cycleRally, loopGaps } from './cycles'
+import { cycleWindows, habitWindows, cycleUnitLabel, loopGaps } from './cycles'
 import { historyByDay } from './heatmapUtils'
 import { isRoutineEnded, loadSettings } from '../store'
 import { routineFeathers } from './feathers'
@@ -49,19 +49,14 @@ export default function LoopsView({ routines = [], tasks = [], onEditLoop, onAdd
   }, [routines])
 
   // Days the away window covered. The same stamped `settings.away_days` the
-  // streak and the device alarms read — a cycle you were away for must not
-  // read as missed or break the rally (2026-08-11).
+  // device alarms read — a cycle you were away for must not read as missed
+  // (2026-08-11).
   const awayDays = useMemo(() => new Set(loadSettings()?.away_days || []), [])
 
   const loops = useMemo(() => {
     const feathers = routineFeathers(routines)
     return routines.filter(r => !r.paused && !isRoutineEnded(r)).map(r => {
       const byDay = historyByDay(r.completed_history)
-      const isHabit = r.spawn_mode === 'habit' && r.target_count
-      const wins = isHabit ? habitWindows(r, 60) : cycleWindows(r, 60)
-      // Rally in the loop's own cycles (consecutive weeks/months/etc caught),
-      // not calendar days — day-streaks read as 1 forever on non-dailies.
-      const { rally } = cycleRally(wins, isHabit ? r.target_count : 1, awayDays)
       // Spawn is blocked while an instance is still active on the list (mirrors
       // the spawn guard in AppV2.handleSpawnLoop) — greys the swipe action.
       const hasActive = tasks.some(t =>
@@ -71,7 +66,7 @@ export default function LoopsView({ routines = [], tasks = [], onEditLoop, onAdd
       // the card's "N to fix" badge; the breakdown lives on the detail page.
       const gaps = loopGaps(r, tasks, 12, awayDays)
       const gapCount = gaps.unrecorded.length + gaps.missed.length
-      return { r, color: feathers[r.id], byDay, rally, hasActive, gaps, gapCount, total: r.completed_history?.length || 0 }
+      return { r, color: feathers[r.id], byDay, hasActive, gaps, gapCount, total: r.completed_history?.length || 0 }
     })
   }, [routines, tasks, awayDays])
 
@@ -138,7 +133,7 @@ export default function LoopsView({ routines = [], tasks = [], onEditLoop, onAdd
         >Skip {totalMissed} missed cycles across {missedLoops.length} loops</button>
       )}
       {loops.length === 0 && <p className="bm-empty">No loops yet — things that come back around live here.</p>}
-      {loops.map(({ r, color, byDay, rally, total, hasActive, gapCount }) => {
+      {loops.map(({ r, color, byDay, total, hasActive, gapCount }) => {
         const isHabit = r.spawn_mode === 'habit' && r.target_count
         const card = (
         <div className="bm-card" style={{ '--loop': color }}>
@@ -158,7 +153,6 @@ export default function LoopsView({ routines = [], tasks = [], onEditLoop, onAdd
                 {gapCount} to fix
               </button>
             )}
-            {rally > 0 && <span className="bm-loop-rally" style={{ fontSize: 11.5 }}>↻ {rally}</span>}
             <span style={{ fontSize: 11.5, fontWeight: 700, color: 'var(--bm-text-meta)' }}>{total}×</span>
             <button className="bm-back" style={{ width: 28, height: 28 }} onClick={() => onEditLoop?.(r)} aria-label="Edit loop">
               <Pencil size={13} strokeWidth={2} />

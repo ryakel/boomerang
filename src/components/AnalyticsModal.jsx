@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useRef } from 'react'
-import { Flame, Trophy, Star, Zap, Target, CalendarCheck } from 'lucide-react'
+import { Star, Target, CalendarCheck, CalendarDays, CalendarRange } from 'lucide-react'
 import BadgesGrid from './BadgesGrid'
 import { computeBadges } from '../badges'
 import '../kept/flightlog.css'
@@ -24,7 +24,7 @@ const RANGE_OPTIONS = [
 
 // Build heatmap grid (52 weeks × 7 days). Uses UTC throughout so keys match
 // the server's UTC-bucketed completed_at.split('T')[0] day strings.
-function buildHeatMapGrid(dailyData, metric) {
+function buildHeatMapGrid(dailyData) {
   const dataMap = {}
   for (const d of (dailyData || [])) dataMap[d.day] = d
   const now = new Date()
@@ -37,7 +37,7 @@ function buildHeatMapGrid(dailyData, metric) {
   while (d <= end) {
     const key = d.toISOString().split('T')[0]
     const data = dataMap[key]
-    const value = data ? (metric === 'points' ? data.points : data.tasks) : 0
+    const value = data ? data.tasks : 0
     cells.push({ key, value, dow: d.getUTCDay(), isFuture: d > now })
     d.setUTCDate(d.getUTCDate() + 1)
   }
@@ -56,17 +56,16 @@ function buildHeatMapGrid(dailyData, metric) {
 
 // One surface for everything stat-shaped (2026-07-17: Flight log merged in —
 // two surfaces showed the same data under different names). The Overview tab
-// leads with the profile hero (rally/best/lifetime/points) and ends with
-// Achievements; charts/patterns/AI live in the tabs.
-export default function AnalyticsModal({ open, onClose, tasks = [], routines = [], records = {}, streak = 0, dailyStats = {}, onOpenDone }) {
+// leads with completion counts (today / week / year / lifetime / best day) and
+// ends with Achievements; charts/patterns/AI live in the tabs. Everything here
+// counts tasks done: points and rally were removed on 2026-11-15 (BOOM-33).
+export default function AnalyticsModal({ open, onClose, tasks = [], routines = [], records = {}, dailyStats = {}, onOpenDone }) {
   const labels = useMemo(() => loadLabels(), [])
   const labelMap = useMemo(() => Object.fromEntries(labels.map(l => [l.id, l])), [labels])
   const [range, setRange] = useState(30)
-  const [metric, setMetric] = useState('tasks')
   const [tab, setTab] = useState('overview') // overview | tasks | habits
   const [history, setHistory] = useState(null)
   const [heatMapData, setHeatMapData] = useState(null)
-  const [heatMapMetric, setHeatMapMetric] = useState('tasks')
   const [radarMode, setRadarMode] = useState('tags')
   const [aiUsage, setAiUsage] = useState(null)
 
@@ -97,7 +96,7 @@ export default function AnalyticsModal({ open, onClose, tasks = [], routines = [
       .catch(() => {})
   }, [open])
 
-  const heatMap = useMemo(() => buildHeatMapGrid(heatMapData, heatMapMetric), [heatMapData, heatMapMetric])
+  const heatMap = useMemo(() => buildHeatMapGrid(heatMapData), [heatMapData])
 
   // The grid is wider than a phone; start scrolled to NOW (right edge) —
   // otherwise mobile shows only the year-old left half, which reads as a
@@ -108,19 +107,28 @@ export default function AnalyticsModal({ open, onClose, tasks = [], routines = [
     if (el) el.scrollLeft = el.scrollWidth
   }, [open, tab, heatMap])
 
-  // Profile hero + achievements (absorbed from the Flight log).
+  // Completion counts + achievements (absorbed from the Flight log).
   const lifetimeDone = useMemo(() => tasks.filter(t => t.status === 'done').length, [tasks])
-  const yearPoints = useMemo(() => (heatMapData || []).reduce((n, d) => n + (d.points || 0), 0), [heatMapData])
+  // Rolling windows over the year of server buckets (UTC day keys, same as
+  // the heatmap).
+  const doneInLast = useMemo(() => {
+    const sumSince = (days) => {
+      const now = new Date()
+      const cutoff = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() - (days - 1))).toISOString().slice(0, 10)
+      return (heatMapData || []).reduce((n, d) => n + (d.day >= cutoff ? (d.tasks || 0) : 0), 0)
+    }
+    return { week: sumSince(7), month: sumSince(30), year: sumSince(365) }
+  }, [heatMapData])
   const badges = useMemo(() => computeBadges({
-    lifetimeDone, routines, records, streak, history: heatMapData || [], tasks,
-  }), [lifetimeDone, routines, records, streak, heatMapData, tasks])
+    lifetimeDone, routines, records, tasks,
+  }), [lifetimeDone, routines, records, tasks])
   const heroStats = [
-    { Icon: Flame, label: 'rally', value: `\u21bb ${streak || 0}` },
-    { Icon: Trophy, label: 'best rally', value: Math.max(streak || 0, records?.longestStreak || 0) },
-    { Icon: Star, label: 'lifetime', value: `${lifetimeDone}\u00d7` },
-    { Icon: Zap, label: 'points (yr)', value: yearPoints },
-    { Icon: Target, label: 'best day', value: `${records?.bestTasks || 0}\u00d7` },
     { Icon: CalendarCheck, label: 'today', value: `${dailyStats?.tasksToday ?? 0}\u00d7` },
+    { Icon: CalendarDays, label: 'last 7 days', value: `${doneInLast.week}\u00d7` },
+    { Icon: CalendarDays, label: 'last 30 days', value: `${doneInLast.month}\u00d7` },
+    { Icon: CalendarRange, label: 'last 365 days', value: `${doneInLast.year}\u00d7` },
+    { Icon: Star, label: 'lifetime', value: `${lifetimeDone}\u00d7` },
+    { Icon: Target, label: 'best day', value: `${records?.bestTasks || 0}\u00d7` },
   ]
 
   // Radar spokes derived from history.
@@ -132,7 +140,7 @@ export default function AnalyticsModal({ open, onClose, tasks = [], routines = [
           const lbl = labelMap[id]
           return {
             label: lbl?.name || id,
-            value: metric === 'points' ? data.points : data.tasks,
+            value: data.tasks,
             color: lbl?.color,
           }
         })
@@ -144,23 +152,21 @@ export default function AnalyticsModal({ open, onClose, tasks = [], routines = [
     // energy
     return ENERGY_TYPES.map(et => ({
       label: et.label,
-      value: metric === 'points'
-        ? (history.byEnergy?.[et.id]?.points || 0)
-        : (history.byEnergy?.[et.id]?.tasks || 0),
+      value: history.byEnergy?.[et.id]?.tasks || 0,
       color: et.color,
     }))
-  }, [history, radarMode, metric, labelMap])
+  }, [history, radarMode, labelMap])
 
   // Day-of-week pattern: scale to the busiest DOW.
   const dowMax = useMemo(() => {
     if (!history?.byDayOfWeek) return 1
-    return Math.max(1, ...history.byDayOfWeek.map(d => metric === 'tasks' ? d.tasks : d.points))
-  }, [history, metric])
+    return Math.max(1, ...history.byDayOfWeek.map(d => d.tasks))
+  }, [history])
 
   const dailyMax = useMemo(() => {
     if (!history?.daily) return 1
-    return Math.max(1, ...history.daily.map(d => metric === 'tasks' ? d.tasks : d.points))
-  }, [history, metric])
+    return Math.max(1, ...history.daily.map(d => d.tasks))
+  }, [history])
 
   return (
     <ModalShell open={open} onClose={onClose} title="Analytics" width="wide">
@@ -185,7 +191,7 @@ export default function AnalyticsModal({ open, onClose, tasks = [], routines = [
         ))}
       </div>
 
-      {/* Range + metric controls */}
+      {/* Range control */}
       <div className="v2-analytics-toolbar">
         <div className="v2-analytics-range">
           {RANGE_OPTIONS.map(opt => (
@@ -198,22 +204,6 @@ export default function AnalyticsModal({ open, onClose, tasks = [], routines = [
             </button>
           ))}
         </div>
-        {(tab === 'overview' || tab === 'tasks') && (
-          <div className="v2-analytics-metric">
-            <button
-              className={`v2-analytics-metric-btn${metric === 'tasks' ? ' v2-analytics-metric-btn-active' : ''}`}
-              onClick={() => setMetric('tasks')}
-            >
-              Tasks
-            </button>
-            <button
-              className={`v2-analytics-metric-btn${metric === 'points' ? ' v2-analytics-metric-btn-active' : ''}`}
-              onClick={() => setMetric('points')}
-            >
-              Points
-            </button>
-          </div>
-        )}
       </div>
 
       {!history ? (
@@ -233,8 +223,8 @@ export default function AnalyticsModal({ open, onClose, tasks = [], routines = [
           {/* Summary line */}
           {(tab === 'overview' || tab === 'tasks') && (
             <div className="v2-analytics-summary">
-              <span className="v2-analytics-summary-num">{metric === 'tasks' ? history.totalTasks : history.totalPoints}</span>
-              <span className="v2-analytics-summary-label">{metric === 'tasks' ? 'tasks' : 'points'} · last {range || 'all'} {range ? 'days' : 'time'}</span>
+              <span className="v2-analytics-summary-num">{history.totalTasks}</span>
+              <span className="v2-analytics-summary-label">tasks · last {range || 'all'} {range ? 'days' : 'time'}</span>
             </div>
           )}
 
@@ -256,10 +246,10 @@ export default function AnalyticsModal({ open, onClose, tasks = [], routines = [
               <h3 className="v2-analytics-heading">Daily completions</h3>
               <div className="v2-analytics-daily-chart">
                 {history.daily.map(d => {
-                  const v = metric === 'tasks' ? d.tasks : d.points
+                  const v = d.tasks
                   const h = (v / dailyMax) * 100
                   return (
-                    <div key={d.day} className="v2-analytics-daily-col" title={`${d.day}: ${v} ${metric}`}>
+                    <div key={d.day} className="v2-analytics-daily-col" title={`${d.day}: ${v} tasks`}>
                       <div className="v2-analytics-daily-bar" style={{ height: `${h}%`, minHeight: v > 0 ? 2 : 0 }} />
                     </div>
                   )
@@ -274,7 +264,7 @@ export default function AnalyticsModal({ open, onClose, tasks = [], routines = [
               <h3 className="v2-analytics-heading">By day of week</h3>
               <div className="v2-analytics-dow">
                 {history.byDayOfWeek.map((d, i) => {
-                  const v = metric === 'tasks' ? d.tasks : d.points
+                  const v = d.tasks
                   const w = (v / dowMax) * 100
                   return (
                     <div key={i} className="v2-analytics-dow-row">
@@ -327,10 +317,10 @@ export default function AnalyticsModal({ open, onClose, tasks = [], routines = [
                 {Object.entries(history.byTag)
                   .map(([id, data]) => ({ id, lbl: labelMap[id], data }))
                   .filter(x => x.lbl)
-                  .sort((a, b) => (metric === 'tasks' ? b.data.tasks - a.data.tasks : b.data.points - a.data.points))
+                  .sort((a, b) => (b.data.tasks - a.data.tasks))
                   .map(({ id, lbl, data }) => {
-                    const v = metric === 'tasks' ? data.tasks : data.points
-                    const max = Math.max(...Object.values(history.byTag).map(d => metric === 'tasks' ? d.tasks : d.points))
+                    const v = data.tasks
+                    const max = Math.max(...Object.values(history.byTag).map(d => d.tasks))
                     return (
                       <li key={id} className="v2-analytics-bd-row">
                         <span className="v2-analytics-bd-dot" style={{ background: lbl.color }} />
@@ -353,11 +343,11 @@ export default function AnalyticsModal({ open, onClose, tasks = [], routines = [
               <ul className="v2-analytics-bd">
                 {ENERGY_TYPES
                   .filter(e => history.byEnergy[e.id])
-                  .sort((a, b) => (metric === 'tasks' ? (history.byEnergy[b.id]?.tasks || 0) - (history.byEnergy[a.id]?.tasks || 0) : (history.byEnergy[b.id]?.points || 0) - (history.byEnergy[a.id]?.points || 0)))
+                  .sort((a, b) => ((history.byEnergy[b.id]?.tasks || 0) - (history.byEnergy[a.id]?.tasks || 0)))
                   .map(e => {
                     const data = history.byEnergy[e.id]
-                    const v = metric === 'tasks' ? data.tasks : data.points
-                    const max = Math.max(...Object.values(history.byEnergy).map(d => metric === 'tasks' ? d.tasks : d.points))
+                    const v = data.tasks
+                    const max = Math.max(...Object.values(history.byEnergy).map(d => d.tasks))
                     return (
                       <li key={e.id} className="v2-analytics-bd-row">
                         <span className="v2-analytics-bd-dot" style={{ background: e.color }} />
@@ -380,8 +370,8 @@ export default function AnalyticsModal({ open, onClose, tasks = [], routines = [
               <ul className="v2-analytics-bd">
                 {SIZE_ORDER.filter(s => history.bySize[s]).map(s => {
                   const data = history.bySize[s]
-                  const v = metric === 'tasks' ? data.tasks : data.points
-                  const max = Math.max(...Object.values(history.bySize).map(d => metric === 'tasks' ? d.tasks : d.points))
+                  const v = data.tasks
+                  const max = Math.max(...Object.values(history.bySize).map(d => d.tasks))
                   return (
                     <li key={s} className="v2-analytics-bd-row">
                       <span className="v2-analytics-bd-dot" style={{ background: SIZE_COLORS[s] }} />
@@ -405,8 +395,8 @@ export default function AnalyticsModal({ open, onClose, tasks = [], routines = [
               <ul className="v2-analytics-bd">
                 {['3', '2', '1'].filter(k => history.byImpact[k]).map(k => {
                   const data = history.byImpact[k]
-                  const v = metric === 'tasks' ? data.tasks : data.points
-                  const max = Math.max(...Object.values(history.byImpact).map(d => metric === 'tasks' ? d.tasks : d.points))
+                  const v = data.tasks
+                  const max = Math.max(...Object.values(history.byImpact).map(d => d.tasks))
                   const color = k === '3' ? '#F26640' : k === '2' ? '#E8B04B' : '#9CA3AF'
                   const label = k === '3' ? '●●● High' : k === '2' ? '●● Med' : '● Low'
                   return (
@@ -429,20 +419,6 @@ export default function AnalyticsModal({ open, onClose, tasks = [], routines = [
             <section className="v2-analytics-section">
               <div className="v2-analytics-section-head">
                 <h3 className="v2-analytics-heading">52-week pattern</h3>
-                <div className="v2-analytics-metric">
-                  <button
-                    className={`v2-analytics-metric-btn${heatMapMetric === 'tasks' ? ' v2-analytics-metric-btn-active' : ''}`}
-                    onClick={() => setHeatMapMetric('tasks')}
-                  >
-                    Tasks
-                  </button>
-                  <button
-                    className={`v2-analytics-metric-btn${heatMapMetric === 'points' ? ' v2-analytics-metric-btn-active' : ''}`}
-                    onClick={() => setHeatMapMetric('points')}
-                  >
-                    Points
-                  </button>
-                </div>
               </div>
               <div className="v2-analytics-heatmap-wrap" ref={heatmapScrollRef}>
                 <div className="v2-analytics-heatmap-inner">
@@ -462,7 +438,7 @@ export default function AnalyticsModal({ open, onClose, tasks = [], routines = [
                           <div
                             key={cell.key}
                             className={`v2-analytics-heatmap-cell${cell.isFuture ? ' v2-analytics-heatmap-cell-future' : ''}`}
-                            title={`${cell.key}: ${cell.value} ${heatMapMetric}`}
+                            title={`${cell.key}: ${cell.value} tasks`}
                             style={cell.value > 0 && !cell.isFuture
                               ? { background: `rgba(255, 98, 64, ${0.15 + intensity * 0.75})` }
                               : undefined}
@@ -517,19 +493,6 @@ export default function AnalyticsModal({ open, onClose, tasks = [], routines = [
 
 // Habits tab — per-routine completion summary from data we already have
 // (routine.completed_history). No new endpoint. Theme-agnostic.
-function habitStreak(history) {
-  const days = new Set((history || []).map(ts => {
-    const d = new Date(ts)
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
-  }))
-  const cur = new Date(); cur.setHours(0, 0, 0, 0)
-  const key = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
-  if (!days.has(key(cur))) cur.setDate(cur.getDate() - 1) // today optional
-  let n = 0
-  while (days.has(key(cur))) { n++; cur.setDate(cur.getDate() - 1) }
-  return n
-}
-
 function HabitsAnalytics({ routines = [] }) {
   const rows = routines
     .map(r => ({
@@ -537,7 +500,6 @@ function HabitsAnalytics({ routines = [] }) {
       title: r.title,
       total: (r.completed_history?.length || 0),
       last: (r.completed_history || []).slice().sort().pop() || null,
-      streak: habitStreak(r.completed_history),
     }))
     .filter(r => r.total > 0)
     .sort((a, b) => b.total - a.total)
@@ -565,7 +527,7 @@ function HabitsAnalytics({ routines = [] }) {
             <div className="v2-analytics-bd-track">
               <div className="v2-analytics-bd-fill" style={{ width: `${(r.total / max) * 100}%` }} />
             </div>
-            <span className="v2-analytics-bd-value">{r.total}×{r.streak > 1 ? ` · 🔥${r.streak}` : ''} · {ago(r.last)}</span>
+            <span className="v2-analytics-bd-value">{r.total}× · {ago(r.last)}</span>
           </li>
         ))}
       </ul>

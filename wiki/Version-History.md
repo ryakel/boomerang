@@ -6,6 +6,15 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-11-15
 
+- feat(kept): remove points and rally; count completions instead [L]
+  - Points are gone as a product concept (BOOM-33, owner decision 2026-11-15): no "+N pts" on the completion toast, no points arc, goal, "pts left", session points or project budget, no 20% stack-clear bonus, no point for an escalation attempt or the tic-tac-toe win. `scoring.js` keeps only completion counts (`computeDailyStats` → `{ tasksToday }`, `computeRecords` → `{ bestTasks }`) plus `impactRank`.
+  - Rally (the day streak and per-loop cycle rallies) went with it: the toast's "Streak updated", the legacy 🔥 stats line, rally/best rally in Analytics, the habit streak, loop-card ↻ chips, loop-detail rally/best (now "last done" + lifetime) and the digest's "day N of your rally". `computeStreak`, `server/streakWalk.js`, `cycleRally` and the heatmap streak helpers are deleted with their tests.
+  - Analytics counts tasks only: today / last 7 / 30 / 365 days / lifetime / best day, the daily chart, the 52-week pattern and every breakdown, with no Tasks/Points toggles. Points- and streak-shaped badges (Week Warrior, Fortnight, Monthly Master, Consistent, Point Storm, Point Collector, Phoenix, Stack Champion) no longer render; their stamps stay in `settings.badges_earned`.
+  - Server `getAnalytics()` returns `{ tasksToday, bestTasks }`, `getAnalyticsHistory()` drops every `points` field, project/session routes drop `budget`/`session_points`/`points`; Quokka's tool descriptions no longer promise points or streaks.
+  - Classic Today is gated off, not deleted: `CLASSIC_TODAY_ENABLED` (src/kept/classicToday.js) is false, so the Settings switch is hidden and a stored `today_classic: true` still opens Kept 2.0 Today. TodayView keeps its loop trails; its points arc and rally chip are removed. Desktop's TodayRail loses the same arc/chip; the rest of desktop waits for its own rethink.
+  - Data kept: `streak_anchor` (and its writer + merge guards), `completion_days`, `away_days`, `free_days`, `easter_egg_wins`, `badges_earned`, `stack_bonus` and legacy `points` fields inside session/escalation logs. Nothing deletes them; nothing reads the point values. Away days still protect loops, device alarms and notifications.
+  - Tests: new `scripts/scoring.test.mjs` pins what a day counts; `npm test` 647/647, Quokka P1 19/19, execution 92/92, alarm 29/29; lint at the dev baseline (0 errors / 13 warnings); build passes.
+
 - feat(ios): add configurable task and routine alarm rules [L]
   - Add editable source-linked weekly/on-demand clocks, timezone, early cues, snooze and acknowledgment; preview then explicitly arm a bounded schedule in Dev.
   - Persist revision/device-bound rules outside settings sync and dev reseeding; keep atomic native ownership/acknowledgment outbox and conservative no-rearm recovery. Stop is separate from acknowledgment/task completion.

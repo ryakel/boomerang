@@ -7,7 +7,6 @@ import './kept/palette.css'
 import FlightTrail from './kept/FlightTrail'
 import MonthDots from './kept/MonthDots'
 import DensityRibbon from './kept/DensityRibbon'
-import DayArc from './kept/DayArc'
 import { localYMD, addDays } from './dates'
 
 const root = document.documentElement
@@ -27,7 +26,6 @@ const label = { font: '700 11px DM Sans', letterSpacing: '0.1em', textTransform:
 
 createRoot(document.getElementById('root')).render(
   <div style={{ width: 390, margin: '0 auto', padding: 16, background: 'var(--bm-bg)', minHeight: '100vh', fontFamily: 'DM Sans' }}>
-    <div style={card}><div style={label}>Day Arc</div><DayArc value={21} goal={30} /></div>
     <div style={card}><div style={label}>Flight Trail (10 weeks)</div><FlightTrail valueByDay={byDay} color="var(--bm-f-eucalypt)" /></div>
     <div style={card}><div style={label}>Flight Trail (mini)</div><FlightTrail valueByDay={byDay} color="var(--bm-f-ironbark)" mini /></div>
     <div style={card}><div style={label}>Month Dots</div><MonthDots valueByDay={byDay} color="var(--bm-f-billabong)" /></div>

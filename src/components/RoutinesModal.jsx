@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Plus, Play, Pause, Pencil, Trash2, RotateCw, FastForward, X, ChevronUp, ChevronDown, Check, Flame } from 'lucide-react'
+import { Plus, Play, Pause, Pencil, Trash2, RotateCw, FastForward, X, ChevronUp, ChevronDown, Check } from 'lucide-react'
 import { loadLabels, loadSettings, RECURRENCE_OPTIONS, formatCadence, formatScheduleAnchor, getNextDueDate, computeHabitStats, localYMD } from '../store'
 import ModalShell from './ModalShell'
 import FormDisclosure from './FormDisclosure'
@@ -99,9 +99,6 @@ function RoutineRow({ routine, tasks, expanded, onToggleExpand, onSpawnNow, onLo
                 {habitStats.completions}/{habitStats.target}
                 {habitStats.target_period === 'week' ? ' this week' : ' this month'}
               </span>
-              {habitStats.streak > 0 && (
-                <span className="v2-habit-streak"> · <Flame size={11} strokeWidth={1.75} /> {habitStats.streak}</span>
-              )}
             </>
           )}
         </span>
@@ -114,8 +111,6 @@ function RoutineRow({ routine, tasks, expanded, onToggleExpand, onSpawnNow, onLo
                 <span>
                   {habitStats?.completions || 0} of {habitStats?.target || routine.target_count} this {routine.target_period}
                 </span>
-                <span className="v2-routine-meta-sep">·</span>
-                <span>streak: {habitStats?.streak || 0}</span>
                 <span className="v2-routine-meta-sep">·</span>
                 <span>{completeCount}× lifetime</span>
               </>
@@ -381,8 +376,7 @@ function RoutineForm({ initial, onSave, noun = 'routine' }) {
   const [notes, setNotes] = useState(initial?.notes || '')
   // Who this loop is actually for — e.g. a kid's chore the user supervises
   // rather than their own task (migration 038). Free text, blank = mine.
-  // Propagated onto every spawned task; scores a flat point per completion
-  // (see calculateTaskPoints in scoring.js) instead of size x energy.
+  // Propagated onto every spawned task.
   const [assignee, setAssignee] = useState(initial?.assignee || '')
   const [highPriority, setHighPriority] = useState(initial?.high_priority || false)
   const [endDate, setEndDate] = useState(initial?.end_date || '')
@@ -934,7 +928,7 @@ function RoutineForm({ initial, onSave, noun = 'routine' }) {
           defaultOpen={members.length > 0}
         >
           <div className="v2-form-section-hint">
-            Add 2+ items and this {noun} becomes a <strong>stack</strong>: each cycle it spawns one independent task per item, all sharing the cadence and time above. Each item scores its own points; clearing every item in a cycle pays a 20% bonus.
+            Add 2+ items and this {noun} becomes a <strong>stack</strong>: each cycle it spawns one independent task per item, all sharing the cadence and time above. Clearing every item completes that cycle.
           </div>
           {members.length > 0 && (
             <ol className="v2-stack-member-edit-list">
@@ -1030,7 +1024,7 @@ function RoutineForm({ initial, onSave, noun = 'routine' }) {
             onChange={e => setAssignee(e.target.value)}
           />
           <div className="v2-form-section-hint">
-            Marks this as someone else's chore you're supervising. Spawned tasks score a flat 1 point each (instead of size × energy) but still count toward your own daily total.
+            Marks this as someone else's chore you're supervising. Spawned tasks still count toward your own daily total.
           </div>
         </div>
         <div className="v2-form-section">

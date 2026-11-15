@@ -13,7 +13,7 @@ import { initDb, getAllData, setAllData, setData, getVersion, bumpVersion, flush
   markNotificationTapped, getNotificationAnalytics,
   listNotifLog, clearNotifLog as clearServerNotifLog,
   markNotifEntriesRead, markAllNotifsRead,
-  getChildTasks, computeProjectBudget, computeSessionPoints, logProjectSession,
+  getChildTasks, logProjectSession,
   findActiveSpawnTwin, dedupeSpawnedTasks, findImportTwin, dedupeImportedTasks,
   listActivity, appendActivity, clearActivity,
   logAiUsage, getAiUsageSummary,
@@ -800,9 +800,7 @@ app.post('/api/data/restore', (req, res) => {
 
 // --- Analytics ---
 app.get('/api/analytics', (req, res) => {
-  // Read settings from app_data for streak/vacation logic
-  const settings = getData('settings') || {}
-  res.json(getAnalytics(settings))
+  res.json(getAnalytics())
 })
 
 app.get('/api/analytics/history', (req, res) => {
@@ -1191,21 +1189,15 @@ app.get('/api/intents/lists', (req, res) => {
 
 // --- Project endpoints ---
 // Pinning, session logging, child listing. All mutations bump the version
-// so connected clients refetch and see the change. Session points are
-// surfaced to the client via the response so the toast can show what was
-// awarded without recomputing.
+// so connected clients refetch and see the change.
 
 app.get('/api/projects/:id/children', (req, res) => {
   const project = getTask(req.params.id)
   if (!project) return res.status(404).json({ error: 'Project not found' })
   const children = getChildTasks(req.params.id)
-  const budget = computeProjectBudget(project)
-  const sessionPoints = computeSessionPoints(project)
   res.json({
     project,
     children,
-    budget,
-    session_points: sessionPoints,
     session_count: project.session_count || 0,
     session_cap: PROJECT_CONSTANTS.SESSION_CAP,
   })
@@ -1231,7 +1223,6 @@ app.post('/api/projects/:id/log-session', (req, res) => {
     broadcast(newVersion, clientId)
     res.json({
       task: getTask(req.params.id),
-      points: result.points,
       session_count: result.sessionCount,
       session_cap: result.sessionCap,
       timestamp: result.timestamp,

@@ -265,3 +265,37 @@ below predate those decisions and are historical recommendations, not authority.
 - Implementation mechanics, bounded scheduling/ownership, checks and device-test
   limits: [Alarm Rules](Alarm-Rules.md). Build/review the next batch in dev; do not
   infer approval for later production releases or automatic activation.
+
+## D015 — Production code release of alarm rules, feature kept Dev-only
+
+- Date/status: 2026-11-15, **accepted and deployed**.
+- Source: owner chose Codex's recommended option for PR #1032: deploy the code
+  to production, keep alarm-rule arming Dev-only.
+- Evidence: [#1032](https://github.com/ryakel/boomerang/pull/1032) merged to
+  `main`; production workflow
+  [43725385116](https://github.com/ryakel/boomerang/actions/runs/43725385116)
+  passed its image push, Portainer redeploy and deploy verification. Gates
+  checked in code: `/api/alarm-rules` returns 403 off dev
+  (`server/alarmRuleRoutes.js`) and the client requires the Dev native build
+  flag (`src/alarmRules.js`). Relink [#1033](https://github.com/ryakel/boomerang/pull/1033).
+- Not authorized: enabling alarm rules in production, a new production native
+  build, arming physical alarms, real pickup/medication workflows. Enabling
+  needs an agreed physical-device test matrix and separate approval.
+
+## D016 — Kept 2.0 beyond Today: points and rally removed
+
+- Date/status: 2026-11-15, **accepted**; implementation in BOOM-33 (PR to `dev`).
+- Source: owner, after reviewing the app against the Kept 2.0 brief: Kept 2.0
+  had reached only the Today screen. "No points, but still want to track the
+  tasks getting done in analytics. Points need to die. I think rally is
+  probably just points without a score."
+- Decision: points and rally (day streak, loop rallies) are removed as product
+  concepts on every surface, Quokka and notifications included. Analytics keeps
+  completion counts. Provenance data stays stored.
+- Related, same conversation: the classic Today screen is gated off but not
+  deleted ("not ready to fully kill" it); desktop is deferred ("get the app
+  running the way I like it and we can rethink desktop"); the theme is settled
+  as Kept with the warmer Kept 2.0 type carried to every mobile surface
+  (BOOM-34); Loops gets its own redesign around routine modes (BOOM-35,
+  needs a spec and owner decisions before code).
+- Merge authority: not included. PRs to `dev` wait for explicit approval.

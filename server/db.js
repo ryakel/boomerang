@@ -5,7 +5,6 @@ import { fileURLToPath } from 'url'
 import crypto from 'crypto'
 import { estimateAiCost } from './aiModels.js'
 import { normalizeWindow, isAway } from './vacationWindow.js'
-import { walkStreak, dayKey } from './streakWalk.js'
 import { ymdInTz } from './taskModel.js'
 import { configureExecutionJournal } from './executionJournal.js'
 import { configureLocalRecovery } from './localRecovery.js'
@@ -1103,14 +1102,12 @@ export function queryTasks(filters = {}) {
 // Project helpers — child queries, budget/session math
 // ============================================================
 
-// Session model: each "I worked on this" log awards SESSION_PCT of the
-// project's effort budget, capped at SESSION_CAP sessions total. After cap,
-// the user has to either complete a child task or the project itself to
-// keep earning credit. The cap exists to prevent gaming — without it you
-// could log infinite sessions and never finish anything.
-const SESSION_PCT = 0.10
+// Session model: each "I worked on this" log is counted, capped at
+// SESSION_CAP sessions total. After the cap the user has to complete a child
+// task or the project itself. Sessions carried points (a share of an effort
+// "budget") until points left the product on 2026-11-15 (BOOM-33); old
+// session_log entries keep their `points` field, nothing reads it.
 const SESSION_CAP = 10
-const DEFAULT_PROJECT_BUDGET = 20
 
 export function getChildTasks(parentId) {
   if (!parentId) return []
@@ -1122,32 +1119,9 @@ export function getChildTasks(parentId) {
   return out
 }
 
-// Effort budget for a project. Sum of all children's base (size × energy_level)
-// points, with the project's own base as a floor and DEFAULT_PROJECT_BUDGET
-// as a final fallback. No speed multiplier — sessions don't get the
-// same-day bonus that completions do. Budget grows as children are added,
-// which lets a project that started small accrue more session credit if it
-// turns out to be bigger than anticipated.
-export function computeProjectBudget(project) {
-  if (!project) return DEFAULT_PROJECT_BUDGET
-  const SIZE = { XS: 1, S: 2, M: 5, L: 10, XL: 20 }
-  const ENERGY = { 1: 1.0, 2: 1.5, 3: 2.0 }
-  const basePts = (t) => (SIZE[t.size] || SIZE.M) * (ENERGY[t.energyLevel ?? t.energy_level] || 1.0)
-  const own = basePts(project)
-  const children = getChildTasks(project.id)
-  const childSum = children.reduce((sum, c) => sum + basePts(c), 0)
-  return Math.max(own, childSum, DEFAULT_PROJECT_BUDGET)
-}
-
-// Per-session credit. Floors at 1 so a tiny project still rewards a tap.
-export function computeSessionPoints(project) {
-  const budget = computeProjectBudget(project)
-  return Math.max(1, Math.round(budget * SESSION_PCT))
-}
-
-// Log a "worked on this" session for a project. Returns the new session
-// entry and updated counts so callers can surface a toast / update local
-// state without re-fetching. Refuses past the cap.
+// Log a "worked on this" session for a project. Returns the updated counts
+// so callers can confirm it / update local state without re-fetching.
+// Refuses past the cap.
 export function logProjectSession(projectId) {
   const project = getTask(projectId)
   if (!project) throw new Error(`Project not found: ${projectId}`)
@@ -1155,10 +1129,9 @@ export function logProjectSession(projectId) {
   if ((project.session_count || 0) >= SESSION_CAP) {
     return { capped: true, sessionCount: project.session_count, sessionCap: SESSION_CAP }
   }
-  const points = computeSessionPoints(project)
   const now = new Date().toISOString()
   const log = Array.isArray(project.session_log) ? [...project.session_log] : []
-  log.push({ timestamp: now, points })
+  log.push({ timestamp: now })
   updateTaskPartial(projectId, {
     session_count: (project.session_count || 0) + 1,
     last_session_at: now,
@@ -1166,14 +1139,13 @@ export function logProjectSession(projectId) {
   })
   return {
     capped: false,
-    points,
     sessionCount: (project.session_count || 0) + 1,
     sessionCap: SESSION_CAP,
     timestamp: now,
   }
 }
 
-export const PROJECT_CONSTANTS = { SESSION_PCT, SESSION_CAP, DEFAULT_PROJECT_BUDGET }
+export const PROJECT_CONSTANTS = { SESSION_CAP }
 
 // ============================================================
 // Escalation Ladder — repeated-contact-attempt tracking on a single task.
@@ -1218,7 +1190,6 @@ export function logEscalationAttempt(taskId, note) {
     id: `esc-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`,
     at: now,
     rung_index: currentIdx,
-    points: 1,
     note: note || undefined,
   }]
   const rung = rungs[currentIdx]
@@ -1423,92 +1394,33 @@ export function filterNotifiableTasks(allTasks) {
 // Analytics queries
 // ============================================================
 
-const SIZE_POINTS = { XS: 1, S: 2, M: 5, L: 10, XL: 20 }
-const ENERGY_MULTIPLIER = { 1: 1.0, 2: 1.5, 3: 2.0 }
-
-function calcPoints(row) {
-  const base = SIZE_POINTS[row.size] || 1
-  const energyMult = ENERGY_MULTIPLIER[row.energy_level] || 1.0
-  const completedAt = row.completed_at ? new Date(row.completed_at) : new Date()
-  const daysOnList = Math.max(0, Math.floor((completedAt.getTime() - new Date(row.created_at).getTime()) / 86400000))
-  const speedMult = daysOnList === 0 ? 2 : daysOnList <= 2 ? 1.5 : 1
-  return Math.round(base * energyMult * speedMult)
-}
-
-export function getAnalytics(settings = {}) {
+// Counts only. Points and the day streak were removed from the product on
+// 2026-11-15 (BOOM-33); nothing here scores a task any more.
+export function getAnalytics() {
   const todayStart = new Date()
   todayStart.setHours(0, 0, 0, 0)
   const todayStr = todayStart.toISOString()
 
-  // Today's stats
+  // Today's completions
   let tasksToday = 0
-  let pointsToday = 0
-  const stmt1 = db.prepare('SELECT * FROM tasks WHERE status = ? AND completed_at >= ?')
+  const stmt1 = db.prepare('SELECT COUNT(*) AS n FROM tasks WHERE status = ? AND completed_at >= ?')
   stmt1.bind(['done', todayStr])
-  while (stmt1.step()) {
-    tasksToday++
-    pointsToday += calcPoints(stmt1.getAsObject())
-  }
+  if (stmt1.step()) tasksToday = stmt1.getAsObject().n || 0
   stmt1.free()
 
-  // All-time records: best day tasks, best day points, longest streak
+  // Best day ever, by tasks completed
   const byDay = {}
-  const stmt2 = db.prepare('SELECT * FROM tasks WHERE status = ? AND completed_at IS NOT NULL')
+  const stmt2 = db.prepare('SELECT completed_at FROM tasks WHERE status = ? AND completed_at IS NOT NULL')
   stmt2.bind(['done'])
   while (stmt2.step()) {
-    const row = stmt2.getAsObject()
-    const dayStr = new Date(row.completed_at).toDateString()
-    if (!byDay[dayStr]) byDay[dayStr] = { tasks: 0, points: 0 }
-    byDay[dayStr].tasks++
-    byDay[dayStr].points += calcPoints(row)
+    const dayStr = new Date(stmt2.getAsObject().completed_at).toDateString()
+    byDay[dayStr] = (byDay[dayStr] || 0) + 1
   }
   stmt2.free()
+  let bestTasks = 0
+  for (const n of Object.values(byDay)) if (n > bestTasks) bestTasks = n
 
-  let bestTasks = 0, bestPoints = 0, longestStreak = 0
-  for (const day of Object.values(byDay)) {
-    if (day.tasks > bestTasks) bestTasks = day.tasks
-    if (day.points > bestPoints) bestPoints = day.points
-  }
-
-  // Longest streak from sorted dates
-  const dates = Object.keys(byDay).map(d => new Date(d)).sort((a, b) => a - b)
-  let current = 1
-  for (let i = 1; i < dates.length; i++) {
-    const diff = (dates[i] - dates[i - 1]) / 86400000
-    if (Math.round(diff) === 1) {
-      current++
-      if (current > longestStreak) longestStreak = current
-    } else {
-      current = 1
-    }
-  }
-  if (dates.length > 0 && current > longestStreak) longestStreak = current
-
-  // Current streak (consecutive days working backward from today).
-  //
-  // Mirrors computeStreak() in src/store.js, including the away rule: a day the
-  // away window covered (server/awayDays.js) is SKIPPED — it neither breaks the
-  // streak nor adds to it, so a trip leaves the number exactly where it was.
-  // Free days still COUNT as kept; away days do not, because a week abroad is
-  // not a week of work.
-  const freeDays = new Set(settings.free_days || [])
-  const awayDays = new Set(settings.away_days || [])
-  // The SAME walk the client uses (server/streakWalk.js) rather than a second
-  // hand-written copy of the rule — see that file for why.
-  const streak = walkStreak({
-    todayMs: Date.now(),
-    isKept: (d) => !!byDay[d.toDateString()] || freeDays.has(dayKey(d)),
-    isPaused: (d) => awayDays.has(dayKey(d)),
-  })
-
-  // Away used to FREEZE the streak at `settings.streak_current` here. Nothing
-  // has ever written that key, so the freeze pinned the number to 0 for the
-  // whole trip while masking the real problem — the walk above ended the streak
-  // at the first day away. The walk now pauses over those days instead, which
-  // is the freeze done properly: it survives the window being switched off,
-  // and a day you did work abroad still counts.
-
-  return { tasksToday, pointsToday, bestTasks, bestPoints, longestStreak, streak }
+  return { tasksToday, bestTasks }
 }
 
 export function getAnalyticsHistory(days) {
@@ -1524,14 +1436,12 @@ export function getAnalyticsHistory(days) {
   const byEnergy = {}
   const bySize = {}
   const byImpact = {}
-  const byDayOfWeek = Array.from({ length: 7 }, () => ({ tasks: 0, points: 0 }))
-  let totalTasks = 0, totalPoints = 0
+  const byDayOfWeek = Array.from({ length: 7 }, () => ({ tasks: 0 }))
+  let totalTasks = 0
 
   while (stmt.step()) {
     const row = stmt.getAsObject()
-    const points = calcPoints(row)
     totalTasks++
-    totalPoints += points
 
     // Daily (group by week for all-time to avoid hundreds of bars)
     const dayKey = days
@@ -1542,51 +1452,45 @@ export function getAnalyticsHistory(days) {
           weekStart.setDate(d.getDate() - d.getDay())
           return weekStart.toISOString().split('T')[0]
         })()
-    if (!daily[dayKey]) daily[dayKey] = { day: dayKey, tasks: 0, points: 0 }
+    if (!daily[dayKey]) daily[dayKey] = { day: dayKey, tasks: 0 }
     daily[dayKey].tasks++
-    daily[dayKey].points += points
 
     // Tags
     try {
       const tags = JSON.parse(row.tags_json || '[]')
       for (const tagId of tags) {
-        if (!byTag[tagId]) byTag[tagId] = { tasks: 0, points: 0 }
+        if (!byTag[tagId]) byTag[tagId] = { tasks: 0 }
         byTag[tagId].tasks++
-        byTag[tagId].points += points
       }
     } catch { /* malformed tags_json */ }
 
     // Energy
     if (row.energy) {
-      if (!byEnergy[row.energy]) byEnergy[row.energy] = { tasks: 0, points: 0 }
+      if (!byEnergy[row.energy]) byEnergy[row.energy] = { tasks: 0 }
       byEnergy[row.energy].tasks++
-      byEnergy[row.energy].points += points
     }
 
     // Size
     if (row.size) {
-      if (!bySize[row.size]) bySize[row.size] = { tasks: 0, points: 0 }
+      if (!bySize[row.size]) bySize[row.size] = { tasks: 0 }
       bySize[row.size].tasks++
-      bySize[row.size].points += points
     }
 
     // Impact (1-3; tasks never inferred bucket under 2 — the display default)
     const impactKey = String(row.impact ?? 2)
-    if (!byImpact[impactKey]) byImpact[impactKey] = { tasks: 0, points: 0 }
+    if (!byImpact[impactKey]) byImpact[impactKey] = { tasks: 0 }
     byImpact[impactKey].tasks++
-    byImpact[impactKey].points += points
 
     // Day of week
     const dow = new Date(row.completed_at).getDay()
     byDayOfWeek[dow].tasks++
-    byDayOfWeek[dow].points += points
   }
   stmt.free()
 
   // Sort daily entries chronologically
   const dailyArr = Object.values(daily).sort((a, b) => a.day.localeCompare(b.day))
 
-  return { daily: dailyArr, byTag, byEnergy, bySize, byImpact, byDayOfWeek, totalTasks, totalPoints }
+  return { daily: dailyArr, byTag, byEnergy, bySize, byImpact, byDayOfWeek, totalTasks }
 }
 
 // (syncTasksFromArray removed 2026-05-08 — bulk-replace was the wipe vector.
