@@ -24,11 +24,11 @@
  *   3. Back in the pool — aggregate gentle-return line.
  *   4. Coming back — shelve-snoozes landing today.
  *   5. Pool health — Mondays only: open/shelved counts + triage invite.
- *   6. Coming up (next 3 days), yesterday recap + streak, growth-area line,
+ *   6. Coming up (next 3 days), yesterday recap, growth-area line,
  *      weather — the retained informational fold-ins, expanded view only.
  */
 
-import { queryTasks, getAnalytics, filterNotifiableTasks, isCrisisTask, isNotifiable, getVacationWindow } from './db.js'
+import { queryTasks, filterNotifiableTasks, isCrisisTask, isNotifiable, getVacationWindow } from './db.js'
 import { isAway } from './vacationWindow.js'
 import { getWeatherCache, buildWeatherSummary } from './weatherSync.js'
 import { getTodayGrowthAreaCached } from './growthAreas.js'
@@ -221,9 +221,8 @@ export function buildDigest(settings, { now = new Date() } = {}) {
     .sort((a, b) => (a.due_date || '').localeCompare(b.due_date || ''))
     .slice(0, 3)
   const yesterday = getYesterdayCompletions()
-  let analytics
-  try { analytics = getAnalytics(settings) } catch { analytics = null }
-  const streak = analytics?.current_streak || analytics?.streak || 0
+  // The recap used to add "day N of your rally"; rally left with points
+  // (BOOM-33, 2026-11-15). Yesterday's count is the whole recap now.
   const weatherSummary = buildWeatherSummary(getWeatherCache())
   const growthPick = getTodayGrowthAreaCached()
   const growthText = growthPick?.morning?.text || null
@@ -300,12 +299,7 @@ export function buildDigest(settings, { now = new Date() } = {}) {
   if (comingUp.length > 0) {
     textParts.push(`Coming up:\n${comingUp.map(t => `• ${t.title} (${relDueLine(t)})`).join('\n')}`)
   }
-  if (yesterday.length > 0 || streak > 0) {
-    const recap = []
-    if (yesterday.length > 0) recap.push(`${yesterday.length} caught yesterday`)
-    if (streak > 0) recap.push(`day ${streak} of your rally`)
-    textParts.push(recap.join(' · '))
-  }
+  if (yesterday.length > 0) textParts.push(`${yesterday.length} caught yesterday`)
   if (growthText) textParts.push(`☀️ Today: ${growthText}`)
   if (weatherSummary) textParts.push(`Weather: ${weatherSummary}`)
   const textBody = textParts.join('\n\n') || pushBody
@@ -341,11 +335,8 @@ export function buildDigest(settings, { now = new Date() } = {}) {
   }
   if (poolHealth) htmlParts.push(line(escapeHtml(poolHealth)))
   htmlParts.push(htmlSection('Coming up', comingUp.map(t => taskItem(t, `${t.title} — ${relDueLine(t)}`))))
-  if (yesterday.length > 0 || streak > 0) {
-    const bits = []
-    if (yesterday.length > 0) bits.push(`<strong>${yesterday.length}</strong> caught yesterday`)
-    if (streak > 0) bits.push(`day <strong>${streak}</strong> of your rally`)
-    htmlParts.push(`<div style="margin-top:14px;color:#0E6B36;font-size:14px;font-weight:500">${bits.join(' · ')}</div>`)
+  if (yesterday.length > 0) {
+    htmlParts.push(`<div style="margin-top:14px;color:#0E6B36;font-size:14px;font-weight:500"><strong>${yesterday.length}</strong> caught yesterday</div>`)
   }
   if (growthText) {
     htmlParts.push(`<p style="font-size:14px;color:#0E6B36;margin:12px 0 0 0;font-weight:500">☀️ Today: ${escapeHtml(growthText)}</p>`)
@@ -388,7 +379,7 @@ export function buildDigest(settings, { now = new Date() } = {}) {
       returning_today: returningToday.map(t => ({ id: t.id, title: t.title })),
       pool_health: poolHealth,
       coming_up: comingUp.map(t => ({ id: t.id, title: t.title, due: relDueLine(t) })),
-      recap: { yesterday: yesterday.length, streak },
+      recap: { yesterday: yesterday.length },
       growth: growthText,
       weather: weatherSummary || null,
     },

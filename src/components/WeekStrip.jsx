@@ -1,7 +1,6 @@
 import { useMemo, useState } from 'react'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { localYMD } from '../store'
-import { calculateTaskPoints } from '../scoring'
 import './WeekStrip.css'
 
 const DAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
@@ -80,9 +79,9 @@ export default function WeekStrip({ tasks, dailyTaskGoal, easterEggWins }) {
   const selectedTasks = useMemo(() => {
     if (!selectedDate) return null
     const dayTasks = completionsByDate[selectedDate] || []
-    const items = dayTasks.map(t => ({ id: t.id, title: t.title, points: calculateTaskPoints(t) }))
+    const items = dayTasks.map(t => ({ id: t.id, title: t.title }))
     if (easterEggWins?.[selectedDate]) {
-      items.push({ id: '__egg__', title: 'Daily Bonus', points: 1 })
+      items.push({ id: '__egg__', title: 'Daily Bonus' })
     }
     return items
   }, [selectedDate, completionsByDate, easterEggWins])
@@ -144,12 +143,11 @@ export default function WeekStrip({ tasks, dailyTaskGoal, easterEggWins }) {
           ) : (
             <>
               <div className="v2-week-strip-detail-summary">
-                {selectedTasks.length} task{selectedTasks.length === 1 ? '' : 's'} · {selectedTasks.reduce((s, t) => s + t.points, 0)} pts
+                {selectedTasks.length} task{selectedTasks.length === 1 ? '' : 's'}
               </div>
               {selectedTasks.map(t => (
                 <div key={t.id} className="v2-week-strip-detail-item">
                   <span className="v2-week-strip-detail-title">✓ {t.title}</span>
-                  <span className="v2-week-strip-detail-pts">{t.points} pts</span>
                 </div>
               ))}
             </>

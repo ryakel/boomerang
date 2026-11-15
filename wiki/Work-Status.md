@@ -1,6 +1,30 @@
 # Work status and authorization
 
-## Current focus: configurable task/routine alarm rules (2026-11-15)
+## Current focus: Kept 2.0 beyond Today (2026-11-15)
+
+Claude took over from Codex on 2026-11-15. The Kept 2.0 redesign had reached
+only the Today screen; everything else still ran on points, rallies and red
+overdue rows. Owner decisions are in D016. Tracked in It's a Plan:
+
+| Ticket | Work | State |
+|---|---|---|
+| BOOM-33 | Remove points and rally app-wide; Analytics counts completions; classic Today gated off | PR to `dev`, awaiting merge approval |
+| BOOM-34 | Carry the Kept 2.0 type (Fraunces/DM Sans variable) to every mobile surface | Next |
+| BOOM-35 | Redesign Loops around routine modes instead of tracking | Needs a spec and owner decisions before code |
+
+Desktop is deferred by the owner. BOOM-32 (Kept 2.0 Today) is closed; its
+open Loops question moved to BOOM-35. Merge authority is not standing: each
+PR waits for explicit approval.
+
+## Alarm rules: code in production, feature Dev-only (2026-11-15)
+
+Release #1032 put the alarm-rule code on `main`, and production workflow
+43725385116 deployed and verified it. Arming stays Dev-only by the owner's
+choice (D015): the API returns 403 off dev and the client requires the Dev
+native build. Enabling it in production needs a physical-device test matrix
+and separate approval. The section below is the pre-release snapshot.
+
+### Pre-release snapshot: configurable task/routine alarm rules
 
 The owner requested accumulated dev changes promoted to production, then the next
 batch built in dev. Release #1029 deployed v2.62.0 and #1030 reconciled ancestry.

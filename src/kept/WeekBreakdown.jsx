@@ -2,7 +2,6 @@ import { useMemo, useState } from 'react'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { localYMD, addDays } from '../dates'
 import { loadSettings } from '../store'
-import { calculateTaskPoints } from '../scoring'
 
 const DAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 
@@ -15,8 +14,8 @@ function weekStartSunday(date) {
 
 // Tap-the-hero-stats breakdown (parity with v2's WeekStrip detail): a
 // Sunday-anchored week of day chips with activity intensity, and the
-// selected day's caught tasks with per-task points. Selection is OWNED BY
-// THE PARENT (TodayView) so the hero arc + counts can follow it.
+// selected day's caught tasks. Selection is OWNED BY THE PARENT (TodayView)
+// so the hero counts can follow it.
 export default function WeekBreakdown({ tasks = [], selected, onSelect }) {
   const todayKey = localYMD()
   const [offset, setOffset] = useState(0)
@@ -73,8 +72,8 @@ export default function WeekBreakdown({ tasks = [], selected, onSelect }) {
   const items = useMemo(() => {
     if (!selected) return []
     const out = (completionsByDay[selected] || [])
-      .map(t => ({ id: t.id, title: t.title, points: calculateTaskPoints(t) }))
-    if (eggs[selected]) out.push({ id: '__egg__', title: 'Daily Bonus', points: 1 })
+      .map(t => ({ id: t.id, title: t.title }))
+    if (eggs[selected]) out.push({ id: '__egg__', title: 'Daily Bonus' })
     return out
   }, [selected, completionsByDay]) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -117,12 +116,11 @@ export default function WeekBreakdown({ tasks = [], selected, onSelect }) {
           ) : (
             <>
               <div className="bm-week-summary">
-                {items.length} {items.length === 1 ? 'catch' : 'catches'} · {items.reduce((s, t) => s + t.points, 0)} pts
+                {items.length} {items.length === 1 ? 'catch' : 'catches'}
               </div>
               {items.map(t => (
                 <div key={t.id} className="bm-week-item">
                   <span className="bm-week-item-title">✓ {t.title}</span>
-                  <span className="bm-week-item-pts">{t.points} pts</span>
                 </div>
               ))}
             </>

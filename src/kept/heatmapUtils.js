@@ -35,33 +35,5 @@ export function historyByDay(history) {
   return m
 }
 
-// Consecutive-day streak ending today (today optional — if today has no entry
-// we still count a streak that ran up to yesterday, the conventional rule).
-export function currentStreak(valueByDay) {
-  const d = new Date()
-  d.setHours(0, 0, 0, 0)
-  // If today is empty, start counting from yesterday so an unlogged "today"
-  // doesn't read as a broken streak mid-day.
-  if (!valueByDay[localYMD(d)]) d.setDate(d.getDate() - 1)
-  let streak = 0
-  for (;;) {
-    if (valueByDay[localYMD(d)]) { streak++; d.setDate(d.getDate() - 1) }
-    else break
-  }
-  return streak
-}
-
-// Longest run of consecutive logged days anywhere in the history.
-export function longestStreak(valueByDay) {
-  const days = Object.keys(valueByDay).filter(k => valueByDay[k]).sort()
-  if (days.length === 0) return 0
-  let best = 1, run = 1
-  for (let i = 1; i < days.length; i++) {
-    const prev = parseLocalDate(days[i - 1]); prev.setDate(prev.getDate() + 1)
-    if (localYMD(prev) === days[i]) { run++; best = Math.max(best, run) }
-    else run = 1
-  }
-  return best
-}
 
 export { fmtMonthDay } from '../dates'

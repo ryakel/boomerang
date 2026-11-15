@@ -271,15 +271,6 @@
   color: var(--v2-alert-high-pri);
   font-weight: 500;
 }
-.v2-habit-streak {
-  display: inline-flex;
-  align-items: center;
-  gap: 2px;
-  color: var(--v2-accent);
-}
-.v2-habit-streak svg {
-  vertical-align: -1px;
-}
 .v2-routine-row-habit .v2-routine-cadence {
   font-feature-settings: 'tnum' 1; /* monospaced digits so the 1/2 doesn't jitter as it changes */
 }

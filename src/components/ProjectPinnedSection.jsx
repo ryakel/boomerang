@@ -2,7 +2,7 @@ import { memo, useState } from 'react'
 import { Pin, Plus, Activity, Edit3, ChevronDown, ChevronRight } from 'lucide-react'
 import SectionLabel from './SectionLabel'
 import TaskCard from './TaskCard'
-import { computeProjectBudget, computeProjectSessionPoints, PROJECT_SESSION_CAP } from '../scoring'
+import { PROJECT_SESSION_CAP } from '../scoring'
 import { formatDueDate } from '../store'
 import './ProjectPinnedSection.css'
 
@@ -18,14 +18,13 @@ import './ProjectPinnedSection.css'
 // state is owned by the parent so it can persist across navigation
 // (passed in via `collapsedProjects` + `onToggleCollapse`).
 //
-// Projects whose budget cap is exhausted (10 sessions logged with no
+// Projects whose session cap is exhausted (10 sessions logged with no
 // child completion) show a greyed-out Log Session button with the cap
 // message instead of a tappable affordance.
 
 function ProjectPinnedSection({
   projects,
   activeChildren,
-  allTasks,
   expandedTaskId,
   onToggleExpand,
   onLogSession,
@@ -50,8 +49,8 @@ function ProjectPinnedSection({
     if (logging) return
     setLogging(project.id)
     try {
-      const result = await onLogSession(project.id)
-      setFeedback({ id: project.id, text: `+${result.points} pts logged` })
+      await onLogSession(project.id)
+      setFeedback({ id: project.id, text: 'Session logged' })
       setTimeout(() => setFeedback(f => f?.id === project.id ? null : f), 2500)
     } catch (err) {
       if (err.code === 'SESSION_CAP_REACHED') {
@@ -82,8 +81,6 @@ function ProjectPinnedSection({
             const bd = b.due_date || '9999-12-31'
             return ad.localeCompare(bd)
           })
-        const budget = computeProjectBudget(project, allTasks)
-        const sessionPts = computeProjectSessionPoints(project, allTasks)
         const sessionCount = project.session_count || 0
         const capped = sessionCount >= PROJECT_SESSION_CAP
         const lastSession = project.last_session_at ? new Date(project.last_session_at) : null
@@ -117,7 +114,7 @@ function ProjectPinnedSection({
                 <div className="v2-pp-meta">
                   {collapsed ? (
                     // Collapsed meta: count + next-due. Compact, glanceable.
-                    // The full session / budget / last-touched info is one
+                    // The full session / last-touched info is one
                     // tap away (expand the card).
                     <>
                       <span>{children.length} active sub{children.length === 1 ? '' : 's'}</span>
@@ -133,7 +130,7 @@ function ProjectPinnedSection({
                       {sessionCount > 0 && (
                         <>
                           <span className="v2-pp-meta-sep">·</span>
-                          <span className="v2-pp-sessions">🔥 {sessionCount}</span>
+                          <span className="v2-pp-sessions">{sessionCount} session{sessionCount === 1 ? '' : 's'}</span>
                         </>
                       )}
                     </>
@@ -141,12 +138,10 @@ function ProjectPinnedSection({
                     // Expanded meta: full progress detail.
                     <>
                       <span className="v2-pp-sessions">
-                        {sessionCount > 0 ? `🔥 ${sessionCount} session${sessionCount === 1 ? '' : 's'}` : 'no sessions yet'}
+                        {sessionCount > 0 ? `${sessionCount} session${sessionCount === 1 ? '' : 's'}` : 'no sessions yet'}
                       </span>
                       <span className="v2-pp-meta-sep">·</span>
                       <span>{children.length} active sub{children.length === 1 ? '' : 's'}</span>
-                      <span className="v2-pp-meta-sep">·</span>
-                      <span>budget {budget} pts</span>
                       {daysSinceLast !== null && (
                         <>
                           <span className="v2-pp-meta-sep">·</span>
@@ -165,10 +160,10 @@ function ProjectPinnedSection({
                   className={`v2-pp-action v2-pp-action-primary${capped ? ' v2-pp-action-disabled' : ''}`}
                   onClick={() => !capped && handleLog(project)}
                   disabled={capped || logging === project.id}
-                  title={capped ? `Cap reached — complete a sub or the project to log more` : `Log a +${sessionPts}-pt session`}
+                  title={capped ? `Cap reached — complete a sub or the project to log more` : 'Log a session: you worked on this today'}
                 >
                   <Activity size={14} strokeWidth={1.75} />
-                  <span>{capped ? `Capped ${sessionCount}/${PROJECT_SESSION_CAP}` : `+${sessionPts} session`}</span>
+                  <span>{capped ? `Capped ${sessionCount}/${PROJECT_SESSION_CAP}` : 'Log session'}</span>
                 </button>
                 <button
                   type="button"

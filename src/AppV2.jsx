@@ -65,11 +65,11 @@ import { useNotionSync } from './hooks/useNotionSync'
 import { useGCalSync } from './hooks/useGCalSync'
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts'
 import { inferSize, trelloUpdateCard, serverSkipAdvanceTask, gmailApprove, gmailDismiss, mergeTasks as apiMergeTasks, addTombstones, remoteLinksOf } from './api'
-import { loadLabels, loadSettings, saveSettings, saveLabels, sortTasks, computeDailyStats, computeStreak, logActivity, localYMD, uuid, LABEL_COLORS, isCrisisTask } from './store'
+import { loadLabels, loadSettings, saveSettings, saveLabels, sortTasks, computeDailyStats, logActivity, localYMD, uuid, LABEL_COLORS, isCrisisTask } from './store'
 import { canCreditYesterday, creditYesterday, completeAsYesterday } from './creditYesterday'
 import { TERMINAL_STATUSES } from './loopSpawnStatus'
 import { localDateTimeValue, nextHalfHour } from './dates'
-import { computeRecords, calculateTaskPoints } from './scoring'
+import { computeRecords } from './scoring'
 import { applyTheme, watchSystemTheme } from './theme'
 import './AppV2.css'
 
@@ -150,7 +150,7 @@ export default function AppV2() {
     const s = loadSettings()
     return !!s.week_strip_always_open || !!s.show_week_strip
   })
-  // Which home-stats detail section is expanded: 'streak' | 'today' | null
+  // Which home-stats detail section is expanded: 'today' | null
   const [statsDetail, setStatsDetail] = useState(null)
   const [expandedTaskId, setExpandedTaskId] = useState(null)
   const [activeFilter, setActiveFilter] = useState('all')
@@ -459,7 +459,7 @@ export default function AppV2() {
         const res = await fetch('/api/analytics/history?days=365')
         if (res.ok) {
           const hist = await res.json()
-          const first = (hist?.daily || []).find(x => (x.tasks || 0) > 0 || (x.points || 0) > 0)
+          const first = (hist?.daily || []).find(x => (x.tasks || 0) > 0)
           if (first?.day) {
             const d = new Date(`${first.day}T12:00:00`)
             if (!earliest || d < earliest) earliest = d
@@ -571,8 +571,7 @@ export default function AppV2() {
       if (surfaced.length === 0) continue
       const total = g.tasks.length
       const doneCount = total - active.length
-      const bonusPreview = Math.round(0.2 * g.tasks.reduce((s, t) => s + calculateTaskPoints(t), 0))
-      groups.push({ ...g, surfaced, total, doneCount, bonusPreview })
+      groups.push({ ...g, surfaced, total, doneCount })
     }
     groups.sort((a, b) => (a.dueDate || '9999-12-31').localeCompare(b.dueDate || '9999-12-31'))
     return groups
@@ -610,10 +609,10 @@ export default function AppV2() {
   const todayStr = new Date().toDateString()
   const todayCount = tasks.filter(t => t.status === 'done' && t.completed_at && new Date(t.completed_at).toDateString() === todayStr).length
   const hasDone = todayCount > 0 || tasks.some(t => t.status === 'done')
-  // Mini-rings driven by daily-stats + streak. Same colors v1 uses.
+  // Mini-ring driven by the day's completion count. Points and the streak
+  // ring went with points/rally on 2026-11-15 (BOOM-33).
   const settingsForRings = loadSettings()
   const dailyStats = computeDailyStats(tasks, settingsForRings)
-  const streak = computeStreak(tasks, settingsForRings)
   const records = useMemo(() => computeRecords(tasks), [tasks])
   // Kept presents the Boomerang IA (bottom-nav shell) on mobile. Desktop
   // keeps the Kanban + drawer for now.
@@ -640,8 +639,6 @@ export default function AppV2() {
 
   const miniRingsData = [
     { progress: (settingsForRings.daily_task_goal || 3) > 0 ? dailyStats.tasksToday / (settingsForRings.daily_task_goal || 3) : 0, color: '#52C97F' },
-    { progress: (settingsForRings.daily_points_goal || 15) > 0 ? dailyStats.pointsToday / (settingsForRings.daily_points_goal || 15) : 0, color: '#FFB347' },
-    { progress: streak > 0 ? Math.min(streak / 7, 1) : 0, color: '#4A9EFF' },
   ]
 
   // Keyboard-shortcut bookkeeping. activeModals is a top-down list (latest
@@ -706,8 +703,7 @@ export default function AppV2() {
     const task = tasks.find(t => t.id === id)
     completeTask(id)
     setShowWhatNow(false)
-    // Routine completion + stack-clear bonus.
-    let stackBonus = 0
+    // Routine completion (a stack advances only when its last member clears).
     if (task?.routine_id) {
       const routine = routines.find(r => r.id === task.routine_id)
       const isStack = Array.isArray(routine?.members) && routine.members.length > 0
@@ -716,22 +712,12 @@ export default function AppV2() {
         completeRoutine(task.routine_id)
       } else {
         // Stack member: the cycle is the (routine_id, due_date) set. Only the
-        // completion that clears the LAST member advances the cadence and pays
-        // the bonus. Each member already scored its own points on completion.
+        // completion that clears the LAST member advances the cadence.
         const siblings = tasks.filter(
           t => t.routine_id === task.routine_id && t.due_date === task.due_date,
         )
         const allDone = siblings.every(s => s.id === id || s.status === 'done')
-        if (allDone) {
-          // 20% of the cycle's combined member points (treat the just-completed
-          // one as done-now for its speed multiplier).
-          const total = siblings.reduce((sum, s) => sum + calculateTaskPoints(
-            s.id === id ? { ...s, completed_at: new Date().toISOString() } : s,
-          ), 0)
-          stackBonus = Math.round(total * 0.2)
-          if (stackBonus > 0) updateTask(id, { stack_bonus: stackBonus })
-          completeRoutine(task.routine_id)
-        }
+        if (allDone) completeRoutine(task.routine_id)
       }
     }
     // Push completion to Trello so the linked card moves to the done list.
@@ -785,9 +771,9 @@ export default function AppV2() {
       }
       candidates.sort((a, b) => score(b) - score(a))
       const nextTask = candidates[0] || null
-      setToast({ ...task, completed_at: new Date().toISOString(), nextTask, stackBonus })
+      setToast({ ...task, completed_at: new Date().toISOString(), nextTask })
     }
-  }, [tasks, routines, completeTask, completeRoutine, updateTask, pushStatusToTrello])
+  }, [tasks, routines, completeTask, completeRoutine, pushStatusToTrello])
 
   const handleEdit = useCallback((task) => setEditTarget(task), [])
 
@@ -1374,7 +1360,8 @@ export default function AppV2() {
           </div>
         )}
         {/* Home stats line — renders on both mobile and desktop.
-          * Date → WeekStrip. Streak → streak detail. Today → daily detail. */}
+          * Date → WeekStrip. Today → daily detail. (The streak button went
+          * with points/rally, 2026-11-15.) */}
         {!searchOpen && (totalActive > 0 || sortedSnoozed.length > 0 || backlogTasks.length > 0 || projectTasks.length > 0) && (
           <>
             <div className="v2-home-stats" aria-hidden="false">
@@ -1388,15 +1375,6 @@ export default function AppV2() {
               >
                 📅 {new Date().toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
                 <span className="v2-thx-date-chev" aria-hidden="true">{weekStripShown ? '▴' : '▾'}</span>
-              </button>
-              <span className="v2-thx-sep">·</span>
-              <button
-                type="button"
-                className={`v2-thx-btn v2-thx-streak${statsDetail === 'streak' ? ' v2-thx-btn-active' : ''}`}
-                onClick={() => { setStatsDetail(v => v === 'streak' ? null : 'streak'); setWeekStripShown(false) }}
-                aria-expanded={statsDetail === 'streak'}
-              >
-                🔥 {streak} day{streak === 1 ? '' : 's'}
               </button>
               <span className="v2-thx-sep">·</span>
               <button
@@ -1415,29 +1393,6 @@ export default function AppV2() {
                 easterEggWins={settingsForRings.easter_egg_wins}
               />
             )}
-            {statsDetail === 'streak' && (() => {
-              const bestStreak = Math.max(streak, records.longestStreak)
-              return (
-              <div className="v2-stats-detail">
-                <div className="v2-stats-detail-row">
-                  <span className="v2-stats-detail-label">Current streak</span>
-                  <span className="v2-stats-detail-value">{streak} day{streak === 1 ? '' : 's'}</span>
-                </div>
-                <div className="v2-stats-detail-row">
-                  <span className="v2-stats-detail-label">Best streak</span>
-                  <span className="v2-stats-detail-value">{bestStreak} day{bestStreak === 1 ? '' : 's'}</span>
-                </div>
-                <div className="v2-stats-detail-row">
-                  <span className="v2-stats-detail-label">Best day (tasks)</span>
-                  <span className="v2-stats-detail-value">{records.bestTasks}</span>
-                </div>
-                <div className="v2-stats-detail-row">
-                  <span className="v2-stats-detail-label">Best day (points)</span>
-                  <span className="v2-stats-detail-value">{records.bestPoints}</span>
-                </div>
-              </div>
-              )
-            })()}
             {statsDetail === 'today' && (() => {
               const todayStr = new Date().toDateString()
               const now = new Date()
@@ -1445,7 +1400,6 @@ export default function AppV2() {
               const doneTasks = tasks.filter(t => t.status === 'done' && t.completed_at && new Date(t.completed_at).toDateString() === todayStr)
               const activeTasks = tasks.filter(t => ['not_started', 'in_progress', 'waiting'].includes(t.status))
               const taskGoal = settingsForRings.daily_task_goal || 3
-              const pointsGoal = settingsForRings.daily_points_goal || 15
               const eggWon = !!settingsForRings.easter_egg_wins?.[todayIso]
               return (
                 <div className="v2-stats-detail">
@@ -1454,8 +1408,8 @@ export default function AppV2() {
                     <span className="v2-stats-detail-value">{dailyStats.tasksToday} / {taskGoal}</span>
                   </div>
                   <div className="v2-stats-detail-row">
-                    <span className="v2-stats-detail-label">Points earned</span>
-                    <span className="v2-stats-detail-value">{dailyStats.pointsToday} / {pointsGoal}</span>
+                    <span className="v2-stats-detail-label">Best day ever</span>
+                    <span className="v2-stats-detail-value">{records.bestTasks}</span>
                   </div>
                   <div className="v2-stats-detail-row">
                     <span className="v2-stats-detail-label">Remaining active</span>
@@ -1612,8 +1566,6 @@ export default function AppV2() {
           labels={labels}
           weatherByDate={weather.enabled ? weather.byDate : null}
           dailyStats={dailyStats}
-          pointsGoal={settingsForRings.daily_points_goal || 15}
-          streak={streak}
           onCycleImpact={handleCycleImpact}
           onRefresh={refetchFromServer}
           onCompleteTask={(task) => task.status === 'done' ? handleUncomplete(task) : handleComplete(task.id)}
@@ -1677,8 +1629,6 @@ export default function AppV2() {
           labels={labels}
           weatherByDate={weather.enabled ? weather.byDate : null}
           dailyStats={dailyStats}
-          pointsGoal={settingsForRings.daily_points_goal || 15}
-          streak={streak}
           onCycleImpact={handleCycleImpact}
           onCompleteTask={(task) => task.status === 'done' ? handleUncomplete(task) : handleComplete(task.id)}
           onGmailKeep={async (t) => {
@@ -2072,7 +2022,6 @@ export default function AppV2() {
         tasks={tasks}
         routines={routines}
         records={records}
-        streak={streak}
         dailyStats={dailyStats}
         onOpenDone={() => setShowDone(true)}
       />

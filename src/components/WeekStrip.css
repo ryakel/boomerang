@@ -160,7 +160,7 @@
 }
 
 /* Day detail panel — appears below the strip when a date is tapped.
- * Shows completed tasks with points for that day. */
+ * Shows the tasks completed that day. */
 .v2-week-strip-detail {
   max-width: 360px;
   margin: 8px auto 0;
@@ -205,11 +205,5 @@
   min-width: 0;
 }
 
-.v2-week-strip-detail-pts {
-  flex-shrink: 0;
-  font-weight: 600;
-  color: var(--v2-text-meta);
-  font-size: 12px;
-}
 
 

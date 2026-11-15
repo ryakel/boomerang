@@ -8,22 +8,14 @@
 // Each badge: { id, name, desc, emoji, tier, earned, earnedOn?, current,
 // target, hidden? }. `tier` drives display color: bronze | silver | gold.
 // `hidden` badges render as mystery cards until earned.
+//
+// No badge rewards points or a streak (BOOM-33, 2026-11-15: points and rally
+// left the product). Week Warrior / Fortnight / Monthly Master / Consistent /
+// Point Storm / Point Collector / Phoenix / Stack Champion were removed. Their
+// stamps stay in settings.badges_earned (nothing deletes durable data); the
+// list below simply no longer renders those ids.
 
 import { loadSettings, saveSettings, localYMD, parseLocalDate } from './store'
-
-// Longest run of consecutive calendar days with any completion, from the
-// analytics daily series ([{ day:'YYYY-MM-DD', tasks, points }]).
-function longestActiveRun(daily) {
-  const active = (daily || []).filter(d => (d.tasks || 0) > 0).map(d => d.day).sort()
-  if (active.length === 0) return 0
-  let best = 1, run = 1
-  for (let i = 1; i < active.length; i++) {
-    const prev = new Date(active[i - 1] + 'T00:00:00'); prev.setDate(prev.getDate() + 1)
-    const prevKey = `${prev.getFullYear()}-${String(prev.getMonth() + 1).padStart(2, '0')}-${String(prev.getDate()).padStart(2, '0')}`
-    if (prevKey === active[i]) { run++; best = Math.max(best, run) } else { run = 1 }
-  }
-  return best
-}
 
 const ENERGY_TYPE_COUNT = 6 // desk, people, errand, confrontation, creative, physical
 
@@ -41,13 +33,9 @@ function completionsByDay(doneTasks) {
 // Build the full badge list with earned state + progress. `tasks` powers the
 // task-shaped badges; surfaces without the task list (Wallaby Profile) still
 // show durable earned state from settings.badges_earned.
-export function computeBadges({ lifetimeDone = 0, routines = [], records = {}, streak = 0, history = [], tasks = [] } = {}) {
-  const bestStreak = Math.max(streak || 0, records?.longestStreak || 0)
+export function computeBadges({ lifetimeDone = 0, routines = [], records = {}, tasks = [] } = {}) {
   const bestDayTasks = records?.bestTasks || 0
-  const bestDayPoints = records?.bestPoints || 0
   const topHabit = Math.max(0, ...((routines || []).map(r => (r.completed_history?.length || 0))))
-  const totalPoints = (history || []).reduce((n, d) => n + (d.points || 0), 0)
-  const activeRun = longestActiveRun(history)
 
   const done = (tasks || []).filter(t => t.status === 'done' && t.completed_at)
   const byDay = completionsByDay(done)
@@ -62,7 +50,6 @@ export function computeBadges({ lifetimeDone = 0, routines = [], records = {}, s
   const nightCatches = done.filter(t => new Date(t.completed_at).getHours() >= 22).length
   const heavyBest = Math.max(0, ...days.map(d =>
     d.filter(t => t.size === 'L' || t.size === 'XL').length))
-  const stackBonuses = done.filter(t => (t.stack_bonus || 0) > 0).length
   const setAside = (tasks || []).filter(t => t.snooze_indefinite).length
 
   // Best Sat+Sun weekend total.
@@ -118,11 +105,6 @@ export function computeBadges({ lifetimeDone = 0, routines = [], records = {}, s
     && t.due_date && parseLocalDate(String(t.due_date).slice(0, 10)) < todayStart).length
   const cleanSweep = overdueCaughtToday >= 3 && overdueRemaining === 0 ? 1 : 0
 
-  // Phoenix: you lost a 14+ day rally and built a new 7+ day one from the
-  // ashes. Only detectable while the new rally is shorter than the old best;
-  // the durable earn stamp makes the moment permanent.
-  const phoenix = (records?.longestStreak || 0) >= 14 && streak >= 7 && streak < records.longestStreak ? 1 : 0
-
   const mk = (id, name, desc, emoji, tier, current, target, hidden = false) =>
     ({ id, name, desc, emoji, tier, current, target, earned: current >= target, hidden })
 
@@ -131,17 +113,10 @@ export function computeBadges({ lifetimeDone = 0, routines = [], records = {}, s
     mk('getting_going', 'Getting Going', 'Complete 10 tasks', '🚀', 'bronze', lifetimeDone, 10),
     mk('century', 'Century', 'Complete 100 tasks', '💯', 'silver', lifetimeDone, 100),
     mk('five_hundred', '500 Club', 'Complete 500 tasks', '🏆', 'gold', lifetimeDone, 500),
-    mk('week_warrior', 'Week Warrior', '7-day completion streak', '🔥', 'bronze', bestStreak, 7),
-    mk('fortnight', 'Fortnight', '14-day completion streak', '⚡', 'silver', bestStreak, 14),
-    mk('monthly_master', 'Monthly Master', '30-day completion streak', '👑', 'gold', bestStreak, 30),
-    mk('consistent', 'Consistent', 'Active every day for a week', '📅', 'silver', activeRun, 7),
     mk('big_day', 'Big Day', '10 tasks done in one day', '☄️', 'silver', bestDayTasks, 10),
-    mk('point_storm', 'Point Storm', '100 points in one day', '⛈️', 'gold', bestDayPoints, 100),
     mk('habit_former', 'Habit Former', 'A habit logged 30 times', '🌿', 'silver', topHabit, 30),
-    mk('point_collector', 'Point Collector', 'Earn 1,000 points', '💎', 'gold', totalPoints, 1000),
     // Recovery class — the Boomerang signature set.
     mk('it_comes_back', 'It Comes Back', 'Catch a task 30+ days old', '🪃', 'silver', cameBack, 1, true),
-    mk('phoenix', 'Phoenix', 'Lose a 14+ day rally, then build a 7-day one from the ashes', '🔆', 'gold', phoenix, 1, true),
     mk('strategic_retreat', 'Strategic Retreat', 'Set aside 5 tasks — knowing your limits is a skill', '🏳️', 'bronze', setAside, 5),
     mk('clean_sweep', 'Clean Sweep', 'Catch 3+ overdue tasks and end the day with zero overdue', '🧹', 'gold', cleanSweep, 1),
     // Energy class.
@@ -153,7 +128,6 @@ export function computeBadges({ lifetimeDone = 0, routines = [], records = {}, s
     mk('night_shift', 'Night Shift', 'A catch after 10pm', '🌙', 'bronze', nightCatches, 1, true),
     mk('weekend_warrior', 'Weekend Warrior', '10 catches in one weekend', '🛠️', 'silver', weekendBest, 10),
     // Loop class.
-    mk('stack_champion', 'Stack Champion', 'Earn 10 stack clear-bonuses', '📦', 'silver', stackBonuses, 10),
     mk('long_haul', 'Long Haul', 'Keep a quarterly+ loop alive for a year', '🛤️', 'gold', longHaulDays, 365),
   ]
 

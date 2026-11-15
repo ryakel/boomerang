@@ -4,6 +4,7 @@ import KeptNav from './KeptNav'
 import PullToRefresh from './PullToRefresh'
 import TodayView from './TodayView'
 import TodayKept2 from './TodayKept2'
+import { classicTodayOn } from './classicToday'
 import { loadSettings } from '../store'
 import LoopsView from './LoopsView'
 import TasksViewKept from './TasksViewKept'
@@ -17,7 +18,7 @@ import './shell.css'
 // lives in the header, not the nav.
 export default function KeptShell({
   tasks = [], routines = [], labels = [], weatherByDate = null,
-  dailyStats = {}, pointsGoal = 15, streak = 0,
+  dailyStats = {},
   onCompleteTask, onOpenTask, onToggleHabit, onRescheduleTask, onDeleteTask,
   onLogSession, onGmailKeep, onGmailDismiss, onReconcileYesterday, onReconcileKeep, onWhatNow, onToggleItem, onUnsnooze,
   onCycleImpact,
@@ -59,13 +60,13 @@ export default function KeptShell({
       />
     )
   } else {
-    // Kept 2.0 Today by default; Settings → General → "Classic Today screen"
-    // brings back the previous one. Same props either way.
-    const Today = loadSettings().today_classic ? TodayView : TodayKept2
+    // Kept 2.0 Today. The classic screen is gated off (src/kept/classicToday.js);
+    // same props either way.
+    const Today = classicTodayOn(loadSettings()) ? TodayView : TodayKept2
     surface = (
       <Today
         tasks={tasks} routines={routines} labels={labels} weatherByDate={weatherByDate}
-        dailyStats={dailyStats} pointsGoal={pointsGoal} streak={streak}
+        dailyStats={dailyStats}
         onCompleteTask={onCompleteTask} onOpenTask={onOpenTask} onToggleHabit={onToggleHabit}
         onDeleteTask={onDeleteTask} onEditLoop={onEditLoop}
         onLogSession={onLogSession} onGmailKeep={onGmailKeep} onGmailDismiss={onGmailDismiss}

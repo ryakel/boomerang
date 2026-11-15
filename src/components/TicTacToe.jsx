@@ -3,8 +3,8 @@ import { loadSettings, saveSettings, localYMD } from '../store'
 import './TicTacToe.css'
 
 // Hidden engagement game. Triggered by 7-tapping the EditTaskModal
-// title (Android build-number metaphor). Win once per day → +1 point
-// gets folded into computeDailyStats via the easter_egg_wins setting.
+// title (Android build-number metaphor). Win once per day → it counts as
+// one thing done in computeDailyStats via the easter_egg_wins setting.
 //
 // AI strategy (intentionally moderate, not unbeatable):
 //   1. Always take a winning move
@@ -48,8 +48,7 @@ function pickMove(board, ai, human) {
 
 function todayIso() {
   // Use local timezone — easter-egg wins are keyed by the user's calendar
-  // day, not UTC, so the bonus aligns with `computeDailyStats` and the
-  // streak's free-day handling.
+  // day, not UTC, so the win lines up with `computeDailyStats`.
   return localYMD()
 }
 
@@ -143,7 +142,7 @@ export default function TicTacToe({ open, onClose, onPointEarned }) {
   const statusLine = (() => {
     const prefix = ''
     if (outcome === 'win') {
-      if (pointEarned) return `${prefix}you win! +1 point`
+      if (pointEarned) return `${prefix}you win! that counts for today`
       return alreadyWonToday()
         ? `${prefix}you win! (already claimed today)`
         : `${prefix}you win!`

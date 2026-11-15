@@ -1,6 +1,5 @@
 import { useMemo } from 'react'
 import { Check, Compass } from 'lucide-react'
-import DayArc from './DayArc'
 import { localYMD } from '../dates'
 import { isSnoozed } from '../store'
 import './shell.css'
@@ -9,10 +8,12 @@ import './desktop.css'
 const ACTIVE = ['not_started', 'doing', 'waiting', 'in_progress']
 
 // Today rail (K5) — the ambient "what matters right now" column on the
-// desktop command center, visible while you work in Tasks or Loops. Day Arc
-// + stats + today's catchable list; catches ride the canonical handlers.
+// desktop command center, visible while you work in Tasks or Loops. The day's
+// catch count + today's catchable list; catches ride the canonical handlers.
+// The points arc and rally chip left with points/rally (BOOM-33); the rail
+// itself is due a rethink with the rest of desktop.
 export default function TodayRail({
-  tasks = [], routines = [], dailyStats = {}, pointsGoal = 15, streak = 0,
+  tasks = [], routines = [], dailyStats = {},
   onCompleteTask, onOpenTask, onWhatNow,
 }) {
   const todayKey = localYMD()
@@ -49,12 +50,9 @@ export default function TodayRail({
     <aside className="bm-rail">
       <div className="bm-rail-date">
         {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
-        {streak > 0 && <span className="bm-rally-chip">↻ {streak}</span>}
       </div>
-      <DayArc value={dailyStats.pointsToday ?? 0} goal={pointsGoal} />
       <div className="bm-hero-meta" style={{ paddingTop: 4 }}>
         <span><b>{catches}</b> {catches === 1 ? 'catch' : 'catches'}</span>
-        <span><b>{Math.max(0, pointsGoal - (dailyStats.pointsToday ?? 0))}</b> pts left</span>
       </div>
       <button className="bm-btn bm-btn-tonal bm-whatnow" style={{ margin: '10px 0 14px' }} onClick={onWhatNow}>
         <Compass size={14} strokeWidth={2.1} /> What now?

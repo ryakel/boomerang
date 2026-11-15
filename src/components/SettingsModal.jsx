@@ -24,6 +24,7 @@ import AlarmProbePanel from './AlarmProbePanel'
 import AlarmRulesPanel from './AlarmRulesPanel'
 import { applyTheme } from '../theme'
 import './SettingsModal.css'
+import { CLASSIC_TODAY_ENABLED } from '../kept/classicToday'
 import { MODEL_CATALOG as AI_MODEL_CATALOG, TIER_DEFAULTS as AI_TIER_DEFAULTS } from '../../server/aiModels.js'
 
 // Collapsible settings section — session-local state that ALWAYS starts
@@ -2623,7 +2624,7 @@ function NotificationsPanel({ settings, update, page, setPage }) {
           label="Away mode"
           summary={vacationSummary}
           onPress={() => setPage('Notifications/vacation')}
-          info="Stops due dates and nags while you're away, and freezes the streak. Critical tasks still get through. Can be set for dates that have already passed."
+          info="Stops due dates and nags while you're away, and loops don't count those days as missed. Critical tasks still get through. Can be set for dates that have already passed."
         />
         <NavRow
           label="Critical mode"
@@ -2710,8 +2711,8 @@ function NotificationsPanel({ settings, update, page, setPage }) {
             label="Away"
             persistentInfo={
               vacation?.away_now
-                ? 'Suppressing now. Due dates and nags are held; critical tasks still get through; the streak is frozen.'
-                : 'Holds due dates and nags while the window is open, freezes the streak, and lets critical tasks through.'
+                ? 'Suppressing now. Due dates and nags are held; critical tasks still get through; loops won\'t count these days as missed.'
+                : 'Holds due dates and nags while the window is open, keeps loops from counting those days as missed, and lets critical tasks through.'
             }
             trailing={
               <Toggle
@@ -3548,12 +3549,14 @@ export default function SettingsModal({
             </SettingsGroup>
 
             <SettingsGroup caption="Home screen">
-              <ToggleRow
-                label="Classic Today screen"
-                checked={!!settings.today_classic}
-                onChange={e => update('today_classic', e.target.checked)}
-                info="Brings back the previous Today screen with the points arc and loop trails. Nothing about your tasks, loops or stats changes either way."
-              />
+              {CLASSIC_TODAY_ENABLED && (
+                <ToggleRow
+                  label="Classic Today screen"
+                  checked={!!settings.today_classic}
+                  onChange={e => update('today_classic', e.target.checked)}
+                  info="Brings back the previous Today screen with its loop trails. Nothing about your tasks, loops or stats changes either way."
+                />
+              )}
               <ToggleRow
                 label="Show 7-day strip"
                 checked={settings.show_week_strip}
