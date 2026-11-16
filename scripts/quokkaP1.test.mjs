@@ -362,3 +362,35 @@ test('R8: actual poll callback reports missing session instead of inventing comp
   assert.deepEqual(result.seen, [])
   assert.deepEqual(result.errors, ['Could not retrieve response'])
 })
+
+test('loop modes: update_routine to autopilot turns the alarm off, cancels the open task, and rolls back whole', async t => {
+  // BOOM-35 audit: Quokka could not reach the modes at all, and a loop put on
+  // autopilot would have kept its task and its phone alarm.
+  const s = await sandbox(t)
+  const routine = { id: 'loop-water', title: 'water plants', cadence: 'weekly', spawn_mode: 'auto', remind: true, trigger_time: '09:00', completed_history: [], created_at: '2026-10-01T12:00:00Z' }
+  db.upsertRoutine(routine)
+  db.upsertTask({ id: 'loop-water-task', title: 'water plants', status: 'not_started', routine_id: 'loop-water', due_date: '2026-11-14', remind_at: '2026-11-14T09:00:00.000Z', created_at: '2026-11-14T00:00:00Z', last_touched: '2026-11-14T00:00:00Z' })
+
+  const ok = s.session()
+  await s.stage(ok, 'update_routine', { id: 'loop-water', spawn_mode: 'autopilot' })
+  assert.equal((await engine.commitPlan(ok, s.deps)).ok, true)
+  assert.equal(db.getRoutine('loop-water').spawn_mode, 'autopilot')
+  assert.equal(db.getRoutine('loop-water').remind, false)
+  assert.equal(db.getTask('loop-water-task').status, 'cancelled')
+  assert.equal(db.getTask('loop-water-task').remind_at, null)
+
+  const spawn = s.session()
+  await s.stage(spawn, 'spawn_routine_now', { routine_id: 'loop-water' })
+  assert.equal((await engine.commitPlan(spawn, s.deps)).ok, false, 'autopilot never makes a task')
+
+  db.upsertRoutine(routine)
+  db.updateTaskPartial('loop-water-task', { status: 'not_started', remind_at: '2026-11-14T09:00:00.000Z' })
+  const failing = s.session()
+  await s.stage(failing, 'update_routine', { id: 'loop-water', spawn_mode: 'autopilot' })
+  await s.stage(failing, 'gcal_update_event', { event_id: 'missing-event', summary: 'Force later failure' })
+  assert.equal((await engine.commitPlan(failing, s.deps)).ok, false)
+  assert.equal(db.getRoutine('loop-water').spawn_mode, 'auto')
+  assert.equal(db.getRoutine('loop-water').remind, true)
+  assert.equal(db.getTask('loop-water-task').status, 'not_started')
+  assert.equal(db.getTask('loop-water-task').remind_at, '2026-11-14T09:00:00.000Z')
+})

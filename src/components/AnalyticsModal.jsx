@@ -123,7 +123,7 @@ export default function AnalyticsModal({ open, onClose, tasks = [], routines = [
     lifetimeDone, routines, records, tasks,
   }), [lifetimeDone, routines, records, tasks])
   const heroStats = [
-    { Icon: CalendarCheck, label: 'today', value: `${dailyStats?.tasksToday ?? 0}\u00d7` },
+    { Icon: CalendarCheck, label: 'today', value: `${dailyStats?.finishedToday ?? dailyStats?.tasksToday ?? 0}\u00d7` },
     { Icon: CalendarDays, label: 'last 7 days', value: `${doneInLast.week}\u00d7` },
     { Icon: CalendarDays, label: 'last 30 days', value: `${doneInLast.month}\u00d7` },
     { Icon: CalendarRange, label: 'last 365 days', value: `${doneInLast.year}\u00d7` },

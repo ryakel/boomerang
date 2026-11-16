@@ -64,7 +64,12 @@ export function computeDailyStats(tasks, settings = null) {
   const eggBonus = settings?.easter_egg_wins?.[todayIso] ? 1 : 0
 
   return {
+    // Things done, for the daily task goal: chipping at a project counts.
     tasksToday: todayTasks.length + waitingToday.length + sessions.count + escalations.count + eggBonus,
+    // Tasks finished, the one definition Analytics uses everywhere (best day,
+    // 7/30/365 days, lifetime). Analytics' "today" read tasksToday and could
+    // sit above "best day" (BOOM-33 audit).
+    finishedToday: todayTasks.length,
   }
 }
 

@@ -59,12 +59,13 @@ function RoutineRow({ routine, tasks, expanded, onToggleExpand, onSpawnNow, onLo
   useEffect(() => { if (!expanded) setConfirmDelete(false) }, [expanded])
 
   const isHabit = routine.spawn_mode === 'habit'
+  const isAutopilot = routine.spawn_mode === 'autopilot'
   const weekStartsOn = loadSettings()?.week_starts_on ?? 1
   const habitStats = isHabit ? computeHabitStats(routine, tasks, weekStartsOn) : null
 
   const cadenceLabel = isHabit && habitStats
-    ? `habit · ${habitStats.target}× / ${routine.target_period}`
-    : formatCadence(routine)
+    ? `practice · ${habitStats.target}× / ${routine.target_period}`
+    : isAutopilot ? `autopilot · ${formatCadence(routine)}` : formatCadence(routine)
   const anchorLabel = !isHabit ? formatScheduleAnchor(routine) : ''
   const dayOfWeek = anchorLabel ? ` · ${anchorLabel}` : ''
   const triggerLabel = !isHabit && routine.trigger_time
@@ -72,7 +73,6 @@ function RoutineRow({ routine, tasks, expanded, onToggleExpand, onSpawnNow, onLo
     : ''
   const memberCount = Array.isArray(routine.members) ? routine.members.length : 0
   const stackLabel = memberCount > 0 ? ` · ${memberCount} items` : ''
-  const completeCount = routine.completed_history?.length || 0
 
   const handleSpawn = () => {
     if (hasActiveTask) return  // button is disabled in this state, but defensive
@@ -109,18 +109,20 @@ function RoutineRow({ routine, tasks, expanded, onToggleExpand, onSpawnNow, onLo
             {isHabit ? (
               <>
                 <span>
-                  {habitStats?.completions || 0} of {habitStats?.target || routine.target_count} this {routine.target_period}
+                  {habitStats?.completions || 0} so far this {routine.target_period}
                 </span>
+              </>
+            ) : isAutopilot ? (
+              <>
+                <span>{formatLastDone(routine)}</span>
                 <span className="v2-routine-meta-sep">·</span>
-                <span>{completeCount}× lifetime</span>
+                <span>Boomerang won’t ask or count misses</span>
               </>
             ) : (
               <>
                 <span>{formatLastDone(routine)}</span>
                 <span className="v2-routine-meta-sep">·</span>
                 <span>{formatNextDue(routine)}</span>
-                <span className="v2-routine-meta-sep">·</span>
-                <span>{completeCount}× completed</span>
               </>
             )}
           </div>
@@ -141,7 +143,7 @@ function RoutineRow({ routine, tasks, expanded, onToggleExpand, onSpawnNow, onLo
                   <><Plus size={14} strokeWidth={2} /> Log it</>
                 )}
               </button>
-            ) : (
+            ) : isAutopilot ? null : (
               <button
                 className={`v2-routine-action v2-routine-action-primary${
                   spawnState === 'spawned' ? ' v2-routine-action-spawn-spawned' : ''
@@ -161,7 +163,7 @@ function RoutineRow({ routine, tasks, expanded, onToggleExpand, onSpawnNow, onLo
                 )}
               </button>
             )}
-            {!routine.paused && !isHabit && (
+            {!routine.paused && !isHabit && !isAutopilot && (
               <button className="v2-routine-action" onClick={() => onSkipCycle(routine.id)} title="Skip this cycle (advance schedule, no task)">
                 <FastForward size={14} strokeWidth={1.75} /> Skip cycle
               </button>
@@ -340,7 +342,7 @@ function FollowUpStepRow({ step, index, isFirst, isLast, onChange, onRemove, onM
   )
 }
 
-function RoutineForm({ initial, onSave, noun = 'routine' }) {
+function RoutineForm({ initial, onSave, noun = 'routine', initialMode = null }) {
   const isNew = !initial
   const [title, setTitle] = useState(initial?.title || '')
   const [cadence, setCadence] = useState(initial?.cadence || 'weekly')
@@ -381,7 +383,14 @@ function RoutineForm({ initial, onSave, noun = 'routine' }) {
   const [highPriority, setHighPriority] = useState(initial?.high_priority || false)
   const [endDate, setEndDate] = useState(initial?.end_date || '')
   const [autoRoll, setAutoRoll] = useState(initial?.auto_roll || false)
-  const [spawnMode, setSpawnMode] = useState(initial?.spawn_mode || 'auto')
+  // initialMode: the mode a loop page asked for when it opened the editor
+  // (BOOM-35 audit), so tapping Practice there lands on Practice here.
+  const [spawnMode, setSpawnMode] = useState(() => {
+    if (initialMode === 'practice') return 'habit'
+    if (initialMode === 'autopilot') return 'autopilot'
+    if (initialMode === 'reminder' || initialMode === 'checklist') return 'auto'
+    return initial?.spawn_mode || 'auto'
+  })
   const [targetCount, setTargetCount] = useState(initial?.target_count || 2)
   const [targetPeriod, setTargetPeriod] = useState(initial?.target_period || 'week')
   const [followUps, setFollowUps] = useState(() =>
@@ -408,6 +417,14 @@ function RoutineForm({ initial, onSave, noun = 'routine' }) {
   // checklist, so Autopilot is offered only while it has none.
   const isAutopilot = spawnMode === 'autopilot'
   const hasItems = members.some(m => (m.title || '').trim())
+  // Why the loop page sent us here, said once above the form.
+  const modeNote = initialMode === 'checklist' && !hasItems
+    ? 'Add two or more stack items below to make this a checklist.'
+    : initialMode === 'reminder' && hasItems
+      ? 'Remove the stack items below to make this a plain reminder.'
+      : (initialMode === 'practice' || initialMode === 'autopilot') && hasItems
+        ? `Remove the stack items below first: ${initialMode === 'practice' ? 'Practice' : 'Autopilot'} is for loops without items.`
+        : null
 
   const labels = loadLabels()
   const today = localYMD()
@@ -530,7 +547,8 @@ function RoutineForm({ initial, onSave, noun = 'routine' }) {
     scheduleDayOfMonth: outDayOfMonth,
     scheduleWeekOfMonth: outWeekOfMonth,
     triggerTime: triggerTime || null,
-    remind: !!triggerTime && remind,
+    // Autopilot never rings; practice has no due time to ring at.
+    remind: !isAutopilot && !isHabit && !!triggerTime && remind,
     completedHistory: resolveCompletedHistory(),
     followUps: followUpsArray,
     members: cleanMembers(),
@@ -632,6 +650,7 @@ function RoutineForm({ initial, onSave, noun = 'routine' }) {
             aria-checked={isHabit}
             className={`v2-form-seg${isHabit ? ' v2-form-seg-active' : ''}`}
             onClick={() => setSpawnMode('habit')}
+            disabled={hasItems && !isHabit}
           >
             Practice
           </button>
@@ -654,8 +673,9 @@ function RoutineForm({ initial, onSave, noun = 'routine' }) {
               : hasItems
                 ? 'Comes back as a checklist: each stack item shows up on Today as its own task. If a cycle slips by, it simply waits.'
                 : 'A task shows up on Today when it’s due. If a cycle slips by, it simply waits; nothing piles up.'}
-          {hasItems && !isAutopilot && !isHabit ? ' Autopilot is for loops without stack items.' : ''}
+          {hasItems && !isAutopilot && !isHabit ? ' Practice and Autopilot are for loops without stack items.' : ''}
         </div>
+        {modeNote && <div className="v2-form-section-hint v2-form-mode-note">{modeNote}</div>}
       </div>
 
       {!isHabit && (
@@ -825,9 +845,9 @@ function RoutineForm({ initial, onSave, noun = 'routine' }) {
                 <span>Remind me at this time</span>
               </label>
               <div className="v2-form-section-hint">
-                Each spawned task gets an alarm at {triggerTime}, delivered by Apple
-                Reminders — Boomerang itself still sends nothing. Needs the Reminders
-                integration connected.
+                Your phone rings at {triggerTime} each time this loop comes due. It is
+                scheduled on the phone itself, so it works offline; the server sends
+                nothing.
               </div>
             </>
           )}
@@ -954,7 +974,7 @@ function RoutineForm({ initial, onSave, noun = 'routine' }) {
         <FormDisclosure
           label="Stack items"
           summary={members.length > 0 ? `${members.length} item${members.length === 1 ? '' : 's'}` : undefined}
-          defaultOpen={members.length > 0}
+          defaultOpen={members.length > 0 || initialMode === 'checklist'}
         >
           <div className="v2-form-section-hint">
             Add 2+ items and this {noun} becomes a <strong>stack</strong>: each cycle it spawns one independent task per item, all sharing the cadence and time above. Clearing every item completes that cycle.
@@ -1090,7 +1110,7 @@ function RoutineForm({ initial, onSave, noun = 'routine' }) {
 
 export default function RoutinesModal({
   open, routines, tasks = [], onAdd, onDelete, onTogglePause, onUpdate, onSpawnNow, onLogHabit, onSkipCycle, onClose,
-  editRoutineId, onClearEditRoutineId, activeRoutineIds,
+  editRoutineId, editRoutineMode = null, onClearEditRoutineId, activeRoutineIds,
   title = 'Routines', noun = 'routine',
   openToForm = false, onConsumeOpenToForm,
 }) {
@@ -1103,6 +1123,7 @@ export default function RoutinesModal({
   // return to that list instead. (Plan item 3: stop dumping Kept users on the
   // leftover internal "Loops · N active" list after a save.)
   const [openedToForm, setOpenedToForm] = useState(false)
+  const [formMode, setFormMode] = useState(null)
 
   // Reset to list view whenever the modal opens fresh.
   useEffect(() => {
@@ -1111,6 +1132,7 @@ export default function RoutinesModal({
       setEditing(null)
       setExpandedId(null)
       setOpenedToForm(false)
+      setFormMode(null)
     }
   }, [open])
 
@@ -1133,12 +1155,13 @@ export default function RoutinesModal({
       const target = routines.find(r => r.id === editRoutineId)
       if (target) {
         setEditing(target)
+        setFormMode(editRoutineMode)
         setView('form')
         setOpenedToForm(true)
       }
       onClearEditRoutineId?.()
     }
-  }, [open, editRoutineId, routines, onClearEditRoutineId])
+  }, [open, editRoutineId, editRoutineMode, routines, onClearEditRoutineId])
 
   const active = routines.filter(r => !r.paused)
   const paused = routines.filter(r => r.paused)
@@ -1204,8 +1227,10 @@ export default function RoutinesModal({
     >
       {view === 'form' ? (
         <RoutineForm
+          key={editing?.id || 'new'}
           noun={noun}
           initial={editing}
+          initialMode={formMode}
           onSave={handleSubmitForm}
         />
       ) : (

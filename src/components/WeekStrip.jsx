@@ -81,7 +81,7 @@ export default function WeekStrip({ tasks, dailyTaskGoal, easterEggWins }) {
     const dayTasks = completionsByDate[selectedDate] || []
     const items = dayTasks.map(t => ({ id: t.id, title: t.title }))
     if (easterEggWins?.[selectedDate]) {
-      items.push({ id: '__egg__', title: 'Daily Bonus' })
+      items.push({ id: '__egg__', title: 'Won the hidden game' })
     }
     return items
   }, [selectedDate, completionsByDate, easterEggWins])

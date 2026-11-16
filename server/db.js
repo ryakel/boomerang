@@ -910,9 +910,9 @@ export function getAllTasks() {
 // toward the streak — the 2026-06-10 incident: dismissing an old import
 // removed the only completion on May 14 and retroactively cut a 36-day
 // rally to 27. Stamp the day into settings.completion_days (a compact,
-// append-only 'YYYY-MM-DD' list) before the row dies so computeStreak can
-// still credit it. Days are bucketed in the USER's timezone (computeStreak
-// buckets locally on the client); fall back to server-local if the setting
+// append-only 'YYYY-MM-DD' list) before the row dies. (computeStreak, which
+// read it, was removed with points and rally in BOOM-33; the list stays as
+// provenance.) Days are bucketed in the USER's timezone; fall back to server-local if the setting
 // is absent or invalid. See Derived-Stat Durability Rules in CLAUDE.md.
 function ymdInUserTimezone(iso, timeZone) {
   const d = new Date(iso)
@@ -1174,8 +1174,8 @@ export function setEscalationLadder(taskId, rungs, { append = false } = {}) {
   return getTask(taskId)
 }
 
-// Log one contact attempt at the current rung. Awards 1 point (attempts are
-// real effort, same "waiting = progress" principle as elsewhere in the app).
+// Log one contact attempt at the current rung. Counts toward the day's things
+// done for the daily goal (attempts are real effort); no points since BOOM-33.
 // Flips escalation_awaiting_advance (or escalation_stuck, on the last rung)
 // once the rung's attempts_before_ready threshold is met — the app OFFERS
 // to move on, it never advances silently.

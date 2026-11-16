@@ -54,7 +54,7 @@ test('local acknowledgment sync is idempotent and never completes the source',()
 })
 test('missing, completed and ordinary-reminder sources are held, not duplicated',()=>{
   const f=fixture(),r=rule();f.store.save(r.id,r,0,crypto.randomUUID())
-  for(const parent of [null,{status:'done'},{status:'doing',remind:true},{paused:true}]){f.setParent(parent);assert.equal(f.store.snapshot().plans[0].occurrences.length,0)}
+  for(const parent of [null,{status:'done'},{status:'doing',remind:true},{paused:true},{spawn_mode:'autopilot'}]){f.setParent(parent);assert.equal(f.store.snapshot().plans[0].occurrences.length,0)}
 })
 test('production rejects the dev API and the API persists through the dedicated store',async t=>{
   const f=fixture(),app=express();let dev=false

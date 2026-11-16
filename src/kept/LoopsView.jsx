@@ -69,7 +69,9 @@ export default function LoopsView({
 
   const selected = detailId ? routines.find(r => r.id === detailId) : null
   if (selected) {
-    const spawnBlocked = tasks.some(t => t.routine_id === selected.id && !t.parent_id && !['done', 'completed', 'cancelled', 'backlog', 'project'].includes(t.status))
+    // Same rule as AppV2's handleSpawnLoop, so the button never offers a spawn
+    // the handler will refuse (a task parked in Backlog still counts).
+    const spawnBlocked = tasks.some(t => t.routine_id === selected.id && !['done', 'completed', 'cancelled'].includes(t.status))
     return (
       <LoopDetail
         routine={selected}
@@ -78,7 +80,7 @@ export default function LoopsView({
         tasks={tasks}
         awayDays={awayDays}
         onBack={() => setDetailId(null)}
-        onEdit={(r) => { setDetailId(null); onEditLoop?.(r) }}
+        onEdit={(r, mode) => { setDetailId(null); onEditLoop?.(r, mode) }}
         onSpawnNow={onSpawnNow}
         onSkipCycle={onSkipCycle}
         onMarkLoopDay={onMarkLoopDay}
@@ -137,8 +139,13 @@ export default function LoopsView({
         {g.checklists.length > 0 && (
           <section className="t2-card">
             <Head icon={Moon} color="var(--bm-ember)" title="Checklists" count={g.checklists.length} />
-            {g.checklists.map(({ routine: r, items, doneToday, spawnedToday }, i) => {
+            {g.checklists.map(({ routine: r, items, doneToday, spawnedToday, dueToday, next }, i) => {
               const at = clockLabel(r.trigger_time)
+              const when = dueToday
+                ? (at ? (Number(r.trigger_time.slice(0, 2)) >= 17 ? `tonight at ${at}` : `today at ${at}`) : 'today')
+                : next
+                  ? `next ${(new Date(`${next}T12:00:00`) - new Date(`${todayKey}T12:00:00`)) / 86400000 < 7 ? weekday(next) : shortDate(next)}${at ? ` at ${at}` : ''}`
+                  : cadenceWord(r)
               const allDone = spawnedToday > 0 && doneToday >= spawnedToday
               return (
                 <div key={r.id} className={`t2-row${i === 0 ? ' is-first' : ''}`}>
@@ -146,7 +153,7 @@ export default function LoopsView({
                   <div className="t2-row-body" style={{ cursor: 'default' }}>
                     <button className="t2-row-body" onClick={() => open(r)}>
                       <span className="t2-row-title">{r.title}</span>
-                      {meta(['Checklist', at ? (Number(r.trigger_time.slice(0, 2)) >= 17 ? `tonight at ${at}` : `at ${at}`) : cadenceWord(r),
+                      {meta(['Checklist', when,
                         spawnedToday > 0 ? `${doneToday} of ${spawnedToday} done` : `${items} item${items === 1 ? '' : 's'}`])}
                     </button>
                     <div className="lp-items">
