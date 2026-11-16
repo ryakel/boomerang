@@ -254,7 +254,7 @@ export default function EditTaskModal({
     try {
       const result = await onLogEscalationAttempt(task.id)
       setEscalationTask(result.task)
-      flashEscalationFeedback(true, `+1 pt logged · attempt ${result.attemptsAtRung}`)
+      flashEscalationFeedback(true, `Attempt ${result.attemptsAtRung} logged`)
     } catch {
       flashEscalationFeedback(false, 'Failed to log attempt.')
     } finally {

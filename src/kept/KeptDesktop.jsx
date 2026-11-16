@@ -29,7 +29,7 @@ export default function KeptDesktop({
   onOpenQuokka, onOpenSettings, onOpenPackages, onOpenAnalytics,
   onOpenProjects, onOpenSuggestions,
   onOpenNotes, onOpenLists, pinnedNotes = [], onUnpinNote,
-  onOpenNotifications, onStatusChange,
+  onOpenNotifications, onStatusChange, onRestoreStatus,
   syncStatus = 'synced', queueLength = 0,
 }) {
   const [tab, setTab] = useState('today')
@@ -74,7 +74,7 @@ export default function KeptDesktop({
         onToggleComplete={onCompleteTask} onToggleItem={onToggleItem} onOpenTask={onOpenTask}
         onDelete={onDeleteTask} onReschedule={onRescheduleTask} onUnsnooze={onUnsnooze}
         onCycleImpact={onCycleImpact}
-        boardable onStatusChange={onStatusChange}
+        boardable onStatusChange={onStatusChange} onRestoreStatus={onRestoreStatus}
       />
     )
   } else if (tab === 'loops') {

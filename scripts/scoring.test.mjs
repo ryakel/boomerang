@@ -20,7 +20,7 @@ test('a day counts done tasks, waiting moves, project sessions, escalation attem
     { id: 'e', status: 'not_started', escalation_attempt_log: [{ at: today }] },
   ]
   const settings = { easter_egg_wins: { [ymd]: true } }
-  assert.deepEqual(computeDailyStats(tasks, settings), { tasksToday: 5 })
+  assert.deepEqual(computeDailyStats(tasks, settings), { tasksToday: 5, finishedToday: 1 })
 })
 
 test('a task size or legacy point field never changes the count', () => {

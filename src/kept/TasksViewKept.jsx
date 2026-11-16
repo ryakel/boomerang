@@ -24,7 +24,7 @@ const TABS = [
 
 // Kept "Tasks" — grouped hairline rows, gold circle checks, dot-tags, and the
 // action sheet with reschedule chips ("throw it back") (spec §6).
-export default function TasksViewKept({ tasks = [], labels = [], routines = [], weatherByDate = null, onToggleComplete, onToggleItem, onOpenTask, onDelete, onReschedule, onUnsnooze, boardable = false, onStatusChange, onCycleImpact }) {
+export default function TasksViewKept({ tasks = [], labels = [], routines = [], weatherByDate = null, onToggleComplete, onToggleItem, onOpenTask, onDelete, onReschedule, onUnsnooze, boardable = false, onStatusChange, onRestoreStatus, onCycleImpact }) {
   const [tab, setTab] = useState('upcoming')
   // 'list' | 'board' — Board is the desktop view mode (K5): status columns
   // with drag-and-drop; Kanban demoted to a mode, per the spec.
@@ -181,7 +181,7 @@ export default function TasksViewKept({ tasks = [], labels = [], routines = [], 
           visible={visible} tasks={tasks} routines={routines} labels={labels} labelsById={labelsById}
           weatherByDate={weatherByDate} filtered={labelFilter !== 'all' || !!query.trim()}
           onToggleComplete={onToggleComplete} onToggleItem={onToggleItem} onOpenSheet={setSheetTask}
-          onOpenTask={onOpenTask} onDelete={onDelete} onReschedule={onReschedule} onStatusChange={onStatusChange}
+          onOpenTask={onOpenTask} onDelete={onDelete} onReschedule={onReschedule} onStatusChange={onStatusChange} onRestoreStatus={onRestoreStatus}
         />
       )}
       {!kept2Upcoming && (!boardable || view === 'list') && sections.length === 0 && <p className="bm-empty">Nothing here.</p>}
@@ -274,6 +274,11 @@ export default function TasksViewKept({ tasks = [], labels = [], routines = [], 
                 <button key={o.label} className="bm-pick" onClick={() => { onReschedule?.(sheetTask, o.ymd); setSheetTask(null) }}>{o.label}</button>
               ))}
             </div>
+            {sheetTask.status !== 'done' && (
+              <button className="bm-sheet-row" onClick={() => { const t = sheetTask; setSheetTask(null); onToggleComplete?.(t) }}>
+                <Check size={16} strokeWidth={2.4} /> Done
+              </button>
+            )}
             <button className="bm-sheet-row" onClick={() => { const t = sheetTask; setSheetTask(null); onOpenTask?.(t) }}>
               <Pencil size={16} strokeWidth={2} /> Edit task
             </button>

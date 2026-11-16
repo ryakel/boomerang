@@ -258,7 +258,11 @@ export function registerTaskTools() {
     execute: async ({ id }) => {
       const task = getTask(id)
       if (!task) throw new Error(`Task not found: ${id}`)
-      return { result: task }
+      // Legacy point fields stay stored, never shown (BOOM-33).
+      const rest = { ...task }
+      delete rest.stack_bonus
+      const dropPoints = (log) => (Array.isArray(log) ? log.map(e => { const c = { ...e }; delete c.points; return c }) : log)
+      return { result: { ...rest, session_log: dropPoints(rest.session_log), escalation_attempt_log: dropPoints(rest.escalation_attempt_log) } }
     },
   })
 
@@ -847,6 +851,9 @@ export function registerTaskTools() {
         schedule_day_of_month: { type: 'integer', minimum: 1, maximum: 31, description: 'Month-scale only: fixed calendar day, e.g. 18 for "the 18th". Clamped to month length.' },
         schedule_week_of_month: { type: 'integer', enum: [1, 2, 3, 4, -1], description: 'Month-scale only: with schedule_day_of_week → ordinal weekday. 1..4 or -1 (last). E.g. {schedule_week_of_month:1, schedule_day_of_week:1} = "1st Monday".' },
         trigger_time: { type: 'string', description: '"HH:MM" 24h surface-at time. Spawned tasks are hidden/silent until this time on their due day. Omit for any time.' },
+        spawn_mode: { type: 'string', enum: ['auto', 'habit', 'autopilot'], description: 'How the loop comes back. "auto" = Reminder (a task shows up when due; with members it is a Checklist). "habit" = Practice (no task; the user logs it toward target_count per target_period). "autopilot" = something the user already does: no task, no reminder, nothing counted as missed. Autopilot needs no members.' },
+        target_count: { type: 'integer', minimum: 1, description: 'Practice only: how many times per target_period.' },
+        target_period: { type: 'string', enum: ['week', 'month'], description: 'Practice only.' },
         members: {
           type: 'array',
           description: 'Stack members — makes this a "stack" routine that spawns one INDEPENDENT task per member each cycle (sharing the cadence + trigger_time). Different from follow_ups (a dependent chain). Clearing every member completes that cycle. Provide 2+ items, e.g. an "Evening" routine with members "start dishwasher", "take out trash", "refill milk".',
@@ -873,7 +880,7 @@ export function registerTaskTools() {
       },
       required: ['title', 'cadence'],
     },
-    preview: (args) => `Create routine: "${args.title}" (${args.cadence})${Array.isArray(args.members) && args.members.length ? ` · ${args.members.length}-item stack` : ''}${args.assignee ? ` · for ${args.assignee}` : ''}`,
+    preview: (args) => `Create routine: "${args.title}" (${args.cadence}${args.spawn_mode === 'autopilot' ? ', autopilot' : args.spawn_mode === 'habit' ? `, practice ${args.target_count || 1}×/${args.target_period || 'week'}` : ''})${Array.isArray(args.members) && args.members.length ? ` · ${args.members.length}-item stack` : ''}${args.assignee ? ` · for ${args.assignee}` : ''}`,
     // Pre-stamp the new routine's id at stage time so a chained
     // add_follow_up in the same plan can reference it. Returned to the
     // model as `id` in the staged response. At commit time, execute uses
@@ -904,7 +911,10 @@ export function registerTaskTools() {
         schedule_day_of_month: args.schedule_day_of_month ?? null,
         schedule_week_of_month: args.schedule_week_of_month ?? null,
         trigger_time: args.trigger_time || null,
-        members: Array.isArray(args.members)
+        spawn_mode: ['habit', 'autopilot'].includes(args.spawn_mode) ? args.spawn_mode : 'auto',
+        target_count: args.spawn_mode === 'habit' ? Math.max(1, args.target_count || 1) : null,
+        target_period: args.spawn_mode === 'habit' ? (args.target_period || 'week') : null,
+        members: Array.isArray(args.members) && !['habit', 'autopilot'].includes(args.spawn_mode)
           ? args.members.filter(m => m?.title).map(m => ({
               id: m.id || `m-${crypto.randomBytes(3).toString('hex')}`,
               title: m.title,
@@ -930,7 +940,7 @@ export function registerTaskTools() {
 
   registerTool({
     name: 'update_routine',
-    description: 'Update any subset of routine fields.',
+    description: 'Update any subset of routine fields, including how the loop comes back (spawn_mode). Setting spawn_mode "autopilot" also turns off the loop\'s alarm and cancels its open task (restored if the plan rolls back).',
     schema: {
       type: 'object',
       properties: {
@@ -947,6 +957,9 @@ export function registerTaskTools() {
         schedule_day_of_month: { type: ['integer', 'null'], minimum: 1, maximum: 31, description: 'Month-scale: fixed calendar day ("the 18th"). Null to clear. Setting this clears any ordinal-weekday anchor.' },
         schedule_week_of_month: { type: ['integer', 'null'], enum: [1, 2, 3, 4, -1, null], description: 'Month-scale: ordinal week (1..4 or -1 last) paired with schedule_day_of_week. Null to clear.' },
         trigger_time: { type: ['string', 'null'], description: '"HH:MM" 24h surface-at time, or null to clear. Spawned tasks stay hidden/silent until this time on their due day.' },
+        spawn_mode: { type: 'string', enum: ['auto', 'habit', 'autopilot'], description: 'How the loop comes back. "auto" = Reminder (a task shows up when due; with members it is a Checklist). "habit" = Practice (no task; the user logs it toward target_count per target_period). "autopilot" = something the user already does: no task, no reminder, nothing counted as missed. Autopilot needs no members.' },
+        target_count: { type: 'integer', minimum: 1, description: 'Practice only: how many times per target_period.' },
+        target_period: { type: 'string', enum: ['week', 'month'], description: 'Practice only.' },
         members: {
           type: 'array',
           description: 'Replace the stack members (the full array). Non-empty ⇒ this is a "stack" routine spawning one independent task per member each cycle; clearing all members completes that cycle. Pass [] to convert back to an ordinary single-task routine. Edits take effect on the NEXT cycle — already-spawned tasks are untouched.',
@@ -1006,10 +1019,32 @@ export function registerTaskTools() {
         }))
       }
       delete updates.id
+      // Autopilot is "no task, no reminder" (BOOM-35): switching to it turns
+      // the loop alarm off and cancels the open cycle task it would otherwise
+      // leave on Today, same as the switch on the loop's page. Restored on
+      // rollback.
+      const retired = []
+      if (updates.spawn_mode === 'autopilot' && before.spawn_mode !== 'autopilot') {
+        if (Array.isArray(before.members) && before.members.length && !(Array.isArray(updates.members) && updates.members.length === 0)) {
+          throw new Error('Autopilot is for loops without stack members. Clear members ([]) in the same update, or leave this loop as a checklist.')
+        }
+        updates.remind = false
+        const followTitles = Array.isArray(before.follow_ups) && before.follow_ups.length
+        for (const t of queryTasks({ routine_id: args.id })) {
+          if (t.parent_id || !['not_started', 'doing', 'in_progress', 'waiting'].includes(t.status)) continue
+          if (followTitles && t.title !== before.title) continue
+          retired.push({ id: t.id, status: t.status, remind_at: t.remind_at ?? null })
+          updateTaskPartial(t.id, { status: 'cancelled', remind_at: null, last_touched: new Date().toISOString() })
+        }
+      }
+      if (updates.spawn_mode && updates.spawn_mode !== 'habit') { updates.target_count = null; updates.target_period = null }
       updateRoutinePartial(args.id, updates)
       return {
-        result: { id: args.id, routine: summarizeRoutine(getRoutine(args.id)) },
-        compensation: async () => { upsertRoutine(before) },
+        result: { id: args.id, routine: summarizeRoutine(getRoutine(args.id)), ...(retired.length ? { cancelled_open_tasks: retired.map(r => r.id) } : {}) },
+        compensation: async () => {
+          upsertRoutine(before)
+          for (const r of retired) updateTaskPartial(r.id, { status: r.status, remind_at: r.remind_at })
+        },
       }
     },
   })
@@ -1128,6 +1163,7 @@ Keep it under 400 words. Plain prose + short bulleted lists are fine. No preambl
     execute: async ({ routine_id }) => {
       const routine = getRoutine(routine_id)
       if (!routine) throw new Error(`Routine not found: ${routine_id}`)
+      if (routine.spawn_mode === 'autopilot') throw new Error(`"${routine.title}" is on autopilot: it never makes a task. Switch it back to a reminder (update_routine spawn_mode:"auto") if the user wants one.`)
       const id = `task-${Date.now()}-${crypto.randomBytes(3).toString('hex')}`
       const now = new Date().toISOString()
       const today = now.split('T')[0]
@@ -1156,7 +1192,7 @@ Keep it under 400 words. Plain prose + short bulleted lists are fine. No preambl
 
   registerTool({
     name: 'reconcile_loops',
-    description: 'Close loops (routines) that are stuck OPEN: their spawned task(s) were completed but the completion was never recorded in the routine, so the loop keeps showing as due and never advances. This stamps each missing completion-day from the finished tasks, so the cadence advances and the loop stops nagging. Safe and idempotent — it only adds completion evidence that real done tasks already prove, never removes anything, and re-running does nothing. Skips stacks and habit loops. Use when the user says a loop won\'t close / stays due even though they finished it.',
+    description: 'Close loops (routines) that are stuck OPEN: their spawned task(s) were completed but the completion was never recorded in the routine, so the loop keeps showing as due and never advances. This stamps each missing completion-day from the finished tasks, so the cadence advances and the loop stops showing as due. Safe and idempotent — it only adds completion evidence that real done tasks already prove, never removes anything, and re-running does nothing. Covers plain loops and checklists (stacks: a cycle whose every item is done); skips practice (habit) loops. Use when the user says a loop won\'t close / stays due even though they finished it.',
     schema: { type: 'object', properties: {} },
     preview: () => {
       const { repaired } = reconcileRoutineHistory({ dryRun: true })

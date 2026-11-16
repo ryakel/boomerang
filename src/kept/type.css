@@ -79,6 +79,10 @@
  * and inherited, so every Kept Serif title gets the soft cut. */
 :root[data-ui="v2"][data-theme^="kept"] body {
   font-variation-settings: 'SOFT' 100;
+  /* The caps above only soften if the browser doesn't fake the weight back:
+   * WebKit (the iOS app) may synthesize bold for a 700 request against a face
+   * that tops out at 540. Real weights only (BOOM-34 audit). */
+  font-synthesis-weight: none;
 }
 
 /* The wordmark stays production: Fraunces 700, no SOFT. */

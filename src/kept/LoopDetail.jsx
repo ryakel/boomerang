@@ -5,7 +5,7 @@ import { cycleUnitLabel, loopGaps } from './cycles'
 import { historyByDay } from './heatmapUtils'
 import { formatScheduleAnchor, getNextDueDate, computeHabitStats, loadSettings } from '../store'
 import { localYMD } from '../dates'
-import { loopMode, canAutopilot, scheduleLabel, clockLabel, lastDoneWord } from '../loopModes'
+import { loopMode, canAutopilot, scheduleLabel, clockLabel, lastDoneWord, doneOnDay } from '../loopModes'
 import './shell.css'
 import './today2.css'
 import './loops2.css'
@@ -36,7 +36,7 @@ export default function LoopDetail({
   const [monthRef, setMonthRef] = useState(() => new Date())
   const [logDay, setLogDay] = useState(() => localYMD(new Date()))
   const [fixOpen, setFixOpen] = useState(false)
-  const [flash, setFlash] = useState(null)   // 'spawned' | 'skipped'
+  const [flash, setFlash] = useState(null)   // 'spawned' | 'blocked' | 'skipped'
 
   // Hooks before the null guard (rules-of-hooks); loopGaps no-ops on null.
   const gaps = useMemo(() => loopGaps(routine, tasks, 12, awayDays), [routine, tasks, awayDays])
@@ -52,10 +52,22 @@ export default function LoopDetail({
   const now = new Date()
   const todayYMD = localYMD(now)
   const createdYMD = routine.created_at ? localYMD(new Date(routine.created_at)) : null
-  const byDay = historyByDay(routine.completed_history)
+  // A practice loop's day is a log task as well as a stamp (older logs have
+  // no stamp), so its calendar shows either.
+  const byDay = (() => {
+    const base = historyByDay(routine.completed_history)
+    if (mode !== 'practice') return base
+    const out = { ...base }
+    for (const t of tasks) {
+      if (t.routine_id !== routine.id || t.parent_id || t.status !== 'done' || !t.completed_at) continue
+      const k = localYMD(new Date(t.completed_at))
+      out[k] = Math.max(out[k] || 0, 1)
+    }
+    return out
+  })()
   const ended = !!routine.end_date && Date.now() > new Date(`${routine.end_date}T23:59:59`).getTime()
   const resting = routine.paused || ended
-  const doneToday = (byDay[todayYMD] || 0) > 0
+  const doneToday = mode === 'practice' ? doneOnDay(routine, tasks, todayYMD) : (byDay[todayYMD] || 0) > 0
   const logDayLogged = (byDay[logDay] || 0) > 0
   const at = clockLabel(routine.trigger_time)
 
@@ -65,15 +77,22 @@ export default function LoopDetail({
     else onMarkLoopDay?.(routine.id, ymd, null)
   }
   // A practice loop's "done today" is a logged task, not a raw stamp, so it
-  // goes through the habit log (toggleHabitDay) like the list's Log today.
-  const markToday = () => (mode === 'practice' ? onToggleHabit?.(routine, todayYMD) : toggleLoopDay(todayYMD))
+  // logs through the habit log (toggleHabitDay) like the list's Log today;
+  // taking it back goes through the unmark path, which removes a log AND the
+  // stamp (a calendar mark has a stamp and no log).
+  const markToday = () => {
+    if (mode !== 'practice') return toggleLoopDay(todayYMD)
+    if (doneToday) return onUnmarkLoopDay?.(routine.id, todayYMD)
+    return onToggleHabit?.(routine, todayYMD)
+  }
 
   const pickMode = (id) => {
     if (id === mode) return
     if (id === 'autopilot' && canAutopilot(routine)) return onSetAutopilot?.(routine.id, true)
     if (id === 'reminder' && mode === 'autopilot') return onSetAutopilot?.(routine.id, false)
-    // Checklist items and a practice target are structural: the editor sets them.
-    onEdit?.(routine)
+    // Checklist items and a practice target are structural: the editor sets
+    // them. It opens on the mode tapped here, with a line saying what's left.
+    onEdit?.(routine, id)
   }
 
   const help = {
@@ -100,7 +119,7 @@ export default function LoopDetail({
   const rows = [
     mode === 'practice'
       ? ['Aiming for', routine.target_count ? `${routine.target_count} a ${routine.target_period === 'month' ? 'month' : 'week'}` : 'No target']
-      : ['Schedule', `${scheduleLabel(routine, formatScheduleAnchor(routine))}${at ? `, ${at}` : ''}`],
+      : ['Schedule', `${scheduleLabel(routine, formatScheduleAnchor(routine))}${at && mode !== 'autopilot' ? `, ${at}` : ''}`],
     mode === 'practice' && habit ? [`This ${routine.target_period === 'month' ? 'month' : 'week'}`, `${habit.completions} so far`] : null,
     mode === 'checklist' ? ['Items', String(routine.members.length)] : null,
     ['Last done', last ? last.replace(/^./, c => c.toUpperCase()) : 'Not yet'],
@@ -246,8 +265,14 @@ export default function LoopDetail({
         </div>
         {cyclic && !resting && (
           <div className="lp-more">
-            <button className="t2-letgo" disabled={spawnBlocked || flash === 'spawned'} onClick={() => { if (spawnBlocked) return; onSpawnNow?.(routine.id); blink('spawned') }}>
-              {flash === 'spawned' ? 'Added' : spawnBlocked ? 'Already on your list' : 'Add a task now'}
+            <button className="t2-letgo" disabled={spawnBlocked || !!flash} onClick={() => {
+              if (spawnBlocked) return
+              // Say "Added" only if something was: the handler refuses when an
+              // instance is already waiting anywhere (backlog included).
+              const made = onSpawnNow?.(routine.id)
+              blink(Array.isArray(made) && made.length ? 'spawned' : 'blocked')
+            }}>
+              {flash === 'spawned' ? 'Added' : flash === 'blocked' || spawnBlocked ? 'Already on your list' : 'Add a task now'}
             </button>
             <button className="t2-letgo" disabled={flash === 'skipped'} onClick={() => { onSkipCycle?.(routine.id); blink('skipped') }}>
               {flash === 'skipped' ? 'Skipped' : 'Skip this cycle'}

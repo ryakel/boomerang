@@ -1,3 +1,4 @@
+import { practiceCount } from './loopModes'
 import { applyResumeFloor } from './resumeFloor.js'
 import { deferFloorBase } from './loopSpawnStatus.js'
 import { localYMD, parseLocalDate } from './dates'
@@ -389,14 +390,14 @@ export function createTask(title, tags = [], dueDate = null, notes = '') {
     routine_id: null,
     high_priority: false,
     low_priority: false,
-    size: 'M',           // default to M so points always compute; background auto-sizer will refine
+    size: 'M',           // default size; the background auto-sizer refines it
     size_inferred: false, // set true after successful inferSize or manual user pick
     energy: null,        // energy type: desk|people|errand|confrontation|creative|physical
     energyLevel: null,   // drain intensity: 1 (low), 2 (medium), 3 (high)
     attachments: [],
     checklists: [],      // [{ id, name, items: [{ id, text, completed }], hideCompleted }]
     comments: [],
-    stack_bonus: null,   // bonus points stamped on the task that clears a routine
+    stack_bonus: null,   // legacy: bonus points from before BOOM-33; stored, never read
                          // "stack" cycle (20% of the cycle's combined member points)
   }
 }
@@ -759,16 +760,6 @@ export function getHabitPeriodBounds(period, weekStartsOn = 1, now = new Date())
   return { start, end, lengthDays }
 }
 
-// Count completions linked to a habit routine in [start, end).
-function countHabitCompletions(routineId, tasks, start, end) {
-  return tasks.filter(t => {
-    if (t.routine_id !== routineId) return false
-    if (!t.completed_at) return false
-    const c = new Date(t.completed_at).getTime()
-    return c >= start.getTime() && c < end.getTime()
-  }).length
-}
-
 // Return habit stats for an active habit-mode routine, or null if not habit.
 //   completions: int — number of completions in current period
 //   target: int — routine.target_count
@@ -780,7 +771,8 @@ export function computeHabitStats(routine, tasks, weekStartsOn = 1) {
     return null
   }
   const { start, end, lengthDays } = getHabitPeriodBounds(routine.target_period, weekStartsOn)
-  const completions = countHabitCompletions(routine.id, tasks, start, end)
+  // Logs and calendar marks both count (practiceCount, BOOM-35 audit).
+  const completions = practiceCount(routine, tasks, start, end)
   const elapsedMs = Date.now() - start.getTime()
   const elapsedDays = Math.max(0, elapsedMs / 86400000)
   const elapsedRatio = Math.min(1, elapsedDays / lengthDays)

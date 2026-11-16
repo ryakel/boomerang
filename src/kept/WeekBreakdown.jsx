@@ -73,7 +73,7 @@ export default function WeekBreakdown({ tasks = [], selected, onSelect }) {
     if (!selected) return []
     const out = (completionsByDay[selected] || [])
       .map(t => ({ id: t.id, title: t.title }))
-    if (eggs[selected]) out.push({ id: '__egg__', title: 'Daily Bonus' })
+    if (eggs[selected]) out.push({ id: '__egg__', title: 'Won the hidden game' })
     return out
   }, [selected, completionsByDay]) // eslint-disable-line react-hooks/exhaustive-deps
 

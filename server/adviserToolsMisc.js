@@ -340,6 +340,9 @@ export function registerSettingsTools() {
       for (const k of ['anthropic_api_key', 'openai_api_key', 'notion_token', 'trello_api_key', 'trello_secret', 'gcal_client_secret', 'tracking_api_key', 'shippo_api_token', 'pushover_user_key', 'pushover_app_token']) {
         if (redacted[k]) redacted[k] = '***redacted***'
       }
+      // Points and rally were removed (BOOM-33); their provenance stays stored
+      // but Quokka must not read a score back to the user.
+      for (const k of ['streak_current', 'streak_best', 'streak_anchor', 'daily_points_goal', 'points_goal', 'best_points', 'longest_streak']) delete redacted[k]
       return { result: redacted }
     },
   })

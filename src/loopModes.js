@@ -46,29 +46,118 @@ export function withAutopilot(routine, on) {
   if (!canAutopilot(routine)) return routine
   const next = on ? AUTOPILOT : 'auto'
   if (routine.spawn_mode === next || (!on && !routine.spawn_mode)) return routine
-  return { ...routine, spawn_mode: next }
+  // Turning autopilot on also turns the loop's own alarm off: "won't remind
+  // you" has to include the repeating phone alarm (reminderSchedule.js).
+  return on ? { ...routine, spawn_mode: next, remind: false } : { ...routine, spawn_mode: next }
 }
 
 export const isResting = (r, now = new Date()) =>
   !!r?.paused || (!!r?.end_date && now.getTime() > new Date(`${r.end_date}T23:59:59`).getTime())
 
 /**
- * The open task a "this got done on <ymd>" mark should close, or null.
+ * Is this task one of the loop's own cycle tasks (as opposed to a follow-up
+ * step, which inherits routine_id from the task that started its chain)?
  *
- * Only for reminder loops: their one open instance IS the current cycle. A mark
- * on or after that instance's due day (or on an undated instance) means the
- * cycle's work is done; a mark on an older day is back-filling history and
- * leaves the current task alone. Never a future day.
+ * Follow-up steps carry no marker, so: a loop with follow-ups counts only
+ * tasks titled like the loop (or like one of a checklist's items); a loop
+ * without follow-ups has no steps, so every one of its tasks is a cycle task
+ * (renamed ones included).
  */
-export function openInstanceForDay({ routine, tasks = [], day, todayKey }) {
-  if (!routine || loopMode(routine) !== 'reminder' || !day || day > todayKey) return null
-  const open = tasks
-    .filter(t => t && t.routine_id === routine.id && !t.parent_id && OPEN.includes(t.status))
-    .sort((a, b) => (dueKey(a) || '').localeCompare(dueKey(b) || ''))
+export function isCycleTask(routine, t) {
+  if (!routine || !t || t.routine_id !== routine.id || t.parent_id) return false
+  if (!Array.isArray(routine.follow_ups) || routine.follow_ups.length === 0) return true
+  if (t.title === routine.title) return true
+  return isStack(routine) && routine.members.some(m => m.title === t.title)
+}
+
+const byDue = (a, b) => (dueKey(a) || '').localeCompare(dueKey(b) || '')
+
+/**
+ * The open tasks a "this got done on <ymd>" mark should close.
+ *
+ * reminder / autopilot: the loop's one open instance IS the current cycle (an
+ * autopilot loop has one only if it was left over from before the switch). A
+ * mark on or after that instance's due day (or on an undated instance) means
+ * the cycle's work is done; a mark on an older day back-fills history and
+ * leaves the current task alone.
+ *
+ * checklist: every open item of the latest cycle due on or before that day
+ * (a cycle is one due date), so the whole checklist closes with one stamp.
+ *
+ * practice: none (a practice loop logs, it has no open instance).
+ * Never a future day.
+ */
+export function openInstancesForDay({ routine, tasks = [], day, todayKey }) {
+  const mode = loopMode(routine)
+  if (!routine || !day || day > todayKey || mode === 'practice') return []
+  const open = tasks.filter(t => OPEN.includes(t?.status) && isCycleTask(routine, t)).sort(byDue)
+  if (mode === 'checklist') {
+    const eligible = open.filter(t => !dueKey(t) || dueKey(t) <= day)
+    if (!eligible.length) return []
+    const cycle = eligible.map(t => dueKey(t) || day).sort().pop()
+    return eligible.filter(t => (dueKey(t) || day) === cycle)
+  }
   const t = open[0]
-  if (!t) return null
+  if (!t) return []
   const due = dueKey(t)
-  return !due || due <= day ? t : null
+  return !due || due <= day ? [t] : []
+}
+
+// Back-compat single-task form (reminder loops).
+export function openInstanceForDay(args) {
+  const list = loopMode(args?.routine) === 'reminder' ? openInstancesForDay(args) : []
+  return list[0] || null
+}
+
+/**
+ * The done cycle tasks a "that didn't happen on <ymd>" unmark should reopen:
+ * tasks closed on that day, but only if they belong to the loop's LATEST cycle
+ * (no newer cycle task exists). Reopening an old cycle's task would drop a
+ * weeks-old task back onto Today; left closed, a just-unmarked latest cycle
+ * would let the spawn pass mint a duplicate beside it.
+ */
+export function doneInstancesOnDay({ routine, tasks = [], day }) {
+  if (!routine || !day || loopMode(routine) === 'practice') return []
+  const own = tasks.filter(t => isCycleTask(routine, t))
+  const closed = own.filter(t => t.status === 'done' && t.completed_at && ymd(new Date(t.completed_at)) === day)
+  if (!closed.length) return []
+  const newest = own.map(t => dueKey(t) || (t.created_at || '').slice(0, 10)).sort().pop()
+  return closed.filter(t => (dueKey(t) || (t.created_at || '').slice(0, 10)) === newest)
+}
+
+/**
+ * How many times a practice loop was done in [start, end): per local day, the
+ * larger of its logged tasks and its completed_history stamps. Logs made with
+ * "+ Log today" write both (one task, one stamp); a day marked on the loop's
+ * calendar writes only a stamp. Counting only tasks ignored calendar marks,
+ * counting only stamps would ignore logs made before stamping existed.
+ */
+export function practiceCount(routine, tasks = [], start, end) {
+  if (!routine) return 0
+  const lo = start.getTime(), hi = end.getTime()
+  const inRange = (iso) => { const ms = new Date(iso).getTime(); return ms >= lo && ms < hi }
+  const perDay = new Map()
+  const bump = (key, field) => {
+    const cur = perDay.get(key) || { tasks: 0, stamps: 0 }
+    cur[field]++
+    perDay.set(key, cur)
+  }
+  for (const t of tasks) {
+    if (t?.routine_id === routine.id && !t.parent_id && t.completed_at && t.status === 'done' && inRange(t.completed_at)) bump(ymd(new Date(t.completed_at)), 'tasks')
+  }
+  for (const ts of routine.completed_history || []) {
+    if (inRange(ts)) bump(ymd(new Date(ts)), 'stamps')
+  }
+  let n = 0
+  for (const v of perDay.values()) n += Math.max(v.tasks, v.stamps)
+  return n
+}
+
+// Did this loop get done on a local day (task closed that day, or stamped)?
+export function doneOnDay(routine, tasks = [], day) {
+  if (!routine) return false
+  if ((routine.completed_history || []).some(ts => ymd(new Date(ts)) === day)) return true
+  return tasks.some(t => t?.routine_id === routine.id && !t.parent_id && t.status === 'done' && t.completed_at && ymd(new Date(t.completed_at)) === day)
 }
 
 /**
@@ -86,8 +175,10 @@ export function groupLoops({ routines = [], tasks = [], now = new Date(), nextDu
   const todayKey = ymd(now)
   const g = { dueToday: [], checklists: [], practice: [], comingUp: [], autopilot: [], resting: [], slipped: [] }
   const byRoutine = new Map()
+  const routineById = new Map(routines.filter(Boolean).map(r => [r.id, r]))
   for (const t of tasks) {
     if (!t?.routine_id || t.parent_id) continue
+    if (!isCycleTask(routineById.get(t.routine_id), t)) continue
     if (!byRoutine.has(t.routine_id)) byRoutine.set(t.routine_id, [])
     byRoutine.get(t.routine_id).push(t)
   }
@@ -104,13 +195,21 @@ export function groupLoops({ routines = [], tasks = [], now = new Date(), nextDu
 
     if (mode === 'practice') {
       const s = habitStats ? habitStats(r, tasks) : null
-      g.practice.push({ routine: r, done: s?.completions ?? 0, target: s?.target ?? r.target_count ?? null, loggedToday: own.some(t => doneOn(t, todayKey)) })
+      g.practice.push({ routine: r, done: s?.completions ?? 0, target: s?.target ?? r.target_count ?? null, loggedToday: own.some(t => doneOn(t, todayKey)) || stampedToday(r) })
       continue
     }
 
     if (mode === 'checklist') {
       const today = own.filter(t => dueKey(t) === todayKey)
-      g.checklists.push({ routine: r, items: r.members.length, doneToday: today.filter(t => t.status === 'done').length, spawnedToday: today.length })
+      // Due today if today's items exist or an earlier cycle is still open;
+      // otherwise the next date it comes back, so a weekly checklist doesn't
+      // read "tonight" on a Tuesday.
+      const openEarlier = own.some(t => OPEN.includes(t.status) && dueKey(t) && dueKey(t) < todayKey)
+      const next = nextDue ? nextDue(r) : null
+      const nextKey = next && Number.isFinite(next.getTime()) ? ymd(next) : null
+      const due = today.length > 0 || openEarlier || (nextKey != null && nextKey <= todayKey)
+      g.checklists.push({ routine: r, items: r.members.length, doneToday: today.filter(t => t.status === 'done').length, spawnedToday: today.length, dueToday: due, next: due ? todayKey : nextKey })
+      if (missedCount(r) > 0) g.slipped.push({ routine: r, count: missedCount(r) })
       continue
     }
 

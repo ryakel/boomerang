@@ -1,7 +1,8 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import {
-  loopMode, canAutopilot, withAutopilot, isResting, openInstanceForDay, groupLoops,
+  loopMode, canAutopilot, withAutopilot, isResting, openInstanceForDay, openInstancesForDay, groupLoops,
+  isCycleTask, doneInstancesOnDay, practiceCount, doneOnDay,
   cadenceWord, scheduleLabel, clockLabel, lastDoneWord, AUTOPILOT,
 } from '../src/loopModes.js'
 import { readFileSync } from 'node:fs'
@@ -31,8 +32,9 @@ test('modes are derived from what a loop already is', () => {
 
 test('only a reminder loop switches to and from autopilot', () => {
   const r = loop()
-  const on = withAutopilot(r, true)
+  const on = withAutopilot({ ...r, remind: true }, true)
   assert.equal(on.spawn_mode, 'autopilot')
+  assert.equal(on.remind, false, 'autopilot turns the loop alarm off')
   assert.equal(withAutopilot(on, false).spawn_mode, 'auto')
   assert.equal(withAutopilot(r, false), r, 'unchanged returns the same object')
   assert.equal(withAutopilot(on, true), on)
@@ -145,7 +147,7 @@ test('checklists report today\'s progress and sort by time', () => {
   ]
   const g = groups([late, early], tasks)
   assert.deepEqual(titles(g.checklists), ['morning', 'bedtime'])
-  assert.deepEqual(g.checklists[1], { routine: late, items: 2, doneToday: 1, spawnedToday: 2 })
+  assert.deepEqual(g.checklists[1], { routine: late, items: 2, doneToday: 1, spawnedToday: 2, dueToday: true, next: day(0) })
 })
 
 test('practice shows progress toward its target and whether today is logged', () => {
@@ -174,4 +176,63 @@ test('labels', () => {
   assert.equal(lastDoneWord(loop({ completed_history: [new Date(2026, 10, 15, 9).toISOString()] }), NOW), 'today')
   assert.equal(lastDoneWord(loop({ completed_history: [new Date(2026, 10, 14, 9).toISOString(), new Date(2026, 10, 2, 9).toISOString()] }), NOW), 'yesterday')
   assert.equal(lastDoneWord(loop(), NOW), null)
+})
+
+test('a checklist that is not due today says when it comes back, not "tonight"', () => {
+  const weekly = stack({ title: 'sunday reset', cadence: 'weekly', trigger_time: '21:00', _next: day(5) })
+  const g = groups([weekly])
+  assert.equal(g.checklists[0].dueToday, false)
+  assert.equal(g.checklists[0].next, day(5))
+})
+
+test('follow-up steps are not the loop\'s cycle task', () => {
+  const r = loop({ title: 'run dishwasher', follow_ups: [{ title: 'empty dishwasher' }] })
+  const cycle = task({ routine_id: r.id, title: 'run dishwasher', due_date: day(0) })
+  const step = task({ routine_id: r.id, title: 'empty dishwasher', due_date: day(-1) })
+  assert.equal(isCycleTask(r, cycle), true)
+  assert.equal(isCycleTask(r, step), false)
+  assert.deepEqual(openInstancesForDay({ routine: r, tasks: [step, cycle], day: day(0), todayKey: day(0) }), [cycle])
+  const plain = loop()
+  assert.equal(isCycleTask(plain, task({ routine_id: plain.id, title: 'renamed' })), true, 'no follow-ups: every task is a cycle task')
+})
+
+test('marking a checklist day closes every open item of that cycle', () => {
+  const s = stack()
+  const a = task({ routine_id: s.id, title: 'Lock doors', due_date: day(0) })
+  const b = task({ routine_id: s.id, title: 'Pour milk', due_date: day(0) })
+  const old = task({ routine_id: s.id, title: 'Lock doors', due_date: day(-3) })
+  const done = task({ routine_id: s.id, title: 'Pour milk', due_date: day(0), status: 'done' })
+  assert.deepEqual(openInstancesForDay({ routine: s, tasks: [a, b, old, done], day: day(0), todayKey: day(0) }).map(t => t.id).sort(), [a.id, b.id].sort())
+  assert.deepEqual(openInstancesForDay({ routine: s, tasks: [a, b, old], day: day(-3), todayKey: day(0) }), [old], 'an older day closes that cycle only')
+})
+
+test('an autopilot loop closes a task left over from before the switch; practice closes none', () => {
+  const r = loop({ spawn_mode: AUTOPILOT })
+  const left = task({ routine_id: r.id, due_date: day(-1) })
+  assert.deepEqual(openInstancesForDay({ routine: r, tasks: [left], day: day(0), todayKey: day(0) }), [left])
+  const p = loop({ spawn_mode: 'habit' })
+  assert.deepEqual(openInstancesForDay({ routine: p, tasks: [task({ routine_id: p.id })], day: day(0), todayKey: day(0) }), [])
+})
+
+test('unmarking a day reopens the latest cycle\'s task closed that day, never an older one', () => {
+  const r = loop()
+  const at = (d) => new Date(2026, 10, 15 + d, 10).toISOString()
+  const latest = task({ routine_id: r.id, due_date: day(0), status: 'done', completed_at: at(0) })
+  assert.deepEqual(doneInstancesOnDay({ routine: r, tasks: [latest], day: day(0) }), [latest])
+  const oldDone = task({ routine_id: r.id, due_date: day(-7), status: 'done', completed_at: at(-7) })
+  const newer = task({ routine_id: r.id, due_date: day(0) })
+  assert.deepEqual(doneInstancesOnDay({ routine: r, tasks: [oldDone, newer], day: day(-7) }), [], 'a newer cycle exists: leave the old task closed')
+})
+
+test('practice counts logs and calendar marks once per day each, whichever is larger', () => {
+  const at = (d, h) => new Date(2026, 10, 15 + d, h).toISOString()
+  const r = loop({ spawn_mode: 'habit', target_count: 3, target_period: 'week', completed_history: [at(-1, 12), at(-2, 12), at(-2, 13)] })
+  const logs = [
+    task({ routine_id: r.id, status: 'done', completed_at: at(-1, 9) }),   // logged and stamped Saturday
+    task({ routine_id: r.id, status: 'done', completed_at: at(-4, 9) }),   // logged, never stamped
+  ]
+  const start = new Date(2026, 10, 9), end = new Date(2026, 10, 16)
+  assert.equal(practiceCount(r, logs, start, end), 1 + 2 + 1, 'Sat 1, Fri 2 calendar marks, Wed 1 log')
+  assert.equal(doneOnDay(r, logs, day(-2)), true)
+  assert.equal(doneOnDay(r, logs, day(-3)), false)
 })

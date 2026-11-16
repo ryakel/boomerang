@@ -24,11 +24,16 @@ const RING_QUIET = 'var(--t2-hair2)'
 const weekday = (key) => new Date(`${key}T12:00:00`).toLocaleDateString('en-US', { weekday: 'short' })
 const longDate = (key) => new Date(`${key}T12:00:00`).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
 const shortDate = (key) => new Date(`${key}T12:00:00`).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+const LETGO_KEY = 'boom_tasks_letgo'
+function readLetGo() {
+  try { const v = JSON.parse(sessionStorage.getItem(LETGO_KEY) || '[]'); return Array.isArray(v) ? v : [] } catch { return [] }
+}
+const timeOf = (iso) => new Date(iso).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
 const sizeLabel = (t) => (SIZE_MINUTES[t.size] != null ? `About ${minutesLabel(SIZE_MINUTES[t.size])}` : null)
 
 export default function TasksUpcoming({
   visible = [], tasks = [], routines = [], labels = [], labelsById = {}, weatherByDate = null, filtered = false,
-  onToggleComplete, onToggleItem, onOpenSheet, onOpenTask, onDelete, onReschedule, onStatusChange,
+  onToggleComplete, onToggleItem, onOpenSheet, onOpenTask, onDelete, onReschedule, onStatusChange, onRestoreStatus,
 }) {
   const now = useNow()
   const todayKey = ymd(now)
@@ -38,7 +43,14 @@ export default function TasksUpcoming({
   const [notNow, setNotNow] = useState(() => readJSON(NOT_NOW_KEY))
   const [slippedOpen, setSlippedOpen] = useState(false)
   const [anytimeOpen, setAnytimeOpen] = useState(false)
-  const [letGone, setLetGone] = useState([])   // [{ id, title, prevStatus }] for inline Undo
+  // "Let it go" undo entries, kept for the session so leaving the tab doesn't
+  // strand a mis-tap (a cancelled task shows on no tab). A row shows only
+  // while its task really is cancelled, so a let-go the follow-up prompt
+  // refused never shows an Undo for something that didn't happen.
+  const [letGoLog, setLetGoLog] = useState(() => readLetGo())
+  const saveLetGo = (list) => { setLetGoLog(list); try { sessionStorage.setItem(LETGO_KEY, JSON.stringify(list.slice(0, 20))) } catch { /* storage blocked */ } }
+  const byId = useMemo(() => new Map(tasks.map(t => [t.id, t])), [tasks])
+  const letGone = letGoLog.filter(x => byId.get(x.id)?.status === 'cancelled')
 
   const events = useMemo(() => (rawEvents ? normalizeEvents(rawEvents, tasks) : null), [rawEvents, tasks])
   // Same call Today makes, so the pick is identical; only `.next` is used here.
@@ -67,12 +79,12 @@ export default function TasksUpcoming({
     setNotNow(state)
   }
   const letGo = (t) => {
-    setLetGone(list => [{ id: t.id, title: t.title, prevStatus: t.status }, ...list.filter(x => x.id !== t.id)])
+    saveLetGo([{ id: t.id, title: t.title, prevStatus: t.status, prevTouched: t.last_touched || null }, ...letGoLog.filter(x => x.id !== t.id)])
     onStatusChange?.(t.id, 'cancelled')
   }
   const undoLetGo = (x) => {
-    setLetGone(list => list.filter(y => y.id !== x.id))
-    onStatusChange?.(x.id, x.prevStatus || 'not_started')
+    saveLetGo(letGoLog.filter(y => y.id !== x.id))
+    onRestoreStatus?.(x.id, x.prevStatus || 'not_started', x.prevTouched)
   }
 
   const tagDots = (t) => (t.tags || []).map(id => labelsById[id]).filter(Boolean).slice(0, 2)
@@ -84,7 +96,12 @@ export default function TasksUpcoming({
     return day ? <WeatherBadge day={day} /> : null
   }
 
-  const row = ({ task: t, due }, i, { meta = [], ring = RING, extra = null } = {}) => {
+  const row = ({ task: t, due, routine }, i, { meta = [], ring = RING, extra = null } = {}) => {
+    // Shown on every row (BOOM-37 audit): high priority, a reminder time on a
+    // task due today, and how long a loop's open cycle has been waiting.
+    const remindToday = t.remind_at && ymd(new Date(t.remind_at)) === todayKey && due === todayKey ? `at ${timeOf(t.remind_at)}` : null
+    const since = routine && due && due < todayKey ? `since ${weekday(due)}` : null
+    meta = [remindToday, since, ...meta, t.high_priority && !meta.includes('high priority') ? 'high priority' : null]
     const subItems = (Array.isArray(t.checklists) ? t.checklists : []).flatMap(cl => (cl.items || []).map(it => ({ ...it, clId: cl.id })))
     const text = meta.filter(m => typeof m === 'string').join(' · ')
     const metaNodes = [...meta.filter(m => m && typeof m !== 'string'), text || null, weather(t, due), t.diy_verdict === 'hire' ? <span key="hire" className="bm-tag-hire">🛠 hire it out</span> : null, ...tagDots(t)].filter(Boolean)
@@ -146,21 +163,9 @@ export default function TasksUpcoming({
       {g.week.length > 0 && (
         <section className="t2-card">
           <Head icon={CalendarDays} color="var(--bm-ember)" title="This week" count={g.week.length} />
-          {g.week.map((e, i) => (
-            <RowSwipe key={e.task.id} onCatch={() => onToggleComplete?.(e.task)} onDelete={() => onDelete?.(e.task)}>
-              <button className={`t2-clock${i === 0 ? ' is-first' : ''}`} data-task-id={e.task.id} onClick={() => onOpenSheet?.(e.task)}>
-                <span className="t2-clock-time">{weekday(e.due)}</span>
-                <span className="t2-clock-bar" />
-                <span className="t2-clock-body">
-                  <span className="t2-clock-title">{e.task.title}</span>
-                  <span className="t2-row-meta t2-clock-meta">
-                    {[e.routine ? `Loop · ${e.routine.cadence || 'routine'}` : sizeLabel(e.task), e.task.high_priority ? 'marked high priority' : null].filter(Boolean).join(' · ')}
-                    {weather(e.task, e.due)}
-                  </span>
-                </span>
-              </button>
-            </RowSwipe>
-          ))}
+          {g.week.map((e, i) => row(e, i, {
+            meta: [weekday(e.due), e.routine ? `Loop · ${e.routine.cadence || 'routine'}` : sizeLabel(e.task)],
+          }))}
         </section>
       )}
 
@@ -176,7 +181,7 @@ export default function TasksUpcoming({
           ))}
           {slippedShown.map((e, i) => row(e, letGone.length ? i + 1 : i, {
             ring: RING_QUIET,
-            meta: [`was due ${longDate(e.due)}`, e.task.high_priority ? 'marked high priority' : null],
+            meta: [`was due ${longDate(e.due)}`, e.task.high_priority ? 'high priority' : null],
             extra: (
               <div className="t2-picks">
                 {choices.map(c => (

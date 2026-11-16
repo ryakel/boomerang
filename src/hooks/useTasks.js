@@ -165,7 +165,9 @@ export function useTasks() {
         else if (hasMeaningfulEdit) logActivity('edited', task)
       }
       return prev.map(t =>
-        t.id === id ? { ...t, ...updates, last_touched: new Date().toISOString() } : t
+        // An explicit last_touched wins: an undo restores the old one rather
+        // than resetting staleness and the "waiting N days" clock.
+        t.id === id ? { ...t, ...updates, last_touched: updates.last_touched || new Date().toISOString() } : t
       )
     })
   }, [])

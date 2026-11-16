@@ -70,7 +70,7 @@ import { canCreditYesterday, creditYesterday, completeAsYesterday } from './cred
 import { TERMINAL_STATUSES } from './loopSpawnStatus'
 import { localDateTimeValue, nextHalfHour } from './dates'
 import { computeRecords } from './scoring'
-import { openInstanceForDay, withAutopilot } from './loopModes'
+import { openInstancesForDay, doneInstancesOnDay, isCycleTask, loopMode, withAutopilot } from './loopModes'
 import { applyTheme, watchSystemTheme } from './theme'
 import './AppV2.css'
 
@@ -131,6 +131,9 @@ export default function AppV2() {
   // (list-first made the flow New loop -> list -> New routine).
   const [routinesOpenToForm, setRoutinesOpenToForm] = useState(false)
   const [editRoutineId, setEditRoutineId] = useState(null)
+  // The mode a loop page asked the editor to open on (BOOM-35 audit): tapping
+  // Practice on a loop's page should land on Practice, not on what it was.
+  const [editRoutineMode, setEditRoutineMode] = useState(null)
   const [showPackages, setShowPackages] = useState(false)
   const [showAdviser, setShowAdviser] = useState(false)
   // One-shot input draft handed to AdviserModal when opened via a
@@ -544,8 +547,7 @@ export default function AppV2() {
 
   // Group surfaced stack members into cycles for the grouped display. A cycle
   // is the (routine_id, due_date) set; it surfaces once at least one member is
-  // un-snoozed. Progress = done/total across the cycle; bonus preview = 20% of
-  // the cycle's combined member points.
+  // un-snoozed. Progress = done/total across the cycle.
   const stackGroups = (() => {
     if (isDesktop) return []
     const now = Date.now()
@@ -792,6 +794,8 @@ export default function AppV2() {
   // repeatedly mints duplicate cards. Returns the spawned tasks (or null when
   // blocked) so callers can show ✓ feedback.
   const handleSpawnLoop = useCallback((routineId) => {
+    // Autopilot never makes a task, on schedule or on demand.
+    if (routines.find(r => r.id === routineId)?.spawn_mode === 'autopilot') return null
     const hasActive = tasks.some(t =>
       t.routine_id === routineId &&
       !['done', 'completed', 'cancelled'].includes(t.status),
@@ -800,7 +804,7 @@ export default function AppV2() {
     const spawned = spawnNow(routineId)
     if (spawned.length) addSpawnedTasks(spawned)
     return spawned
-  }, [tasks, spawnNow, addSpawnedTasks])
+  }, [tasks, routines, spawnNow, addSpawnedTasks])
 
   // Snooze with reframe-threshold check: if a task's been snoozed enough
   // times (configurable via reframe_threshold), open the Reframe modal
@@ -915,7 +919,7 @@ export default function AppV2() {
     openAddModal()
   }, [openAddModal])
 
-  // Log a project session. Renders a toast with the points awarded, or an
+  // Log a project session. Renders a toast, or an
   // explanatory message when capped. Falls back silently to a local-only
   // update if the network is unavailable so the user doesn't lose the tap.
   const handleLogSession = useCallback(async (projectId) => {
@@ -1066,28 +1070,88 @@ export default function AppV2() {
   }, [updateTask])
 
   // Marking a day done on a loop's page (calendar tap, "Mark done", the date
-  // field) also closes that cycle's open task, so Tasks, Today and the loop
-  // agree (BOOM-35, owner decision). The stamp is written once, by
-  // markRoutineDayDone; the task is closed directly (completeTask, not
-  // handleComplete) so the completion doesn't stamp the loop a second time.
-  // A mark on an older day back-fills history and leaves the current task.
+  // field, Mark done today) also closes that cycle's open task(s), so Tasks,
+  // Today and the loop agree (BOOM-35, owner decision). One stamp, written by
+  // markRoutineDayDone; tasks close through completeTask, not handleComplete,
+  // so they don't stamp again. A checklist closes every item of the cycle; an
+  // older day back-fills history and leaves the current task alone. Closing
+  // the cycle's task retires any "push it out" floor, as a tick on Today does.
   const handleMarkLoopDay = useCallback((routineId, day, iso) => {
     markRoutineDayDone(routineId, day, iso)
     const routine = routines.find(r => r.id === routineId)
     const today = localYMD()
-    const task = openInstanceForDay({ routine, tasks, day, todayKey: today })
-    if (!task) return
-    completeTask(task.id)
-    if (day !== today) updateTask(task.id, { completed_at: new Date(`${day}T12:00:00`).toISOString() })
-    if (task.trello_card_id) pushStatusToTrello(task, 'done')
-  }, [markRoutineDayDone, routines, tasks, completeTask, updateTask, pushStatusToTrello])
+    const closing = openInstancesForDay({ routine, tasks, day, todayKey: today })
+    if (!closing.length) return
+    const at = day !== today ? new Date(`${day}T12:00:00`).toISOString() : null
+    for (const task of closing) {
+      completeTask(task.id)
+      if (at) updateTask(task.id, { completed_at: at })
+      if (task.trello_card_id) pushStatusToTrello(task, 'done')
+    }
+    if (routine?.resume_at) updateRoutine(routineId, { resume_at: null })
+  }, [markRoutineDayDone, routines, tasks, completeTask, updateTask, pushStatusToTrello, updateRoutine])
+
+  // The undo twin. Taking a day back off must also reopen the task that mark
+  // closed (the latest cycle's only), or the spawn pass would see a finished
+  // cycle with no stamp and mint a duplicate beside it. A practice loop's day
+  // is a log task as well as a stamp, so one log for that day goes too.
+  const handleUnmarkLoopDay = useCallback((routineId, day) => {
+    const routine = routines.find(r => r.id === routineId)
+    unmarkRoutineDayDone(routineId, day)
+    if (!routine) return
+    if (loopMode(routine) === 'practice') {
+      const logs = tasks.filter(t => t.routine_id === routineId && !t.parent_id && t.status === 'done'
+        && t.completed_at && localYMD(new Date(t.completed_at)) === day)
+      if (logs.length) deleteTask(logs[logs.length - 1].id)
+      return
+    }
+    for (const task of doneInstancesOnDay({ routine, tasks, day })) {
+      uncompleteTask(task.id)
+      if (task.trello_card_id) pushStatusToTrello(task, 'not_started')
+    }
+  }, [routines, tasks, unmarkRoutineDayDone, deleteTask, uncompleteTask, pushStatusToTrello])
+
+  // Autopilot is "no task, no reminder": switching to it retires the open
+  // cycle task it would otherwise leave on Today and Tasks (cancelled, not
+  // deleted, so it stays recoverable) and clears that task's reminder.
+  const retireLoopTasks = useCallback((routine) => {
+    if (!routine) return
+    for (const t of tasks) {
+      if (!isCycleTask(routine, t) || !['not_started', 'doing', 'in_progress', 'waiting'].includes(t.status)) continue
+      updateTask(t.id, { status: 'cancelled', remind_at: null, last_touched: new Date().toISOString() })
+      if (t.trello_card_id) pushStatusToTrello(t, 'cancelled')
+    }
+  }, [tasks, updateTask, pushStatusToTrello])
+
+  // Undo for the Tasks list's "Let it go" (BOOM-37 audit). Puts the task back
+  // exactly as it was, last_touched included (changeStatus would bump it and
+  // reset staleness / the "waiting N days" clock), and only if it is still
+  // let go: a change made since on another device wins.
+  const restoreLetGo = useCallback((taskId, prevStatus, prevTouched) => {
+    const task = tasks.find(t => t.id === taskId)
+    if (!task || task.status !== 'cancelled') return false
+    updateTask(taskId, { status: prevStatus || 'not_started', ...(prevTouched ? { last_touched: prevTouched } : {}) })
+    if (task.trello_card_id) pushStatusToTrello(task, prevStatus || 'not_started')
+    return true
+  }, [tasks, updateTask, pushStatusToTrello])
 
   const setLoopAutopilot = useCallback((routineId, on) => {
     const routine = routines.find(r => r.id === routineId)
     if (!routine) return
     const next = withAutopilot(routine, on)
-    if (next !== routine) updateRoutine(routineId, { spawn_mode: next.spawn_mode })
-  }, [routines, updateRoutine])
+    if (next === routine) return
+    updateRoutine(routineId, on ? { spawn_mode: next.spawn_mode, remind: false } : { spawn_mode: next.spawn_mode })
+    if (on) retireLoopTasks(routine)
+  }, [routines, updateRoutine, retireLoopTasks])
+
+  // The loop editor's save goes through here so choosing Autopilot there does
+  // what the loop page's switch does.
+  const updateRoutineFromEditor = useCallback((routineId, updates) => {
+    const routine = routines.find(r => r.id === routineId)
+    const toAutopilot = updates?.spawn_mode === 'autopilot' && routine?.spawn_mode !== 'autopilot'
+    updateRoutine(routineId, toAutopilot ? { ...updates, remind: false } : updates)
+    if (toAutopilot) retireLoopTasks(routine)
+  }, [routines, updateRoutine, retireLoopTasks])
 
   // Single shortcut into the canonical routine-completion path, shared by the
   // the Kept shells. Routes through the real surfaced task so
@@ -1433,8 +1497,8 @@ export default function AppV2() {
                     <span className="v2-stats-detail-value">{dailyStats.tasksToday} / {taskGoal}</span>
                   </div>
                   <div className="v2-stats-detail-row">
-                    <span className="v2-stats-detail-label">Best day ever</span>
-                    <span className="v2-stats-detail-value">{records.bestTasks}</span>
+                    <span className="v2-stats-detail-label">Best day ever (tasks finished)</span>
+                    <span className="v2-stats-detail-value">{Math.max(records.bestTasks, dailyStats.finishedToday ?? 0)}</span>
                   </div>
                   <div className="v2-stats-detail-row">
                     <span className="v2-stats-detail-label">Remaining active</span>
@@ -1443,7 +1507,7 @@ export default function AppV2() {
                   {(doneTasks.length > 0 || eggWon) && (
                     <div className="v2-stats-detail-done">
                       {eggWon && (
-                        <div className="v2-stats-detail-done-item">✓ Daily Bonus</div>
+                        <div className="v2-stats-detail-done-item">✓ Won the hidden game</div>
                       )}
                       {doneTasks.map(t => (
                         <div key={t.id} className="v2-stats-detail-done-item">✓ {t.title}</div>
@@ -1588,6 +1652,7 @@ export default function AppV2() {
         <KeptShell
           tasks={tasks}
           onStatusChange={handleStatusChange}
+          onRestoreStatus={restoreLetGo}
           routines={routines}
           labels={labels}
           weatherByDate={weather.enabled ? weather.byDate : null}
@@ -1618,14 +1683,14 @@ export default function AppV2() {
           onThrow={({ title, dueDate, remindAt }) => scrollTaskIntoView(handleAddTask({ title, dueDate, remindAt }))}
           onOpenFullAdd={(draft) => openAddModal(draft)}
           onScanSchedule={() => setShowScanSchedule(true)}
-          onEditLoop={(r) => { setEditRoutineId(r.id); setShowRoutines(true) }}
+          onEditLoop={(r, mode = null) => { setEditRoutineId(r.id); setEditRoutineMode(mode); setShowRoutines(true) }}
           onAddLoop={() => { setRoutinesOpenToForm(true); setShowRoutines(true) }}
           onSpawnNow={handleSpawnLoop}
           onSkipCycle={skipCycle}
           onMarkLoopDay={handleMarkLoopDay}
           onSetLoopAutopilot={setLoopAutopilot}
           onToggleLoopPause={togglePause}
-          onUnmarkLoopDay={unmarkRoutineDayDone}
+          onUnmarkLoopDay={handleUnmarkLoopDay}
           onSkipLoopDay={skipRoutineDay}
           onPushLoopOut={pushLoopOut}
           onOpenQuokka={() => setShowAdviser(true)}
@@ -1682,14 +1747,14 @@ export default function AppV2() {
           onThrow={({ title, dueDate, remindAt }) => scrollTaskIntoView(handleAddTask({ title, dueDate, remindAt }))}
           onOpenFullAdd={(draft) => openAddModal(draft)}
           onScanSchedule={() => setShowScanSchedule(true)}
-          onEditLoop={(r) => { setEditRoutineId(r.id); setShowRoutines(true) }}
+          onEditLoop={(r, mode = null) => { setEditRoutineId(r.id); setEditRoutineMode(mode); setShowRoutines(true) }}
           onAddLoop={() => { setRoutinesOpenToForm(true); setShowRoutines(true) }}
           onSpawnNow={handleSpawnLoop}
           onSkipCycle={skipCycle}
           onMarkLoopDay={handleMarkLoopDay}
           onSetLoopAutopilot={setLoopAutopilot}
           onToggleLoopPause={togglePause}
-          onUnmarkLoopDay={unmarkRoutineDayDone}
+          onUnmarkLoopDay={handleUnmarkLoopDay}
           onSkipLoopDay={skipRoutineDay}
           onPushLoopOut={pushLoopOut}
           onOpenQuokka={() => setShowAdviser(true)}
@@ -1699,6 +1764,7 @@ export default function AppV2() {
           onOpenProjects={() => setShowProjects(true)}
           onOpenNotifications={() => setShowNotifications(true)}
           onStatusChange={handleStatusChange}
+          onRestoreStatus={restoreLetGo}
           onOpenSuggestions={() => setShowSuggestions(true)}
           onOpenNotes={() => setShowNotes(true)}
           onOpenLists={() => setShowLists(true)}
@@ -1925,7 +1991,7 @@ export default function AppV2() {
         onAdd={addRoutine}
         onDelete={deleteRoutine}
         onTogglePause={togglePause}
-        onUpdate={updateRoutine}
+        onUpdate={updateRoutineFromEditor}
         onSpawnNow={handleSpawnLoop}
         onLogHabit={(routineId) => {
           const task = logHabit(routineId)
@@ -1934,8 +2000,9 @@ export default function AppV2() {
         }}
         activeRoutineIds={activeRoutineIds}
         onSkipCycle={skipCycle}
-        onClose={() => { setShowRoutines(false); setEditRoutineId(null) }}
+        onClose={() => { setShowRoutines(false); setEditRoutineId(null); setEditRoutineMode(null) }}
         editRoutineId={editRoutineId}
+        editRoutineMode={editRoutineMode}
         onClearEditRoutineId={() => setEditRoutineId(null)}
       />
 

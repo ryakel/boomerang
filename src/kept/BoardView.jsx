@@ -13,7 +13,7 @@ const ACTIVE = ['not_started', 'doing', 'waiting', 'in_progress']
 
 // Board view mode (K5) — desktop-only status columns with native drag-and-
 // drop. Dragging a card to a column changes its status; dropping on Done
-// catches it through the canonical completion handler (toast, points,
+// catches it through the canonical completion handler (toast,
 // undo — everything rides along). Kanban, demoted to a view mode.
 export default function BoardView({ tasks = [], onStatusChange, onToggleComplete, onOpenTask }) {
   const [dragId, setDragId] = useState(null)

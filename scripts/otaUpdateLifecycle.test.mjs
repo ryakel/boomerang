@@ -2,7 +2,7 @@ import test from 'node:test'
 import { registerPlugin } from '@capacitor/core'
 let pluginSequence = 0
 import assert from 'node:assert/strict'
-import { startOtaUpdateLifecycle } from '../src/otaUpdateLifecycle.js'
+import { sameCommit, startOtaUpdateLifecycle } from '../src/otaUpdateLifecycle.js'
 
 function fixture({ id = 'builtin', bundledOnly = true, currentError = false, resetError = false, loadError = false, readyError = false } = {}) {
   const calls = []
@@ -99,4 +99,12 @@ test('failed readiness acknowledgement cannot emit a successful readiness diagno
   await assert.rejects(f.run(), /ready callback failed/)
   assert.deepEqual(f.calls, ['current', 'ready'])
   assert.deepEqual(f.stages, ['loading-updater', 'reading-bundle', 'marking-builtin-ready'])
+})
+
+test('a Mac build and the dev server image of the same commit are the same bundle', () => {
+  assert.equal(sameCommit('v2.63.0-7-g4f728b6', 'dev-4f728b6'), true)
+  assert.equal(sameCommit('dev-4f728b681e0aacd93', 'v2.63.0-7-g4f728b6'), true)
+  assert.equal(sameCommit('v2.63.0-7-g4f728b6', 'dev-1234abc'), false)
+  assert.equal(sameCommit('dev', 'dev'), false, 'a label with no commit proves nothing')
+  assert.equal(sameCommit('v2.63.0', 'v2.63.0'), false)
 })

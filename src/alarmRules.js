@@ -69,7 +69,7 @@ export async function reconcileAlarmRuleSources(tasks, routines) {
     // Missing local rows may be an incomplete hydration; server refresh handles
     // confirmed deletion. Only cancel from positively known local state here.
     if(parent && cue.sourceKind==='routine' && sourceHeldDates(parent,cue.timeZone).includes(cue.date)) keys.add(cue.key)
-    if(parent && (['done','completed','cancelled','archived'].includes(parent.status) || parent.paused || (cue.sourceKind==='task' ? parent.remind_at : parent.remind))) ruleIds.add(cue.ruleId)
+    if(parent && (['done','completed','cancelled','archived'].includes(parent.status) || parent.paused || parent.spawn_mode==='autopilot' || (cue.sourceKind==='task' ? parent.remind_at : parent.remind))) ruleIds.add(cue.ruleId)
   }
   if(ruleIds.size || keys.size) await Native.cancelRules({ruleIds:[...ruleIds],keys:[...keys]})
 }
