@@ -6,6 +6,11 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-11-16
 
+- fix(kept): name loop modes the same in the editor as on the loop page [S]
+  - The loop editor's "Auto (cadence)" / "Habit (target frequency)" buttons become **Reminder / Practice / Autopilot**, the loop page's words; the first reads **Checklist** when the loop has stack items. "Auto" read like autopilot while meaning the opposite, and an autopilot loop showed Auto highlighted (owner, 2026-11-16).
+  - Autopilot can now be chosen in the editor. It hides At time, auto-roll, stack items and follow-ups, and is unavailable while a loop has stack items. Hints lose "nag"/"nags like any task" (untrue since the July alert cleanup) and match the loop page.
+  - Fixed on the way: `addRoutine` kept only `habit`, so a new loop saved as Autopilot was stored as a plain reminder. Checked in the browser on the dev seed: the three modes, the autopilot field set, a stack (Autopilot disabled, first button Checklist), and a new autopilot loop stored as `spawn_mode: 'autopilot'` with no task spawned. npm test 673/673; lint clean on the changed files; build passes. Web-only. Ticket BOOM-40.
+
 - feat(kept): redesign loops around modes, not tracking [L]
   - Loops is grouped by what each loop asks of you today: **Due today**, **Checklists** (stacks, with item chips and today's progress), **Practice** (habit loops, + Log today), **Coming up** (date column), **On autopilot**. Two quiet rows replace the "N to fix" chips and the cross-loop skip banner: *N days not recorded* and *N resting*, each expanding to the loops behind it. No trails, "caught N of M", lifetime counts or red badges anywhere on the list or a loop's page.
   - A loop's page leads with **How it comes back** (Reminder / Checklist / Practice / Autopilot) and Schedule / Last done / Next. The repair tools stay: While you were away, a collapsed *not recorded* list (Mark done / Skip / Skip all), the editable month calendar and the date field, plus Pause/Resume, Mark done today, Add a task now and Skip this cycle.

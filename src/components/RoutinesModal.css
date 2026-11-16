@@ -243,20 +243,25 @@
   background: rgba(var(--v2-text-rgb), 0.03);
 }
 
-/* Habit-mode picker: segmented control between Auto and Habit. The segmented
- * class is reused from AddTaskModal.css. The labels ("Auto (cadence)" /
- * "Habit (target frequency)") are too long to share one row at phone widths
- * without wrapping into floating half-pills, so each gets its own full-width
- * row. */
+/* Mode picker (BOOM-35): Reminder / Practice / Autopilot, the words the loop
+ * page uses. Three short labels share one row; the segmented class is reused
+ * from AddTaskModal.css, minus its lowercase transform so the names read the
+ * same here as on the loop page. */
 .v2-form-mode-segmented {
   margin-top: 4px;
-  flex-direction: column;
-  align-items: stretch;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 6px;
 }
 .v2-form-mode-segmented .v2-form-seg {
   width: 100%;
+  padding: 0 6px;
   justify-content: center;
+  text-transform: none;
+}
+.v2-form-mode-segmented .v2-form-seg:disabled {
+  opacity: 0.45;
+  cursor: default;
 }
 
 /* Habit-row visual indicators: progress chip + streak. Shown in the summary
