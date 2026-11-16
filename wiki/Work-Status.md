@@ -12,7 +12,7 @@ overdue rows. Owner decisions are in D016. Tracked in It's a Plan:
 | BOOM-34 | Carry the Kept 2.0 type (Fraunces/DM Sans variable) to every mobile surface | Merged to `dev` (#1035) |
 | BOOM-37 | Tasks list on Kept 2.0 rules: Worth doing next, quiet Slipped card, grouped cards | Merged to `dev` (#1036) |
 | BOOM-38 | Dev iPhone build takes web updates again (only native changes need a rebuild) | PR to `dev`; needs one final Dev rebuild |
-| BOOM-35 | Redesign Loops around routine modes instead of tracking | Needs a spec and owner decisions before code |
+| BOOM-35 | Loops grouped by mode (Reminder / Checklist / Practice / Autopilot); no trails or counts; marking a day closes the cycle's task | PR to `dev` (D018); web-only, no rebuild |
 
 Desktop is deferred by the owner. BOOM-32 (Kept 2.0 Today) is closed; its
 open Loops question moved to BOOM-35.

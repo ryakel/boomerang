@@ -70,6 +70,7 @@ export function isDeferral(status) {
 export function acceptsDeferral(routine) {
   if (!routine) return false
   if (routine.spawn_mode === 'habit') return false
+  if (routine.spawn_mode === 'autopilot') return false
   if (Array.isArray(routine.members) && routine.members.length > 0) return false
   return true
 }

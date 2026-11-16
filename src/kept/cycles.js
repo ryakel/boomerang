@@ -229,7 +229,9 @@ function ymdDayLabel(ymd) {
 }
 
 export function loopGaps(routine, tasks = [], count = 12, awayDays = null) {
-  if (!routine || routine.spawn_mode === 'habit') return { unrecorded: [], missed: [], away: [] }
+  // Habit loops have no cadence to miss; autopilot loops never count a miss
+  // (BOOM-35: "Boomerang never asks"), so neither reports gaps.
+  if (!routine || routine.spawn_mode === 'habit' || routine.spawn_mode === 'autopilot') return { unrecorded: [], missed: [], away: [] }
   const away = toDaySet(awayDays)
   const skipped = new Set(Array.isArray(routine.skipped_days) ? routine.skipped_days : [])
   const histDays = new Set((routine.completed_history || []).map(ts => localYMD(new Date(ts))))

@@ -95,7 +95,7 @@ function RoutineRow({ routine, tasks, expanded, onToggleExpand, onSpawnNow, onLo
           {isHabit && habitStats && (
             <>
               {' · '}
-              <span className={habitStats.behind_pace ? 'v2-habit-progress v2-habit-progress-behind' : 'v2-habit-progress'}>
+              <span className="v2-habit-progress">
                 {habitStats.completions}/{habitStats.target}
                 {habitStats.target_period === 'week' ? ' this week' : ' this month'}
               </span>
@@ -626,8 +626,10 @@ function RoutineForm({ initial, onSave, noun = 'routine' }) {
         </div>
         <div className="v2-form-section-hint">
           {isHabit
-            ? 'Tracks a target frequency (e.g. 2× / week) without locking it to specific days — log proactively or get a gentle behind-pace nudge.'
-            : 'Spawns a task on a cadence (daily, weekly, etc.) and nags like any task.'}
+            ? 'Tracks a target frequency (e.g. 2× / week) without locking it to specific days. You log it when you do it.'
+            : spawnMode === 'autopilot'
+              ? 'On autopilot: no task, no reminders, nothing counted as missed. Switch it off on the loop’s page (choosing Auto here turns it off too).'
+              : 'Spawns a task on a cadence (daily, weekly, etc.) and nags like any task.'}
         </div>
       </div>
 

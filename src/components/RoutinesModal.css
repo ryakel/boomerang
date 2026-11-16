@@ -267,10 +267,6 @@
   align-items: baseline;
   color: var(--v2-text);
 }
-.v2-habit-progress-behind {
-  color: var(--v2-alert-high-pri);
-  font-weight: 500;
-}
 .v2-routine-row-habit .v2-routine-cadence {
   font-feature-settings: 'tnum' 1; /* monospaced digits so the 1/2 doesn't jitter as it changes */
 }
