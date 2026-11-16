@@ -91,6 +91,11 @@ function summarizeRoutine(r) {
     schedule_day_of_month: r.schedule_day_of_month ?? null,
     schedule_week_of_month: r.schedule_week_of_month ?? null,
     trigger_time: r.trigger_time || null,
+    // How the loop comes back (BOOM-35): reminder | checklist | practice | autopilot.
+    // An autopilot loop never spawns a task or counts a miss; don't treat its
+    // quiet as overdue.
+    mode: r.spawn_mode === 'autopilot' ? 'autopilot' : r.spawn_mode === 'habit' ? 'practice'
+      : (Array.isArray(r.members) && r.members.length > 0) ? 'checklist' : 'reminder',
     tags: r.tags || [],
     paused: !!r.paused,
     end_date: r.end_date || null,

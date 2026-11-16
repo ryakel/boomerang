@@ -4,6 +4,16 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ---
 
+## 2026-11-16
+
+- feat(kept): redesign loops around modes, not tracking [L]
+  - Loops is grouped by what each loop asks of you today: **Due today**, **Checklists** (stacks, with item chips and today's progress), **Practice** (habit loops, + Log today), **Coming up** (date column), **On autopilot**. Two quiet rows replace the "N to fix" chips and the cross-loop skip banner: *N days not recorded* and *N resting*, each expanding to the loops behind it. No trails, "caught N of M", lifetime counts or red badges anywhere on the list or a loop's page.
+  - A loop's page leads with **How it comes back** (Reminder / Checklist / Practice / Autopilot) and Schedule / Last done / Next. The repair tools stay: While you were away, a collapsed *not recorded* list (Mark done / Skip / Skip all), the editable month calendar and the date field, plus Pause/Resume, Mark done today, Add a task now and Skip this cycle.
+  - Modes are derived from what a loop already is (stack → Checklist, habit → Practice, otherwise Reminder); nothing is migrated. **Autopilot** is new, stored as `spawn_mode: 'autopilot'` (free-text column, no migration) and chosen per loop on its page: it never spawns (`isRoutineDue`), reports no gaps (`loopGaps`), refuses deferral (`acceptsDeferral`), and Quokka's routine summary reports the mode. Choosing Auto in the editor turns it off.
+  - Marking a day done on a loop's page (calendar, Mark done, the date field, Mark done today) now also closes that cycle's open task, so Today, Tasks and the loop agree: `openInstanceForDay` picks the reminder loop's open instance when the marked day is on or after its due day; older days only back-fill history. One stamp, written by `markRoutineDayDone`; the task closes via `completeTask` so it isn't stamped twice.
+  - Owner decisions (D018): autopilot is completely silent; missed cycles get one quiet row; the behind-pace push stays gone (deleted 2026-07-24; copy that still promised it is corrected). Grouping and labels are pure in `src/loopModes.js`, pinned by `scripts/loopModes.test.mjs` (14 scenarios). `CycleChips` and `LoopSwipe` are deleted (no users left).
+  - Checked on the dev seed plus a stack, a habit loop and a loop with an overdue open task, in Kept light and dark: the cards render in order; switching a loop to Autopilot saves `spawn_mode: 'autopilot'` and moves it to On autopilot; Mark done today closed the open task with exactly one stamp; Log today logs the practice loop; no page errors (the only failed requests are `/api/ai/complete`, which has no key in the sandbox). npm test 673/673; lint at the dev baseline; build passes. Web-only. Ticket BOOM-35.
+
 ## 2026-11-15
 
 - fix(ios): let the dev build take web updates again [S]

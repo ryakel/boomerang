@@ -8,7 +8,7 @@ Every task always comes back. Dismissal is never free — every "not now" requir
 |---|---|---|
 | ![Kept mobile Today view](images/kept-mobile-today.png) | ![Kept mobile Tasks view](images/kept-mobile-tasks.png) | ![Kept mobile Loops view](images/kept-mobile-loops.png) |
 
-*The Kept mobile IA: Today (Day Arc hero + dated tasks), Tasks (grouped hairline rows), and Loops (cycle-chip trails).*
+*The Kept mobile IA: Today, Tasks and Loops. (Screenshots predate Kept 2.0; Loops is now grouped by mode, see Routines.)*
 
 ## Themes
 
@@ -258,6 +258,17 @@ Lists have **no task semantics** — no due date, energy, impact, size or rollov
 
 ## Routines (Recurring Tasks)
 
+**The Loops screen (Kept 2.0, 2026-11-16).** Loops are grouped by what they ask of you today, and nothing keeps score: no trails, no "caught N of M", no lifetime counts, no red badges.
+
+- **Due today**: reminder loops whose task is on Today; tick it here or there. A loop done today stays, ticked.
+- **Checklists**: stacks, with their items as chips and today's progress ("1 of 3 done").
+- **Practice**: habit loops, with their target ("aiming for 3 a week · 1 so far") and **+ Log today**.
+- **Coming up**: the next reminder loops, soonest first.
+- **On autopilot**: things you already do. Boomerang won't ask, remind or count misses.
+- Two quiet rows at the bottom: **N days not recorded** (loops with days to look at) and **N resting** (paused or ended), each opening to the loops behind it.
+
+**How it comes back.** Each loop's page shows its mode: **Reminder** (a task shows up when due; a slipped cycle just waits), **Checklist** (a set of items at a time of day), **Practice** (no task; log it when you do it) or **Autopilot**. The first three follow from how the loop is built; Autopilot is a switch on the page for a plain loop, and choosing Auto in the editor turns it off. Under it: Schedule, Last done, Next, the away offer, a collapsed list of days not recorded, the editable calendar ("Tap a day to fix the record. Nothing here counts against you."), Pause/Resume and Mark done today. **Marking a day done closes that cycle's open task too**, so Today and Tasks agree with the loop.
+
 Recurring tasks with configurable cadence:
 
 - **Frequencies**: daily, weekly, monthly, quarterly, annually, or custom (every N days)
@@ -270,9 +281,9 @@ Recurring tasks with configurable cadence:
 - **Push a loop out**: "Skip cycle" on a loop moves its next due date on by one cycle and leaves your history alone — it no longer counts as having done it, so your totals stay honest. Tap it twice and it moves two cycles. Actually doing the loop clears the deferral.
 - **A trip is a choice, not a backlog**: cycles that fell while you were away appear on the loop's page under **While you were away** — already protected — offering to *push the loop out* a cycle or *pick it up as normal*, plus a per-day "Did it" for anything you actually managed before leaving. The trail draws a connector straight through the break to your next completion instead of a run of empty squares, and the "caught N of last M" count leaves the trip out entirely.
 - **A trip doesn't break them**: a cycle whose due day fell on a day you were away is paused, not missed — it doesn't show up as something to fix. It matches the away days one for one: a weekly loop that came due mid-trip is excused even though its week ran on past your return, and a monthly loop isn't written off just because you were away for a few days somewhere in the month.
-- **Closes when you finish its task**: completing a loop's task — from the loop's own check OR from the main task list — crosses out the loop card and ticks the "Loops `done/total`" count on Today. Loops that won't close (a task got finished but the loop never recorded it) or cycles you missed are flagged with an "N to fix" chip on the loop card. Tap into the loop to see a **Needs attention** list of the exact days — each labeled "finished, not recorded" or "missed" — and fix them one at a time: **Mark done** credits the cycle, **Skip** acknowledges it and moves on without crediting. Prefer to fix everything in one shot? **Skip all N missed** clears a loop's missed days at once, and the Loops list itself offers **Skip N missed cycles across M loops** when they're scattered — both ask first, and both are missed-only (crediting a day you didn't do stays a deliberate, per-day act). For loops that won't close because a finished task was never recorded, ask Quokka ("close the loops that won't clear") — it previews exactly which loops + days it'll stamp before applying.
+- **Closes when you finish its task**: completing a loop's task — from the loop's own check OR from the main task list — crosses out the loop card and ticks the "Loops `done/total`" count on Today. Loops with days the app never recorded (a task got finished but the loop never recorded it, or a cycle with no record) are listed under the quiet **N days not recorded** row on Loops. On the loop's page, open **N days not recorded** to see the exact days — each labeled "finished, not recorded" or "no record" — and fix them one at a time: **Mark done** credits the cycle, **Skip** acknowledges it and moves on without crediting. **Skip all N with no record** clears them at once — it asks first, and it never marks anything done (crediting a day you didn't do stays a deliberate, per-day act). For loops that won't close because a finished task was never recorded, ask Quokka ("close the loops that won't clear") — it previews exactly which loops + days it'll stamp before applying.
 - **Log a day the app never recorded, however far back**: the loop's month calendar is editable — step back as many months as you like and **tap a day to log it**, tap a logged day to take it off again; a date field under the calendar does the same thing if you'd rather type it. This is the way in when the "Needs attention" list has nothing to offer you: a stack whose cycle only half-ticked, a habit loop (which has no single cycle to close), or simply a day older than the dozen cycles that list looks back over — "we did the bedtime routine on Friday, it's Monday and I can't get back to fix it". Days before the loop existed and days in the future aren't loggable, and marking a day done clears any earlier Skip of it.
-- **Quick actions on the Loops page**: swipe a loop card left to reveal **Spawn** (run it now without waiting for the schedule) and **Skip** (skip this cycle). The same two actions sit as buttons on a loop's detail page. Spawn greys to "On list" when an instance is already waiting for you.
+- **Quick actions on a loop's page**: **Add a task now** (run it now without waiting for the schedule) and **Skip this cycle**, for reminder and checklist loops. Add a task now reads "Already on your list" when an instance is already waiting for you.
 - **Fixed schedule (no drift)**: due dates follow a fixed grid — completing early or late never shifts the series. "Every Monday" stays Monday, "the 18th" stays the 18th, no matter when you actually check it off. A missed cycle shows up as a single overdue task, not a pile.
 - **Editable "Last done" date**: in a routine's edit screen you can set when it was last completed. This drives the next due date — handy for fixing a routine that keeps nagging because its history is wrong or missing. (Quokka can do it too: "mark the furnace filter as last done March 29.")
 - **Intelligent schedule anchor**: the "On" picker adapts to the cadence. Weekly → pick a weekday. Monthly / quarterly / annually → pick **a day of the month** ("the 18th"), **an ordinal weekday** ("1st Monday", "2nd Tuesday", "last Friday"), or leave it on the day the routine was created. The chosen anchor — not the creation date — drives the schedule.

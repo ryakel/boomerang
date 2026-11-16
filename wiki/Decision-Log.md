@@ -309,3 +309,22 @@ below predate those decisions and are historical recommendations, not authority.
 - Covers: merging PRs into `dev` and the automatic `boomerang-dev` deploy.
 - Excludes: `dev → main` promotion (production) and iOS rebuilds/installs.
   For those, say when one is needed and wait for explicit approval.
+
+## D018 — Loops: modes, not tracking
+
+- Date/status: 2026-11-15, **accepted**; implementation in BOOM-35.
+- Source: owner, reviewing a Loops mockup and screenshots of their real loops,
+  answering five open questions: "1. Silent 2 quiet row 3. Not sure what this
+  is 4. Example? 5. Screenshot incoming they are all over the place", then "Go"
+  on the proposed defaults.
+- Decisions:
+  1. Autopilot is completely silent: no task, no reminder, nothing counted as
+     missed.
+  2. Missed reminder cycles get one quiet row on Loops, never a badge or banner.
+  3. The habit behind-pace push stays gone (deleted 2026-07-24); only copy that
+     still promised it changes.
+  4. Marking a day done on a loop's page also closes that cycle's open task.
+  5. Modes are derived from what a loop already is (stack → Checklist, habit →
+     Practice, otherwise Reminder); Autopilot is the owner's choice per loop,
+     made on the loop's page. No production loop is changed by the release.
+- Merge authority: D017 (standing, `dev` only).

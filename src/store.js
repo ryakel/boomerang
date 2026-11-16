@@ -434,8 +434,8 @@ export function createRoutine(title, cadence, customDays = null, tags = [], note
                          // active instance forward instead of stacking a new
                          // task. Use case: pills, anything you can't double up
                          // on. Full spec: wiki/Activity-Prompts.md.
-    spawn_mode: 'auto',  // 'auto' (cadence-driven) | 'habit' (target frequency,
-                         // no auto-spawn, "+ Log it" + behind-pace nudges).
+    spawn_mode: 'auto',  // 'auto' (cadence-driven) | 'autopilot' (never spawns or asks) | 'habit' (target frequency,
+                         // no auto-spawn, "+ Log it"; the behind-pace push was deleted 2026-07-24).
                          // Habit mode ignores cadence + schedule_day_of_week
                          // + auto_roll.
     target_count: null,  // habit mode: completions per period (e.g. 2)
@@ -701,6 +701,9 @@ export function isRoutineDue(routine) {
   // automatic way. Users log them proactively via "+ Log it" or through
   // a behind-pace push nudge. Skip entirely.
   if (routine.spawn_mode === 'habit') return false
+  // Autopilot (BOOM-35): something you already do. It never spawns a task, so
+  // nothing reaches Today, Tasks, notifications or device alarms.
+  if (routine.spawn_mode === 'autopilot') return false
   if (isRoutineEnded(routine)) return false
   const nextDue = getNextDueDate(routine)
   return Date.now() >= nextDue.getTime()

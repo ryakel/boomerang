@@ -70,6 +70,7 @@ import { canCreditYesterday, creditYesterday, completeAsYesterday } from './cred
 import { TERMINAL_STATUSES } from './loopSpawnStatus'
 import { localDateTimeValue, nextHalfHour } from './dates'
 import { computeRecords } from './scoring'
+import { openInstanceForDay, withAutopilot } from './loopModes'
 import { applyTheme, watchSystemTheme } from './theme'
 import './AppV2.css'
 
@@ -1064,6 +1065,30 @@ export default function AppV2() {
     updateTask(t.id, { reconciled_on: localYMD() })
   }, [updateTask])
 
+  // Marking a day done on a loop's page (calendar tap, "Mark done", the date
+  // field) also closes that cycle's open task, so Tasks, Today and the loop
+  // agree (BOOM-35, owner decision). The stamp is written once, by
+  // markRoutineDayDone; the task is closed directly (completeTask, not
+  // handleComplete) so the completion doesn't stamp the loop a second time.
+  // A mark on an older day back-fills history and leaves the current task.
+  const handleMarkLoopDay = useCallback((routineId, day, iso) => {
+    markRoutineDayDone(routineId, day, iso)
+    const routine = routines.find(r => r.id === routineId)
+    const today = localYMD()
+    const task = openInstanceForDay({ routine, tasks, day, todayKey: today })
+    if (!task) return
+    completeTask(task.id)
+    if (day !== today) updateTask(task.id, { completed_at: new Date(`${day}T12:00:00`).toISOString() })
+    if (task.trello_card_id) pushStatusToTrello(task, 'done')
+  }, [markRoutineDayDone, routines, tasks, completeTask, updateTask, pushStatusToTrello])
+
+  const setLoopAutopilot = useCallback((routineId, on) => {
+    const routine = routines.find(r => r.id === routineId)
+    if (!routine) return
+    const next = withAutopilot(routine, on)
+    if (next !== routine) updateRoutine(routineId, { spawn_mode: next.spawn_mode })
+  }, [routines, updateRoutine])
+
   // Single shortcut into the canonical routine-completion path, shared by the
   // the Kept shells. Routes through the real surfaced task so
   // completeRoutine stays the lone completed_history writer (the doubling
@@ -1597,7 +1622,9 @@ export default function AppV2() {
           onAddLoop={() => { setRoutinesOpenToForm(true); setShowRoutines(true) }}
           onSpawnNow={handleSpawnLoop}
           onSkipCycle={skipCycle}
-          onMarkLoopDay={markRoutineDayDone}
+          onMarkLoopDay={handleMarkLoopDay}
+          onSetLoopAutopilot={setLoopAutopilot}
+          onToggleLoopPause={togglePause}
           onUnmarkLoopDay={unmarkRoutineDayDone}
           onSkipLoopDay={skipRoutineDay}
           onPushLoopOut={pushLoopOut}
@@ -1659,7 +1686,9 @@ export default function AppV2() {
           onAddLoop={() => { setRoutinesOpenToForm(true); setShowRoutines(true) }}
           onSpawnNow={handleSpawnLoop}
           onSkipCycle={skipCycle}
-          onMarkLoopDay={markRoutineDayDone}
+          onMarkLoopDay={handleMarkLoopDay}
+          onSetLoopAutopilot={setLoopAutopilot}
+          onToggleLoopPause={togglePause}
           onUnmarkLoopDay={unmarkRoutineDayDone}
           onSkipLoopDay={skipRoutineDay}
           onPushLoopOut={pushLoopOut}
