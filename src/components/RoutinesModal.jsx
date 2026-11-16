@@ -403,6 +403,11 @@ function RoutineForm({ initial, onSave, noun = 'routine' }) {
     : ''
   const [lastDone, setLastDone] = useState(initialLastDone)
   const isHabit = spawnMode === 'habit'
+  // Autopilot (BOOM-35): something you already do. No task, no reminder,
+  // nothing counted as missed. Plain loops only: a loop with stack items is a
+  // checklist, so Autopilot is offered only while it has none.
+  const isAutopilot = spawnMode === 'autopilot'
+  const hasItems = members.some(m => (m.title || '').trim())
 
   const labels = loadLabels()
   const today = localYMD()
@@ -602,34 +607,54 @@ function RoutineForm({ initial, onSave, noun = 'routine' }) {
           header. ModalShell's close affordance is now the single exit. */}
       <input
         className="v2-form-input v2-form-title"
-        placeholder={isHabit ? "What habit?" : "What recurring task?"}
+        placeholder={isHabit ? "What do you want to practice?" : isAutopilot ? "What do you already do?" : "What comes back around?"}
         value={title}
         onChange={e => setTitle(e.target.value)}
       />
 
       <div className="v2-form-section">
-        <div className="v2-form-segmented v2-form-mode-segmented">
+        {/* The modes the loop page names (BOOM-35). Checklist isn't a separate
+            choice: a reminder loop with stack items IS a checklist, so the
+            first button takes that name once items exist. */}
+        <div className="v2-form-segmented v2-form-mode-segmented" role="radiogroup" aria-label="How it comes back">
           <button
             type="button"
-            className={`v2-form-seg${!isHabit ? ' v2-form-seg-active' : ''}`}
+            role="radio"
+            aria-checked={!isHabit && !isAutopilot}
+            className={`v2-form-seg${!isHabit && !isAutopilot ? ' v2-form-seg-active' : ''}`}
             onClick={() => setSpawnMode('auto')}
           >
-            Auto (cadence)
+            {hasItems ? 'Checklist' : 'Reminder'}
           </button>
           <button
             type="button"
+            role="radio"
+            aria-checked={isHabit}
             className={`v2-form-seg${isHabit ? ' v2-form-seg-active' : ''}`}
             onClick={() => setSpawnMode('habit')}
           >
-            Habit (target frequency)
+            Practice
+          </button>
+          <button
+            type="button"
+            role="radio"
+            aria-checked={isAutopilot}
+            className={`v2-form-seg${isAutopilot ? ' v2-form-seg-active' : ''}`}
+            onClick={() => setSpawnMode('autopilot')}
+            disabled={hasItems && !isAutopilot}
+          >
+            Autopilot
           </button>
         </div>
         <div className="v2-form-section-hint">
           {isHabit
-            ? 'Tracks a target frequency (e.g. 2× / week) without locking it to specific days. You log it when you do it.'
-            : spawnMode === 'autopilot'
-              ? 'On autopilot: no task, no reminders, nothing counted as missed. Switch it off on the loop’s page (choosing Auto here turns it off too).'
-              : 'Spawns a task on a cadence (daily, weekly, etc.) and nags like any task.'}
+            ? 'No task and no due date. Log it when you do it. The target is a direction, not a score.'
+            : isAutopilot
+              ? 'Something you already do. Boomerang won’t make a task, remind you or count misses. You can still mark a day on the loop’s page.'
+              : hasItems
+                ? 'Comes back as a checklist: each stack item shows up on Today as its own task. If a cycle slips by, it simply waits.'
+                : 'A task shows up on Today when it’s due. If a cycle slips by, it simply waits; nothing piles up.'}
+          {hasItems && !isAutopilot && !isHabit ? ' Autopilot is for loops without stack items.' : ''}
         </div>
       </div>
 
@@ -762,6 +787,7 @@ function RoutineForm({ initial, onSave, noun = 'routine' }) {
             </div>
           )}
 
+          {!isAutopilot && (<>
           <div className="v2-form-row">
             <div className="v2-form-field">
               <label className="v2-form-label">At time</label>
@@ -786,7 +812,7 @@ function RoutineForm({ initial, onSave, noun = 'routine' }) {
             </div>
           </div>
           <div className="v2-form-section-hint">
-            Don't show or nag before this time. Leave blank for any time.
+            Don't show it before this time. Leave blank for any time.
           </div>
           {triggerTime && (
             <>
@@ -805,6 +831,7 @@ function RoutineForm({ initial, onSave, noun = 'routine' }) {
               </div>
             </>
           )}
+          </>)}
         </>
       )}
 
@@ -874,7 +901,7 @@ function RoutineForm({ initial, onSave, noun = 'routine' }) {
             </button>
           </div>
         )}
-        {!isHabit && (
+        {!isHabit && !isAutopilot && (
           <div className="v2-form-section">
             <label className="v2-form-label">Auto-roll</label>
             <div className="v2-form-section-hint">
@@ -917,13 +944,13 @@ function RoutineForm({ initial, onSave, noun = 'routine' }) {
               </div>
             </div>
             <div className="v2-form-section-hint">
-              When you last completed this. Sets the next due date — use it to fix a routine that's nagging after lost history.
+              When you last completed this. Sets the next due date — use it to fix a loop that keeps coming back after lost history.
             </div>
           </>
         )}
       </FormDisclosure>
 
-      {!isHabit && (
+      {!isHabit && !isAutopilot && (
         <FormDisclosure
           label="Stack items"
           summary={members.length > 0 ? `${members.length} item${members.length === 1 ? '' : 's'}` : undefined}
@@ -961,6 +988,7 @@ function RoutineForm({ initial, onSave, noun = 'routine' }) {
         </FormDisclosure>
       )}
 
+      {!isAutopilot && (
       <FormDisclosure
         label="Follow-ups"
         summary={followUps.length > 0 ? `${followUps.length} step${followUps.length === 1 ? '' : 's'}` : undefined}
@@ -990,6 +1018,7 @@ function RoutineForm({ initial, onSave, noun = 'routine' }) {
           + Add step
         </button>
       </FormDisclosure>
+      )}
 
       <FormDisclosure
         label="Labels & notes"

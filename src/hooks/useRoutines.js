@@ -88,6 +88,10 @@ export function useRoutines() {
       routine.spawn_mode = 'habit'
       routine.target_count = targetCount
       routine.target_period = targetPeriod
+    } else if (spawnMode === 'autopilot') {
+      // BOOM-35: never spawns or asks. Dropping it here saved every new
+      // autopilot loop as a plain reminder.
+      routine.spawn_mode = 'autopilot'
     }
     setRoutines(prev => [routine, ...prev])
     return routine
