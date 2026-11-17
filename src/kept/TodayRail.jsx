@@ -1,7 +1,7 @@
 import { useMemo } from 'react'
 import { Check, Compass } from 'lucide-react'
 import { localYMD } from '../dates'
-import { isSnoozed } from '../store'
+import { isSnoozed, isCrisisTask, loadSettings } from '../store'
 import './shell.css'
 import './desktop.css'
 
@@ -17,6 +17,7 @@ export default function TodayRail({
   onCompleteTask, onOpenTask, onWhatNow,
 }) {
   const todayKey = localYMD()
+  const settings = loadSettings()
   const stackIds = useMemo(() => new Set(
     routines.filter(r => Array.isArray(r.members) && r.members.length > 0).map(r => r.id),
   ), [routines])
@@ -26,8 +27,17 @@ export default function TodayRail({
     if (t.routine_id && stackIds.has(t.routine_id)) return false
     if (!ACTIVE.includes(t.status)) return false
     if (isSnoozed(t)) return false
-    return t.due_date ? String(t.due_date).slice(0, 10) <= todayKey : false
-  }).slice(0, 12), [tasks, todayKey, stackIds])
+    // Kept 2.0 rule (BOOM-44): due today means due TODAY. A task past its date
+    // has slipped and lives quietly in the Tasks list's Slipped card; listing it
+    // here under "Due today" contradicted that card sitting right beside the
+    // rail. A loop's open instance is the current cycle however late, and a
+    // critical task always shows, as on Today.
+    const due = t.due_date ? String(t.due_date).slice(0, 10) : null
+    if (isCrisisTask(t, settings)) return true
+    if (t.committed_on === todayKey) return true
+    if (!due) return false
+    return due === todayKey || (!!t.routine_id && due < todayKey)
+  }).slice(0, 12), [tasks, todayKey, stackIds, settings])
 
   // Undated active tasks — mirrors TodayView.jsx's "Anytime" section. Without
   // this, an undated task is fully notifiable (isNotifiable() in db.js has no

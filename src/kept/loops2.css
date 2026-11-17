@@ -100,3 +100,11 @@
 .lp-actions .t2-btn-primary { flex: 1 1 0; display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
 .lp-more { display: flex; justify-content: center; gap: 18px; margin-top: 8px; }
 .lp-more .t2-letgo:disabled { opacity: 0.5; cursor: default; text-decoration: none; }
+
+/* Delete (BOOM-42): a quiet link, then a two-step confirm in place. */
+.lp-delete { margin-top: 22px; text-align: center; }
+.lp-delete p { margin: 0 0 10px; font-size: 13px; color: var(--t2-label); }
+.lp-delete-acts { display: flex; gap: 10px; }
+.lp-delete-acts .t2-btn { flex: 1 1 0; }
+.lp-delete-yes { border: 0; background: color-mix(in srgb, var(--bm-danger) 14%, var(--t2-card)); color: var(--bm-danger) !important; font-weight: 600; }
+.lp-delete-link { color: var(--t2-meta); }

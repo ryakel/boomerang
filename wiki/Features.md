@@ -30,7 +30,7 @@ The Terminal theme (GitHub-style monospace, `> command` modal titles, ASCII flou
 The Kept Today screen answers three questions in one screen: what genuinely needs you, what's worth doing next, and what's coming up. Each section appears only when it has something to say.
 
 - **Needs attention** is small on purpose: critical tasks, things due today or picked for today, a reminder that just went off, or something due yesterday that you'd marked as mattering. Overdue alone doesn't qualify, and neither does a snooze ending.
-- **Worth doing next**: one pick, only with a reason about time (picked for today, or due in the next few days) and only if it fits before your next busy calendar event. Importance alone isn't a reason. **Open task** opens it and changes nothing; **Not now** sets it aside for the day on that device. Never shown in the evening.
+- **Worth doing next**: one pick, only with a reason about time (picked for today, or due in the next few days) and only if it fits before your next busy calendar event. Importance alone isn't a reason. **Open task** opens it and changes nothing; **Not now** sets it aside for the day, on every device (it syncs). Never shown in the evening.
 - **Coming up** in the day; in the evening (by 8 PM, earlier with an evening checklist or early quiet hours) the screen reorders to **Tonight** and **Tomorrow**, with evening checklists and unfinished loops near the top. When nothing nearer is on screen, **Later this week** shows the next few dated things (tasks, reminders, calendar events, all-day ones included).
 - **To look over**: everything that slipped past its date, and anything you've been waiting on for a week, sits behind one quiet row. Not late, just undecided.
 - **Last night** and Gmail/Notion **suggestions** are single compact rows. No task ever shows in two places.
@@ -69,7 +69,7 @@ Reached from More → Settings. It opens on an **index of six categories, each s
 
 The **Tasks** tab's **Upcoming** list, in its default due-date order, follows the same rules as Today (2026-11-15):
 
-- **Worth doing next** at the top: the same pick as Today's card, with **Open task** / **Not now**. Not now on either screen hides it on both, and the picked task doesn't repeat further down.
+- **Worth doing next** at the top: the same pick as Today's card, with **Open task** / **Not now**. Not now on either screen hides it on both, on every device, and the picked task doesn't repeat further down.
 - **Today**: due today, picked for today, and open loop instances.
 - **This week**: due in the next 7 days, with the weekday on the left.
 - **Slipped past their dates**: anything past its date, quietly, with no red and no "Nd overdue". It reads "was due Sat, Nov 7", with one-tap **Tomorrow**, **Next week** or **Let it go** (cancels it; an **Undo** stays on the card). Tap the task for any other date. Three show; the rest sit behind "Show N more".
@@ -267,7 +267,7 @@ Lists have **no task semantics** — no due date, energy, impact, size or rollov
 - **On autopilot**: things you already do. Boomerang won't ask, remind or count misses.
 - Two quiet rows at the bottom: **N days not recorded** (loops with days to look at) and **N resting** (paused or ended), each opening to the loops behind it.
 
-**How it comes back.** Each loop's page shows its mode: **Reminder** (a task shows up when due; a slipped cycle just waits), **Checklist** (a set of items at a time of day), **Practice** (no task; log it when you do it) or **Autopilot**. The first three follow from how the loop is built; Autopilot is a switch on the page for a plain loop. The loop editor uses the same words (Reminder, or Checklist once a loop has stack items / Practice / Autopilot), so a loop can also be made or unmade Autopilot there; Autopilot isn't offered while a loop has stack items. Under it: Schedule, Last done, Next, the away offer, a collapsed list of days not recorded, the editable calendar ("Tap a day to fix the record. Nothing here counts against you."), Pause/Resume and Mark done today. **Marking a day done closes that cycle's open task too** (every item, for a checklist), so Today and Tasks agree with the loop, and taking the day back off reopens it rather than letting a duplicate appear. Switching a loop to Autopilot turns off its phone alarm and cancels its open task (cancelled, not deleted). A practice loop counts days marked on its calendar as well as days logged with + Log today.
+**How it comes back.** Each loop's page shows its mode: **Reminder** (a task shows up when due; a slipped cycle just waits), **Checklist** (a set of items at a time of day), **Practice** (no task; log it when you do it) or **Autopilot**. The first three follow from how the loop is built; Autopilot is a switch on the page for a plain loop. The loop editor uses the same words (Reminder, or Checklist once a loop has stack items / Practice / Autopilot), so a loop can also be made or unmade Autopilot there; Autopilot isn't offered while a loop has stack items. At the bottom, **Delete loop** (asks first; tasks it already made stay). Under the mode: Schedule, Last done, Next, the away offer, a collapsed list of days not recorded, the editable calendar ("Tap a day to fix the record. Nothing here counts against you."), Pause/Resume and Mark done today. **Marking a day done closes that cycle's open task too** (every item, for a checklist), so Today and Tasks agree with the loop, and taking the day back off reopens it rather than letting a duplicate appear. Switching a loop to Autopilot turns off its phone alarm and cancels its open task (cancelled, not deleted). A practice loop counts days marked on its calendar as well as days logged with + Log today.
 
 Recurring tasks with configurable cadence:
 
@@ -737,7 +737,7 @@ counts tasks completed:
 - **Day-of-week patterns** — which days you get the most done, current day highlighted
 - **Balance radar, tag, energy, size and impact breakdowns** — completions by label, energy type, T-shirt size and impact
 - **52-week pattern** — GitHub-style graph of daily completions; scrollable on mobile, opens scrolled to today
-- **Habits tab** — per-loop completion totals and when each was last done
+- **Loops tab** — when each loop was last done, most recent first. No per-loop totals: a count per loop is a score
 - **Achievements** — a grid of earnable badges, computed live from your data with durable earned state (deleting tasks never un-earns one). Cards are tinted by **tier** — Bronze, Silver, Gold by prestige — explained by a legend in the header. Earned cards show the date; in-progress cards show a progress bar. **Tap any badge** for a detail popup: earned date or progress with "N to go", and for badges that track a set of things (like Balanced Diet — every energy type in one week) a checklist of exactly what's done vs still outstanding. Hidden badges stay mysteries until earned. No badge rewards points or a streak; the ones that did were retired, and anything you earned stays recorded.
 - **AI tab** — AI usage and estimated cost for the range
 - **Caught** — jump to the list of completed tasks

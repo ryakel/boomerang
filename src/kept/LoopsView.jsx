@@ -36,7 +36,7 @@ function StatusRing({ done = false, dashed = false, color }) {
 
 export default function LoopsView({
   routines = [], tasks = [], onEditLoop, onAddLoop, onSpawnNow, onSkipCycle, onMarkLoopDay, onUnmarkLoopDay,
-  onSkipLoopDay, onPushLoopOut, onOpenSuggestions, onSetAutopilot, onTogglePause, onCompleteTask, onToggleHabit,
+  onSkipLoopDay, onPushLoopOut, onOpenSuggestions, onSetAutopilot, onTogglePause, onCompleteTask, onToggleHabit, onDeleteLoop,
 }) {
   const now = useNow()
   const todayKey = localYMD(now)
@@ -90,6 +90,7 @@ export default function LoopsView({
         onSetAutopilot={onSetAutopilot}
         onTogglePause={onTogglePause}
         onToggleHabit={onToggleHabit}
+        onDelete={onDeleteLoop ? (id) => { setDetailId(null); onDeleteLoop(id) } : null}
       />
     )
   }

@@ -201,11 +201,14 @@
   border-radius: 50%;
 }
 
-/* Habits "By habit" rows: no color dot, longer names, and a wider value
- * column for the "204× · 🔥2 · today" meta. */
+/* Loops tab "Last done" rows (BOOM-41): name and when, nothing to rank. */
 .v2-analytics-bd-habits .v2-analytics-bd-row {
-  grid-template-columns: minmax(96px, 1.4fr) minmax(36px, 1fr) auto;
+  grid-template-columns: minmax(0, 1fr) auto;
+  padding: 7px 0;
+  border-top: 1px solid var(--v2-hairline);
 }
+.v2-analytics-bd-habits .v2-analytics-bd-row:first-child { border-top: 0; }
+.v2-analytics-resting { color: var(--v2-text-meta); font-weight: 400; }
 .v2-analytics-bd-habits .v2-analytics-bd-value {
   width: auto;
   white-space: nowrap;

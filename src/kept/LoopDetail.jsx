@@ -31,12 +31,13 @@ const fullDate = (d) => d.toLocaleDateString('en-US', { weekday: 'short', month:
 export default function LoopDetail({
   routine, color, spawnBlocked = false, tasks = [], awayDays = null,
   onBack, onEdit, onSpawnNow, onSkipCycle, onMarkLoopDay, onUnmarkLoopDay, onSkipLoopDay, onPushLoopOut,
-  onSetAutopilot, onTogglePause, onToggleHabit,
+  onSetAutopilot, onTogglePause, onToggleHabit, onDelete = null,
 }) {
   const [monthRef, setMonthRef] = useState(() => new Date())
   const [logDay, setLogDay] = useState(() => localYMD(new Date()))
   const [fixOpen, setFixOpen] = useState(false)
   const [flash, setFlash] = useState(null)   // 'spawned' | 'blocked' | 'skipped'
+  const [confirmDelete, setConfirmDelete] = useState(false)
 
   // Hooks before the null guard (rules-of-hooks); loopGaps no-ops on null.
   const gaps = useMemo(() => loopGaps(routine, tasks, 12, awayDays), [routine, tasks, awayDays])
@@ -277,6 +278,21 @@ export default function LoopDetail({
             <button className="t2-letgo" disabled={flash === 'skipped'} onClick={() => { onSkipCycle?.(routine.id); blink('skipped') }}>
               {flash === 'skipped' ? 'Skipped' : 'Skip this cycle'}
             </button>
+          </div>
+        )}
+        {onDelete && (
+          <div className="lp-delete">
+            {confirmDelete ? (
+              <>
+                <p>Delete this loop? Tasks it already made stay where they are.</p>
+                <div className="lp-delete-acts">
+                  <button className="t2-btn lp-delete-yes" onClick={() => onDelete(routine.id)}>Delete loop</button>
+                  <button className="t2-btn t2-btn-ghost" onClick={() => setConfirmDelete(false)}>Keep it</button>
+                </div>
+              </>
+            ) : (
+              <button className="t2-letgo lp-delete-link" onClick={() => setConfirmDelete(true)}>Delete loop</button>
+            )}
           </div>
         )}
       </div>

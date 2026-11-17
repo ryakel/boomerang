@@ -249,7 +249,7 @@ export default function AppV2() {
   // Background work that must keep running even when v2 is the active shell:
   // notifications, AI inference, external (Trello/Notion) outbound sync,
   // package polling + delivery notifications.
-  useExternalSync(tasks, updateTask)
+  useExternalSync(tasks, updateTask, updateRoutine)
   useSizeAutoInfer(tasks, updateTask, labels)
   // Critical triage auto-breakdown — same background-net pattern as the
   // sizer: any task that lands with the critical label and no triage pass
@@ -1690,6 +1690,7 @@ export default function AppV2() {
           onMarkLoopDay={handleMarkLoopDay}
           onSetLoopAutopilot={setLoopAutopilot}
           onToggleLoopPause={togglePause}
+          onDeleteLoop={deleteRoutine}
           onUnmarkLoopDay={handleUnmarkLoopDay}
           onSkipLoopDay={skipRoutineDay}
           onPushLoopOut={pushLoopOut}
@@ -1754,6 +1755,7 @@ export default function AppV2() {
           onMarkLoopDay={handleMarkLoopDay}
           onSetLoopAutopilot={setLoopAutopilot}
           onToggleLoopPause={togglePause}
+          onDeleteLoop={deleteRoutine}
           onUnmarkLoopDay={handleUnmarkLoopDay}
           onSkipLoopDay={skipRoutineDay}
           onPushLoopOut={pushLoopOut}

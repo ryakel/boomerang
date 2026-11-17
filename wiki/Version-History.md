@@ -4,6 +4,16 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ---
 
+## 2026-11-17
+
+- fix(kept): loops tab, loop delete, synced not now, rail, gcal series [M]
+  - **Analytics Loops tab (BOOM-41):** the Habits tab becomes "Loops: Last done", most recent first; per-loop completion totals and the bar ranking are gone (owner: "It's a score").
+  - **Delete a loop (BOOM-42):** the loop page ends with Delete loop, a two-step confirm in place; the tasks it made stay. Wired through both shells.
+  - **Not now syncs (BOOM-43):** Worth doing next's Not now is stored server-side in its own `app_data` key (`today_not_now`, `GET/POST /api/today/not-now`), never the settings blob. One pure merge (`server/notNowMerge.js`, shared with the browser): same day → union, different days → the later day. Today and Tasks share `useNotNow` (local copy first, server merged on open and on every return, every dismissal sent up, a window event keeps both screens in step). No broadcast: a cosmetic dismissal doesn't wake every client.
+  - **Desktop rail (BOOM-44):** "Due today" means due today (plus critical, picked for today, and a loop's current cycle); slipped tasks no longer show there beside the Tasks list's quiet Slipped card.
+  - **Recurring GCal series (BOOM-45):** the loop owns its series and the id finally persists (see Claude-Notes-Integrations); no spawned task takes the series id, so completing one can't delete every occurrence; replayed creates link what they made.
+  - Checked: npm test 684/684 (new notNow merge cases), lint at the dev baseline, build. Browser on a fresh dev seed: Not now on one device drops the same pick on the other device's Today and Tasks after a return to the app, state stored on the server; Analytics Loops tab shows last-done only; Delete loop removes the routine and keeps its task; the 1440px rail lists no slipped task under Due today; with Google Calendar stubbed, a loop spawning on-device creates ONE recurring series, stores its id on the loop, no task owns it, and a second instance and an app reopen create nothing; a one-off task still gets its own event. Read-only search of the owner's calendar for "Managed by Boomerang" events found none (semantic search, not proof). Web-only.
+
 ## 2026-11-16
 
 - fix(kept): finish loops, tasks and points work found half-built [L]
