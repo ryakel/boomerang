@@ -13,6 +13,8 @@ overdue rows. Owner decisions are in D016. Tracked in It's a Plan:
 | BOOM-37 | Tasks list on Kept 2.0 rules: Worth doing next, quiet Slipped card, grouped cards | Merged to `dev` (#1036) |
 | BOOM-38 | Dev iPhone build takes web updates again (only native changes need a rebuild) | PR to `dev`; needs one final Dev rebuild |
 | BOOM-35 | Loops grouped by mode (Reminder / Checklist / Practice / Autopilot); no trails or counts; marking a day closes the cycle's task | Merged to `dev` (#1038); audit fixes in #1039 |
+| BOOM-41–45 | Analytics Loops tab last-done only; delete a loop; Not now synced across devices; desktop rail Due today; loop GCal series persisted and owned by the loop | PR to `dev` |
+| BOOM-46 | Rethink the daily task goal ("game dressed up") | Needs a proposal and owner decision |
 | BOOM-40 | Loop editor uses the loop page's mode names; Autopilot can be made there. Plus fixes from a full audit of everything shipped 2026-11-15/16 (loops, Tasks list, points leftovers, iOS type, Dev OTA) | PR #1039 to `dev` |
 
 Desktop is deferred by the owner. BOOM-32 (Kept 2.0 Today) is closed; its

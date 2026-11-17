@@ -1,6 +1,8 @@
-import { useEffect, useState } from 'react'
-import { gcalListEvents, gcalStatus } from '../api'
-import { loadSettings } from '../store'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { gcalListEvents, gcalStatus, notNowGet, notNowPost } from '../api'
+import { loadSettings, safeSetItem } from '../store'
+import { recordNotNow } from '../todayModel'
+import { mergeNotNow, sameNotNow } from '../../server/notNowMerge.js'
 
 // Shared by Kept 2.0 Today (TodayKept2.jsx) and the Tasks list (TasksViewKept.jsx),
 // which both show "Worth doing next". The pick (todayModel's buildTodayModel)
@@ -13,6 +15,48 @@ const EVENTS_TTL_MS = 10 * 60 * 1000
 
 export function readJSON(key) {
   try { return JSON.parse(localStorage.getItem(key)) } catch { return null }
+}
+
+// "Not now" on Worth doing next, shared by Today and Tasks and synced across
+// devices (BOOM-43). The local copy renders immediately and works offline; the
+// server copy is merged in on open and on every return to the app, and every
+// dismissal is sent up. Merge rule: server/notNowMerge.js (same day → union,
+// different days → the later day). A same-device window event keeps Today and
+// Tasks in step when both are mounted.
+const NOT_NOW_EVENT = 'boom-notnow'
+export function useNotNow(todayKey) {
+  const [state, setState] = useState(() => readJSON(NOT_NOW_KEY))
+  const stateRef = useRef(state)
+  const apply = useCallback((next) => {
+    if (!next || sameNotNow(stateRef.current, next)) return
+    stateRef.current = next
+    setState(next)
+    safeSetItem(NOT_NOW_KEY, JSON.stringify(next))
+    window.dispatchEvent(new CustomEvent(NOT_NOW_EVENT, { detail: next }))
+  }, [])
+  useEffect(() => {
+    let cancelled = false
+    const sync = async () => {
+      const server = await notNowGet()
+      if (cancelled || !server) return
+      const merged = mergeNotNow(readJSON(NOT_NOW_KEY), server)
+      apply(merged)
+      // Dismissals made here while offline go up too.
+      if (merged && !sameNotNow(merged, server)) notNowPost(merged).then(s => { if (!cancelled && s) apply(mergeNotNow(stateRef.current, s)) })
+    }
+    sync()
+    const onVisible = () => { if (document.visibilityState === 'visible') sync() }
+    const onLocal = (e) => apply(mergeNotNow(stateRef.current, e.detail))
+    document.addEventListener('visibilitychange', onVisible)
+    window.addEventListener(NOT_NOW_EVENT, onLocal)
+    return () => { cancelled = true; document.removeEventListener('visibilitychange', onVisible); window.removeEventListener(NOT_NOW_EVENT, onLocal) }
+  }, [todayKey, apply])
+  const dismiss = useCallback((taskId, reasonKey) => {
+    const next = recordNotNow(stateRef.current, todayKey, taskId, reasonKey)
+    apply(next)
+    notNowPost(next).then(s => { if (s) apply(mergeNotNow(stateRef.current, s)) })
+  }, [todayKey, apply])
+  return [state, dismiss]
 }
 
 export const clock = (msOrIso) => {

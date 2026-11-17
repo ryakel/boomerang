@@ -87,7 +87,7 @@ function userFacingSnapshot(task) {
   }
 }
 
-export function useExternalSync(tasks, onUpdateTask) {
+export function useExternalSync(tasks, onUpdateTask, onUpdateRoutine = null) {
   const prevTasks = useRef(null)
   // Live view of task state, for re-reading a row at FIRE time. Every push
   // below is scheduled behind a debounce or a stagger and then runs with the
@@ -99,6 +99,11 @@ export function useExternalSync(tasks, onUpdateTask) {
   const hydratedIds = useRef(new Set()) // track tasks we've already hydrated
   const onUpdateTaskRef = useRef(onUpdateTask)
   onUpdateTaskRef.current = onUpdateTask
+  const onUpdateRoutineRef = useRef(onUpdateRoutine)
+  onUpdateRoutineRef.current = onUpdateRoutine
+  // Loops whose recurring series is being created right now, so a second sync
+  // pass in the gap before the routine update lands can't create another.
+  const seriesInFlight = useRef(new Set())
 
   // Initialize prevTasks on first render
   useEffect(() => {
@@ -482,41 +487,46 @@ export function useExternalSync(tasks, onUpdateTask) {
         }
       }
 
-      // For routine-spawned tasks with sync_routines_recurring, create recurring event
+      // A loop shows on the calendar as ONE recurring series that the LOOP owns
+      // (routine.gcal_recurring_event_id, BOOM-45). Its spawned tasks never take
+      // the series id as gcal_event_id: that column means "this task owns the
+      // event", and the branch above deletes an owned event when its task is
+      // done/backlogged and moves it when the task is rescheduled — on a series
+      // id that deletes or moves every occurrence. The id used to be written to
+      // a localStorage key nothing reads, so every spawn could add a series.
+      let seriesFor = null
       if (task.routine_id && settings.gcal_sync_routines_recurring !== false) {
-        const routines = loadRoutines()
-        const routine = routines.find(r => r.id === task.routine_id)
-        if (routine && !routine.gcal_recurring_event_id) {
+        // Fresh read at fire time: the other client may have made the series.
+        const routine = loadRoutines().find(r => r.id === task.routine_id)
+        if (routine?.gcal_recurring_event_id || seriesInFlight.current.has(task.routine_id)) {
+          log(`"${task.title}" is on the calendar through its loop's recurring event — nothing to create`)
+          return
+        }
+        if (routine && routine.spawn_mode !== 'autopilot' && routine.spawn_mode !== 'habit') {
           const rrule = cadenceToRRule(routine.cadence, routine.custom_days, routine.end_date)
           if (rrule) {
             event.recurrence = [rrule]
+            seriesFor = routine.id
+            seriesInFlight.current.add(routine.id)
             log(`adding recurrence to event for routine "${routine.title}": ${rrule}`)
           }
-        } else if (routine?.gcal_recurring_event_id) {
-          // Routine already has a recurring event — link task to it, skip creating
-          onUpdateTaskRef.current(task.id, { gcal_event_id: routine.gcal_recurring_event_id })
-          log(`linked task to existing recurring event for routine "${routine.title}"`)
-          return
         }
       }
 
       try {
         const result = await gcalCreateEvent(calendarId, event)
-        onUpdateTaskRef.current(task.id, { gcal_event_id: result.eventId })
-        log(`created GCal event for "${task.title}"`)
-
-        // Store recurring event ID on the routine for future spawned tasks
-        if (event.recurrence && task.routine_id) {
-          const routines = loadRoutines()
-          const idx = routines.findIndex(r => r.id === task.routine_id)
-          if (idx >= 0) {
-            routines[idx].gcal_recurring_event_id = result.eventId
-            safeSetItem('boom_routines', JSON.stringify(routines))
-          }
+        if (seriesFor) {
+          onUpdateRoutineRef.current?.(seriesFor, { gcal_recurring_event_id: result.eventId })
+          log(`created the recurring GCal event for "${task.title}"'s loop`)
+        } else {
+          onUpdateTaskRef.current(task.id, { gcal_event_id: result.eventId })
+          log(`created GCal event for "${task.title}"`)
         }
       } catch (err) {
         log(`ERROR creating GCal event:`, err.message)
-        enqueue([{ type: 'gcalCreate', calendarId, event, taskId: task.id }])
+        enqueue([{ type: 'gcalCreate', calendarId, event, taskId: task.id, ...(seriesFor ? { routineId: seriesFor } : {}) }])
+      } finally {
+        if (seriesFor) seriesInFlight.current.delete(seriesFor)
       }
     }
   }, [buildTimedEvent])
@@ -634,9 +644,23 @@ export function useExternalSync(tasks, onUpdateTask) {
           case 'updateNotionPage':
             await notionUpdatePage(op.pageId, op.updates)
             break
-          case 'gcalCreate':
-            await gcalCreateEvent(op.calendarId, op.event)
+          case 'gcalCreate': {
+            // A replayed create must link what it made, or the next sync pass
+            // creates the event again. Re-check first: the other client, or a
+            // later pass here, may already have made it.
+            if (op.routineId) {
+              const routine = loadRoutines().find(r => r.id === op.routineId)
+              if (!routine || routine.gcal_recurring_event_id) break
+              const made = await gcalCreateEvent(op.calendarId, op.event)
+              onUpdateRoutineRef.current?.(op.routineId, { gcal_recurring_event_id: made.eventId })
+            } else {
+              const live = op.taskId ? (tasksRef.current || []).find(t => t.id === op.taskId) : null
+              if (op.taskId && (!live || live.gcal_event_id)) break
+              const made = await gcalCreateEvent(op.calendarId, op.event)
+              if (op.taskId) onUpdateTaskRef.current(op.taskId, { gcal_event_id: made.eventId })
+            }
             break
+          }
           case 'gcalUpdate':
             await gcalUpdateEvent(op.eventId, op.calendarId, op.event)
             break

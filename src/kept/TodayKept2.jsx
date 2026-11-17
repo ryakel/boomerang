@@ -9,10 +9,10 @@ import { getTodayGrowthArea } from '../api'
 import { loadSettings, isCrisisTask, safeSetItem } from '../store'
 import { buildImpactCtx } from '../impactContext'
 import { localYMD } from '../dates'
-import { buildTodayModel, normalizeEvents, recordNotNow } from '../todayModel'
+import { buildTodayModel, normalizeEvents } from '../todayModel'
 import { routineFeathers } from './feathers'
 import RowSwipe from './RowSwipe'
-import { NOT_NOW_KEY, LASTNIGHT_KEY, readJSON, clock, minutesLabel, useCalendarEvents, useNow } from './today2Hooks'
+import { LASTNIGHT_KEY, useNotNow, clock, minutesLabel, useCalendarEvents, useNow } from './today2Hooks'
 import { Ring, Head, NextCard } from './today2Parts'
 import './shell.css'
 import './today2.css'
@@ -86,7 +86,7 @@ export default function TodayKept2({
   const rawEvents = useCalendarEvents(todayKey)
   const settings = loadSettings()
 
-  const [notNow, setNotNow] = useState(() => readJSON(NOT_NOW_KEY))
+  const [notNow, dismissNotNow] = useNotNow(todayKey)
   const [lastNightHiddenOn, setLastNightHiddenOn] = useState(() => {
     try { return localStorage.getItem(LASTNIGHT_KEY) } catch { return null }
   })
@@ -118,9 +118,7 @@ export default function TodayKept2({
 
   const dismissNext = () => {
     if (!m.next) return
-    const nextState = recordNotNow(notNow, todayKey, m.next.task.id, m.next.reasonKey)
-    safeSetItem(NOT_NOW_KEY, JSON.stringify(nextState))
-    setNotNow(nextState)
+    dismissNotNow(m.next.task.id, m.next.reasonKey)
   }
   const hideLastNight = () => {
     safeSetItem(LASTNIGHT_KEY, todayKey)

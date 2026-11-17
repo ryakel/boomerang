@@ -1,4 +1,5 @@
 import express from 'express'
+import { mergeNotNow, normalizeNotNow, sameNotNow } from './notNowMerge.js'
 import { registerAlarmRuleRoutes } from './alarmRuleRoutes.js'
 import { getAlarmRuleState, setAlarmRuleState } from './db.js'
 import cors from 'cors'
@@ -4017,6 +4018,23 @@ app.post('/api/vacation/repair', (req, res) => {
     console.log(`[Vacation] repair moved ${plan.length} task(s) → ${plan[0].to} (${reason})`)
   }
   res.json({ moved: plan.length, target: plan[0]?.to || null })
+})
+
+// "Not now" on Worth doing next, shared across devices (BOOM-43). Its own
+// app_data key, never the settings blob (whole-blob last-writer-wins would drop
+// one device's dismissals). POST merges and returns the result; no broadcast —
+// a cosmetic dismissal doesn't justify waking every client, and the other
+// device reads it on its next open or return to the app.
+app.get('/api/today/not-now', (req, res) => {
+  res.json({ state: normalizeNotNow(getData('today_not_now')) })
+})
+app.post('/api/today/not-now', (req, res) => {
+  const incoming = normalizeNotNow(req.body && req.body.state)
+  if (!incoming) return res.status(400).json({ error: 'state must be { date: YYYY-MM-DD, entries }' })
+  const stored = getData('today_not_now')
+  const merged = mergeNotNow(stored, incoming)
+  if (!sameNotNow(stored, merged)) setData('today_not_now', merged)
+  res.json({ state: merged })
 })
 
 app.post('/api/pushover/link-mode', (req, res) => {

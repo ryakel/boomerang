@@ -2,11 +2,11 @@ import { useMemo, useState } from 'react'
 import { AlertCircle, Sun, CalendarDays, History, CalendarClock, PlayCircle, Inbox, Hourglass, Check } from 'lucide-react'
 import '@fontsource-variable/fraunces/full.css'
 import '@fontsource-variable/dm-sans/opsz.css'
-import { loadSettings, isCrisisTask, safeSetItem } from '../store'
+import { loadSettings, isCrisisTask } from '../store'
 import { buildImpactCtx } from '../impactContext'
-import { buildTodayModel, normalizeEvents, recordNotNow, SIZE_MINUTES } from '../todayModel'
+import { buildTodayModel, normalizeEvents, SIZE_MINUTES } from '../todayModel'
 import { groupUpcoming, slippedChoices, ymd, SLIPPED_SHOWN, ANYTIME_SHOWN } from '../tasksModel'
-import { NOT_NOW_KEY, LASTNIGHT_KEY, readJSON, minutesLabel, useCalendarEvents, useNow } from './today2Hooks'
+import { LASTNIGHT_KEY, useNotNow, minutesLabel, useCalendarEvents, useNow } from './today2Hooks'
 import { Ring, Head, NextCard } from './today2Parts'
 import RowSwipe from './RowSwipe'
 import WeatherBadge from '../components/WeatherBadge'
@@ -40,7 +40,7 @@ export default function TasksUpcoming({
   const rawEvents = useCalendarEvents(todayKey)
   const settings = loadSettings()
   const isCrisis = (t) => isCrisisTask(t, settings)
-  const [notNow, setNotNow] = useState(() => readJSON(NOT_NOW_KEY))
+  const [notNow, dismissNotNow] = useNotNow(todayKey)
   const [slippedOpen, setSlippedOpen] = useState(false)
   const [anytimeOpen, setAnytimeOpen] = useState(false)
   // "Let it go" undo entries, kept for the session so leaving the tab doesn't
@@ -74,9 +74,7 @@ export default function TasksUpcoming({
 
   const dismissNext = () => {
     if (!next) return
-    const state = recordNotNow(notNow, todayKey, next.task.id, next.reasonKey)
-    safeSetItem(NOT_NOW_KEY, JSON.stringify(state))
-    setNotNow(state)
+    dismissNotNow(next.task.id, next.reasonKey)
   }
   const letGo = (t) => {
     saveLetGo([{ id: t.id, title: t.title, prevStatus: t.status, prevTouched: t.last_touched || null }, ...letGoLog.filter(x => x.id !== t.id)])

@@ -178,7 +178,7 @@ export default function AnalyticsModal({ open, onClose, tasks = [], routines = [
         {[
           { id: 'overview', label: 'Overview' },
           { id: 'tasks', label: 'Tasks' },
-          { id: 'habits', label: 'Habits' },
+          { id: 'habits', label: 'Loops' },
           { id: 'ai', label: 'AI' },
         ].map(t => (
           <button
@@ -491,43 +491,42 @@ export default function AnalyticsModal({ open, onClose, tasks = [], routines = [
   )
 }
 
-// Habits tab — per-routine completion summary from data we already have
-// (routine.completed_history). No new endpoint. Theme-agnostic.
+// Loops tab — when each loop was last done. No totals and no ranking by count:
+// a per-loop completion count is a score (owner, 2026-11-16, BOOM-41). Most
+// recently done first; loops never done yet sit at the end. Theme-agnostic.
 function HabitsAnalytics({ routines = [] }) {
   const rows = routines
     .map(r => ({
       id: r.id,
       title: r.title,
-      total: (r.completed_history?.length || 0),
       last: (r.completed_history || []).slice().sort().pop() || null,
+      resting: !!r.paused || (!!r.end_date && Date.now() > new Date(`${r.end_date}T23:59:59`).getTime()),
     }))
-    .filter(r => r.total > 0)
-    .sort((a, b) => b.total - a.total)
+    .sort((a, b) => (b.last || '').localeCompare(a.last || '') || String(a.title).localeCompare(String(b.title)))
 
   if (rows.length === 0) {
     return (
       <section className="v2-analytics-section">
-        <p className="v2-analytics-section-sub">No habit completions yet — check a routine off to start tracking.</p>
+        <p className="v2-analytics-section-sub">No loops yet.</p>
       </section>
     )
   }
-  const max = Math.max(...rows.map(r => r.total))
   const ago = (ts) => {
-    if (!ts) return '—'
+    if (!ts) return 'not yet'
     const days = Math.floor((Date.now() - new Date(ts)) / 86400000)
-    return days <= 0 ? 'today' : days === 1 ? 'yesterday' : `${days}d ago`
+    if (days <= 0) return 'today'
+    if (days === 1) return 'yesterday'
+    if (days < 7) return `${days} days ago`
+    return new Date(ts).toLocaleDateString('en-US', { month: 'short', day: 'numeric', ...(days > 300 ? { year: 'numeric' } : {}) })
   }
   return (
     <section className="v2-analytics-section">
-      <h3 className="v2-analytics-heading">By habit</h3>
+      <h3 className="v2-analytics-heading">Last done</h3>
       <ul className="v2-analytics-bd v2-analytics-bd-habits">
         {rows.map(r => (
-          <li key={r.id} className="v2-analytics-bd-row">
-            <span className="v2-analytics-bd-label">{r.title}</span>
-            <div className="v2-analytics-bd-track">
-              <div className="v2-analytics-bd-fill" style={{ width: `${(r.total / max) * 100}%` }} />
-            </div>
-            <span className="v2-analytics-bd-value">{r.total}× · {ago(r.last)}</span>
+          <li key={r.id} className="v2-analytics-bd-row v2-analytics-lastdone-row">
+            <span className="v2-analytics-bd-label">{r.title}{r.resting ? <span className="v2-analytics-resting"> · resting</span> : null}</span>
+            <span className="v2-analytics-bd-value">{ago(r.last)}</span>
           </li>
         ))}
       </ul>
