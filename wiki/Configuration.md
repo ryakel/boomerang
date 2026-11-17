@@ -70,6 +70,8 @@ All settings are accessible via the gear icon in the header, organized into six 
 - **Trello API key + token** — for Trello card sync. Stored in localStorage, sent as `x-trello-key` and `x-trello-token` headers. Hidden when env vars are set. After entering credentials, click Connect to select a board and list.
 - **Google Calendar Client ID + Secret** — for Google Calendar sync. Stored in localStorage, sent as `x-google-client-id` and `x-google-client-secret` headers. Hidden when env vars are set. After entering credentials, click Connect to complete OAuth flow and select a calendar.
 
+- **Google Calendar → Show on Today** (`gcal_today_hidden`, default `[]`) — every calendar the connection can see is listed with a checkbox; unticked ones are left off Today. Stored as the calendars to leave out, so a calendar added later shows up on its own. Ordinary preference in the settings blob.
+
 ### Display
 - **Task count display** — controls the header task count format:
   - **Open only** — just the non-snoozed open count

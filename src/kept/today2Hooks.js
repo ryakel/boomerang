@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { gcalListEvents, gcalStatus, notNowGet, notNowPost } from '../api'
+import { gcalListCalendars, gcalListEvents, gcalStatus, notNowGet, notNowPost } from '../api'
 import { loadSettings, safeSetItem } from '../store'
 import { recordNotNow } from '../todayModel'
 import { mergeNotNow, sameNotNow } from '../../server/notNowMerge.js'
@@ -74,8 +74,25 @@ export const minutesLabel = (min) => {
   return r ? `${h} hr ${r} min` : `${h} hr`
 }
 
-// Calendar events for today and tomorrow, from the existing read-only
-// GET /api/gcal/events. Not connected, offline or slow: no events, no error.
+// Calendar events for the next week from every calendar the Google connection
+// can see, minus the ones Settings leaves out (BOOM-36). Each event carries its
+// calendar's name. Not connected, offline or slow: no events, no error. If the
+// calendar list itself can't be read, fall back to the push calendar plus
+// primary, the set Today read before BOOM-36.
+const CAL_LIST_TTL_MS = 60 * 60 * 1000
+let calListCache = { at: 0, list: null }
+async function visibleCalendars(settings) {
+  if (!calListCache.list || Date.now() - calListCache.at > CAL_LIST_TTL_MS) {
+    try {
+      const list = await gcalListCalendars()
+      if (Array.isArray(list)) calListCache = { at: Date.now(), list }
+    } catch { /* keep whatever we had */ }
+  }
+  const hidden = new Set(settings.gcal_today_hidden || [])
+  if (calListCache.list) return calListCache.list.filter(c => !hidden.has(c.id)).map(c => ({ id: c.id, name: c.summary || '' }))
+  return [...new Set(['primary', settings.gcal_calendar_id].filter(Boolean))].map(id => ({ id, name: '' }))
+}
+
 export function useCalendarEvents(todayKey) {
   const [raw, setRaw] = useState(null)
   useEffect(() => {
@@ -87,15 +104,24 @@ export function useCalendarEvents(todayKey) {
       if (!status?.connected) { setRaw(null); return }
       const s = loadSettings()
       const start = new Date(); start.setHours(0, 0, 0, 0)
-      const end = new Date(start); end.setDate(end.getDate() + 2)
-      const calendars = [...new Set(['primary', s.gcal_calendar_id].filter(Boolean))]
-      const results = await Promise.allSettled(calendars.map(c => gcalListEvents(start.toISOString(), end.toISOString(), c)))
+      const end = new Date(start); end.setDate(end.getDate() + 8)
+      const calendars = await visibleCalendars(s)
       if (cancelled) return
-      const ok = results.filter(r => r.status === 'fulfilled')
+      if (calendars.length === 0) { setRaw([]); return }
+      const results = await Promise.allSettled(calendars.map(c => gcalListEvents(start.toISOString(), end.toISOString(), c.id)))
+      if (cancelled) return
+      const ok = results.map((r, i) => ({ r, cal: calendars[i] })).filter(x => x.r.status === 'fulfilled')
       if (ok.length === 0) { setRaw(null); return }
+      // One event on two calendars (an invite on a shared one) shows once.
       const seen = new Set()
       const merged = []
-      for (const r of ok) for (const e of r.value || []) { if (!seen.has(e.id)) { seen.add(e.id); merged.push(e) } }
+      for (const { r, cal } of ok) {
+        for (const e of r.value || []) {
+          if (seen.has(e.id)) continue
+          seen.add(e.id)
+          merged.push({ ...e, calendarName: cal.name, calendarCount: calendars.length })
+        }
+      }
       setRaw(merged)
     }
     load()

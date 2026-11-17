@@ -6,6 +6,12 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-11-17
 
+- feat(kept): show every chosen google calendar on today [M]
+  - Today reads every calendar the Google connection can see, minus the ones unticked under Settings → Integrations → Google Calendar → **Show on Today** (`settings.gcal_today_hidden`; a calendar added later shows up on its own). It used to read only primary plus the push calendar (BOOM-36, owner: "I connect and then choose from all calendars it can see").
+  - Events come a week ahead (was today and tomorrow), so Later this week can show them. Timed events stay in Coming up and say which calendar they're from when Today reads more than one; all-day events covering today, multi-day ones included, are a quiet line under the date (`allDayToday`; an all-day `end.date` is exclusive). All-day events never shorten Worth doing next's window. Nothing becomes a task.
+  - The Settings list tells "couldn't load your calendars" apart from an empty list; the Today fetch falls back to primary + the push calendar if the calendar list can't be read.
+  - Checked: todayModel tests 59/59 (new: all-day coverage incl. multi-day and exclusive end, calendar naming, all-day never blocks the pick), npm test, lint, build. Browser with three stubbed calendars (one unticked): both visible calendars read and the unticked one never requested; the multi-day all-day event from the second calendar shows under the date; timed events from both sit in Coming up with the calendar name; Worth doing next fits before the first event; the unticked calendar's event is absent; no event became a task; Settings lists all three with the unticked one unchecked; no page errors. Web-only.
+
 - fix(kept): loops tab, loop delete, synced not now, rail, gcal series [M]
   - **Analytics Loops tab (BOOM-41):** the Habits tab becomes "Loops: Last done", most recent first; per-loop completion totals and the bar ranking are gone (owner: "It's a score").
   - **Delete a loop (BOOM-42):** the loop page ends with Delete loop, a two-step confirm in place; the tasks it made stay. Wired through both shells.
