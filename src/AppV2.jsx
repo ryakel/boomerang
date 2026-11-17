@@ -640,9 +640,8 @@ export default function AppV2() {
     ? [...sortedDoing, ...sortedStale, ...sortedUpNext, ...sortedWaiting, ...sortedSnoozed, ...backlogTasks, ...projectTasks]
     : []
 
-  const miniRingsData = [
-    { progress: (settingsForRings.daily_task_goal || 3) > 0 ? dailyStats.tasksToday / (settingsForRings.daily_task_goal || 3) : 0, color: '#52C97F' },
-  ]
+  // No progress ring: the daily task goal it measured was removed (BOOM-46).
+  const miniRingsData = []
 
   // Keyboard-shortcut bookkeeping. activeModals is a top-down list (latest
   // opened wins on Esc); closeTopModal pops the top one. Order matters here —
@@ -1472,13 +1471,12 @@ export default function AppV2() {
                 onClick={() => { setStatsDetail(v => v === 'today' ? null : 'today'); setWeekStripShown(false) }}
                 aria-expanded={statsDetail === 'today'}
               >
-                ✓ {dailyStats.tasksToday}/{settingsForRings.daily_task_goal || 3} today
+                ✓ {dailyStats.tasksToday} done today
               </button>
             </div>
             {weekStripShown && (
               <WeekStrip
                 tasks={tasks}
-                dailyTaskGoal={settingsForRings.daily_task_goal || 3}
                 easterEggWins={settingsForRings.easter_egg_wins}
               />
             )}
@@ -1488,17 +1486,16 @@ export default function AppV2() {
               const todayIso = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
               const doneTasks = tasks.filter(t => t.status === 'done' && t.completed_at && new Date(t.completed_at).toDateString() === todayStr)
               const activeTasks = tasks.filter(t => ['not_started', 'in_progress', 'waiting'].includes(t.status))
-              const taskGoal = settingsForRings.daily_task_goal || 3
               const eggWon = !!settingsForRings.easter_egg_wins?.[todayIso]
               return (
                 <div className="v2-stats-detail">
                   <div className="v2-stats-detail-row">
                     <span className="v2-stats-detail-label">Tasks done</span>
-                    <span className="v2-stats-detail-value">{dailyStats.tasksToday} / {taskGoal}</span>
+                    <span className="v2-stats-detail-value">{dailyStats.tasksToday}</span>
                   </div>
                   <div className="v2-stats-detail-row">
                     <span className="v2-stats-detail-label">Best day ever (tasks finished)</span>
-                    <span className="v2-stats-detail-value">{Math.max(records.bestTasks, dailyStats.finishedToday ?? 0)}</span>
+                    <span className="v2-stats-detail-value">{Math.max(records.bestTasks, dailyStats.tasksToday ?? 0)}</span>
                   </div>
                   <div className="v2-stats-detail-row">
                     <span className="v2-stats-detail-label">Remaining active</span>

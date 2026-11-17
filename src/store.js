@@ -49,7 +49,6 @@ export const DEFAULT_SETTINGS = {
   // repair overwrote the real key — removed 2026-06-12. last_sync is a
   // server-side standalone key too.
   sort_by: 'age',
-  daily_task_goal: 3,
   // 7-day calendar strip above the task sections. Opt-in in light/dark,
   // auto-on in terminal mode. Today's cell shows N/goal inline + intensity
   // fill; this is the single source of truth for daily-goal progress

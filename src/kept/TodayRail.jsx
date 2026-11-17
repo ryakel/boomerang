@@ -13,7 +13,7 @@ const ACTIVE = ['not_started', 'doing', 'waiting', 'in_progress']
 // The points arc and rally chip left with points/rally (BOOM-33); the rail
 // itself is due a rethink with the rest of desktop.
 export default function TodayRail({
-  tasks = [], routines = [], dailyStats = {},
+  tasks = [], routines = [],
   onCompleteTask, onOpenTask, onWhatNow,
 }) {
   const todayKey = localYMD()
@@ -54,15 +54,11 @@ export default function TodayRail({
   const anytimeShown = anytimeTasks.slice(0, ANYTIME_CAP)
   const anytimeOverflow = anytimeTasks.length - anytimeShown.length
 
-  const catches = dailyStats.tasksToday ?? 0
 
   return (
     <aside className="bm-rail">
       <div className="bm-rail-date">
         {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
-      </div>
-      <div className="bm-hero-meta" style={{ paddingTop: 4 }}>
-        <span><b>{catches}</b> {catches === 1 ? 'catch' : 'catches'}</span>
       </div>
       <button className="bm-btn bm-btn-tonal bm-whatnow" style={{ margin: '10px 0 14px' }} onClick={onWhatNow}>
         <Compass size={14} strokeWidth={2.1} /> What now?

@@ -722,24 +722,22 @@ Boomerang counts what got done; it doesn't score it. Points and rally (the
 day streak and per-loop streaks) were removed on 2026-11-15 (BOOM-33): no
 "+N pts" on a completion, no points goal, no streak to protect.
 
-What counts toward a day's total: completed tasks, tasks moved to waiting,
-logged project sessions, logged escalation attempts, and the hidden
-tic-tac-toe win (once a day). The **daily task goal** (Settings) is still a
-count. In the classic light/dark layout the header's mini ring shows progress
-toward it.
+There is no daily goal either (BOOM-46, 2026-11-17): no "N of 3" target, no
+progress ring, no catch counter, no achievements. A day's count is simply the
+tasks finished that day, the same number Analytics uses everywhere.
 
 ## Analytics
 
 Open it from the header's ↗ button (Kept) or the SystemMenu. Everything here
 counts tasks completed:
 
-- **Counts** — today, last 7 / 30 / 365 days, lifetime, and best day ever, all counting tasks finished (the daily task goal on Today also counts project sessions, escalation attempts and moves to waiting)
+- **Counts** — today, last 7 / 30 / 365 days, lifetime, and best day ever, all counting tasks finished
 - **Daily completion chart** — tasks per day for the selected range (7d, 30d, 90d, 1y, all time; all time groups by week)
 - **Day-of-week patterns** — which days you get the most done, current day highlighted
 - **Balance radar, tag, energy, size and impact breakdowns** — completions by label, energy type, T-shirt size and impact
 - **52-week pattern** — GitHub-style graph of daily completions; scrollable on mobile, opens scrolled to today
 - **Loops tab** — when each loop was last done, most recent first. No per-loop totals: a count per loop is a score
-- **Achievements** — a grid of earnable badges, computed live from your data with durable earned state (deleting tasks never un-earns one). Cards are tinted by **tier** — Bronze, Silver, Gold by prestige — explained by a legend in the header. Earned cards show the date; in-progress cards show a progress bar. **Tap any badge** for a detail popup: earned date or progress with "N to go", and for badges that track a set of things (like Balanced Diet — every energy type in one week) a checklist of exactly what's done vs still outstanding. Hidden badges stay mysteries until earned. No badge rewards points or a streak; the ones that did were retired, and anything you earned stays recorded.
+- **No achievements** — the badge grid was removed with the daily goal (BOOM-46); badges already earned stay stored, unshown
 - **AI tab** — AI usage and estimated cost for the range
 - **Caught** — jump to the list of completed tasks
 

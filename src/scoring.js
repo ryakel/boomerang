@@ -3,73 +3,22 @@
 // Points were removed from the product on 2026-11-15 (BOOM-33): no task,
 // session, escalation attempt, stack clear or easter-egg win is worth a
 // score any more, and rally (the day streak) went with them. What survives is
-// the COUNT of things that got done, which Analytics and the daily task goal
-// still use. Old rows may still carry legacy point fields (`stack_bonus`,
+// the count of tasks finished, which Analytics uses. The daily task goal went
+// too (BOOM-46). Old rows may still carry legacy point fields (`stack_bonus`,
 // `session_log[].points`, `escalation_attempt_log[].points`); nothing reads
 // them and nothing deletes them.
 
-// Project sessions logged today across the whole task list. Each logged
-// session counts as a "task" for the day, so chipping at a project shows up
-// the same as completing a one-shot task.
-export function computeSessionStatsToday(tasks) {
-  const todayStr = new Date().toDateString()
-  let count = 0
-  for (const t of tasks) {
-    if (t.status !== 'project') continue
-    const log = Array.isArray(t.session_log) ? t.session_log : []
-    for (const entry of log) {
-      if (!entry?.timestamp) continue
-      if (new Date(entry.timestamp).toDateString() !== todayStr) continue
-      count += 1
-    }
-  }
-  return { count }
-}
-
-// Escalation-ladder attempts logged today, across every task (active ladder
-// or not: a closed ladder's history still counts for the day the attempt
-// happened). Sent the email, made the call: real effort even without
-// resolution.
-export function computeEscalationStatsToday(tasks) {
-  const todayStr = new Date().toDateString()
-  let count = 0
-  for (const t of tasks) {
-    const log = Array.isArray(t.escalation_attempt_log) ? t.escalation_attempt_log : []
-    for (const entry of log) {
-      if (!entry?.at) continue
-      if (new Date(entry.at).toDateString() !== todayStr) continue
-      count += 1
-    }
-  }
-  return { count }
-}
-
-// How many things got done today. Optional `settings` adds the easter egg:
-// winning the hidden tic-tac-toe game (7-tap the EditTaskModal title) stamps
-// `easter_egg_wins[today] = true` and counts as one thing done, once a day.
-// Moving a task to waiting, logging a project session and logging an
-// escalation attempt also count.
+// How many tasks were finished today. The same one definition Analytics uses
+// everywhere (best day, 7/30/365 days, lifetime). There is no daily goal: it
+// and the wider "things done" count that fed it (project sessions, moves to
+// waiting, escalation attempts, the hidden-game win) were a game and were
+// removed (BOOM-46, 2026-11-17). `settings` is accepted and ignored so old
+// call sites keep working.
+// eslint-disable-next-line no-unused-vars
 export function computeDailyStats(tasks, settings = null) {
-  const now = new Date()
-  const todayStr = now.toDateString()
-  // Local YMD — UTC variant would flip to "tomorrow" at night Central
-  // time and miss easter-egg wins / mismatch other systems that key by
-  // local calendar date.
-  const todayIso = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
-  const todayTasks = tasks.filter(t => t.status === 'done' && t.completed_at && new Date(t.completed_at).toDateString() === todayStr)
-  const waitingToday = tasks.filter(t => t.status === 'waiting' && t.waiting_at && new Date(t.waiting_at).toDateString() === todayStr)
-
-  const sessions = computeSessionStatsToday(tasks)
-  const escalations = computeEscalationStatsToday(tasks)
-  const eggBonus = settings?.easter_egg_wins?.[todayIso] ? 1 : 0
-
+  const todayStr = new Date().toDateString()
   return {
-    // Things done, for the daily task goal: chipping at a project counts.
-    tasksToday: todayTasks.length + waitingToday.length + sessions.count + escalations.count + eggBonus,
-    // Tasks finished, the one definition Analytics uses everywhere (best day,
-    // 7/30/365 days, lifetime). Analytics' "today" read tasksToday and could
-    // sit above "best day" (BOOM-33 audit).
-    finishedToday: todayTasks.length,
+    tasksToday: tasks.filter(t => t.status === 'done' && t.completed_at && new Date(t.completed_at).toDateString() === todayStr).length,
   }
 }
 

@@ -140,15 +140,9 @@ Digest emails to your inbox (not spam) require sender authentication. The defaul
 - **Server logs** — live tail of the server process (Google/Push/Email/DB/SSE lines + errors), folded in here from the old standalone `Logs` tab as of the 2026-07-11 reorg — same diagnostics category as Activity above
 - **Danger zone** — clear completed tasks / clear all data (see below)
 
-### Activity Rings and Goals
-- **Daily task goal** — number of tasks to complete per day for the Tasks ring (default: configurable)
-- **Daily points goal** — point target per day for the Points ring (default: configurable)
-- **Free day** — pause streak for a single day without entering Away mode
-- **Away mode** — see Notifications below. (This entry used to describe a vacation
-  duration picker under Rings and Goals. That control was lost in an earlier UI
-  rewrite and the doc kept advertising it for months while nothing could set it —
-  rebuilt 2026-07-29 as Away mode, and it now suppresses notifications as well as
-  freezing the streak.)
+### Activity Rings and Goals (removed)
+- The daily task goal, its progress ring and the points goal are gone (points 2026-11-15, BOOM-33; the task goal 2026-11-17, BOOM-46). A stored `daily_task_goal` is ignored.
+- **Away mode** — see Notifications below.
 
 ### Danger Zone
 - **Clear completed tasks** — removes all done tasks
