@@ -152,7 +152,7 @@ export default function TodayKept2({
       const e = it.event
       title = e.title
       const dur = !e.allDay && e.endMs && e.startMs ? minutesLabel(Math.round((e.endMs - e.startMs) / 60000)) : null
-      meta = [it.ongoing ? 'now' : soon, e.allDay ? 'all day' : null, e.location, dur].filter(Boolean).join(' · ') || 'Calendar'
+      meta = [it.ongoing ? 'now' : soon, e.allDay ? 'all day' : null, e.location, dur, e.calendar].filter(Boolean).join(' · ') || 'Calendar'
       bar = 'var(--bm-f-billabong)'
     } else if (it.kind === 'checklist') {
       title = it.routine.title
@@ -380,6 +380,12 @@ export default function TodayKept2({
           <span className="t2-date-sub">{now.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>
         </div>
         {!bigClear && <p className="t2-subtitle">{subtitle(m)}</p>}
+        {m.allDayToday?.length > 0 && (
+          <p className="t2-allday">
+            <CalendarDays size={13} strokeWidth={2} aria-hidden="true" />
+            <span>{m.allDayToday.map(e => e.calendar ? `${e.title} (${e.calendar})` : e.title).join(' · ')}</span>
+          </p>
+        )}
       </div>
 
       {bigClear && (

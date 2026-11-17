@@ -91,6 +91,10 @@ export const DEFAULT_SETTINGS = {
   gcal_client_secret: '',
   gcal_calendar_id: 'primary',
   gcal_sync_enabled: false,
+  // Calendars Today leaves out (BOOM-36). Today shows every calendar the
+  // Google connection can see except these; a calendar added later shows up
+  // on its own. Ids from GET /api/gcal/calendars.
+  gcal_today_hidden: [],
   gcal_sync_statuses: ['not_started', 'doing', 'waiting', 'open'],
   gcal_use_timed_events: true,
   gcal_default_time: '09:00',

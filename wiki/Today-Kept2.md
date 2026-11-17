@@ -184,7 +184,7 @@ evolution of Kept, not a new design system. Priorities in order:
 8. **All clear is a legitimate outcome:** "Nothing needs you right now."
 9. **The recommendation must not become another chore.**
 10. **Durations come only from a task's own size; free time only from real
-    calendar events.** No invented buffers or estimates.
+    calendar events.** No invented buffers or estimates. Since BOOM-36 (2026-11-17) the events come from every calendar the Google connection can see minus `settings.gcal_today_hidden`, a week ahead (`useCalendarEvents`, falling back to primary + the push calendar if the calendar list can't be read). All-day events covering today (an all-day `end.date` is exclusive) are `allDayToday`, rendered as a line under the date; they take no time and never shorten the window.
 11. **Don't rewrite** persistence, notifications, calendar sync, the scoring
     engine or routine accounting. Don't redesign Tasks, Loops or other screens.
 

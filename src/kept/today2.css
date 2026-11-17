@@ -73,6 +73,9 @@
   color: var(--t2-text);
 }
 .t2-date-sub { font-size: 14px; font-weight: 400; color: var(--t2-meta); }
+/* All-day events covering today (BOOM-36): a quiet line under the date. */
+.t2-allday { display: flex; align-items: flex-start; gap: 6px; margin: 6px 0 0; font-size: 13px; line-height: 1.4; color: var(--t2-label); }
+.t2-allday svg { flex: 0 0 auto; margin-top: 2px; color: var(--t2-meta); }
 
 /* ── Section rhythm ───────────────────────────────────────────────────── */
 .bm-t2 > .t2-card, .bm-t2 > .t2-stack, .bm-t2 > .t2-clear { margin-top: var(--t2-section-gap); }

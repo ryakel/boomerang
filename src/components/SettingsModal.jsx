@@ -679,6 +679,9 @@ function IntegrationsPanel({
   const [trelloLists, setTrelloListsList] = useState([])
   const [trelloListsLoading, setTrelloListsLoading] = useState(false)
   const [gcalCalendars, setGcalCalendarsList] = useState([])
+  // Failed is not the same as empty: an unreachable server must not read as
+  // "no calendars" (CLAUDE.md, the Share Extension picker lesson).
+  const [gcalCalendarsError, setGcalCalendarsError] = useState(false)
 
   // Load Trello boards + GCal calendars when their integrations are connected.
   useEffect(() => {
@@ -705,8 +708,8 @@ function IntegrationsPanel({
     if (!statuses.gcal?.connected) return
     let cancelled = false
     import('../api').then(m => m.gcalListCalendars()).then(cals => {
-      if (!cancelled) setGcalCalendarsList(Array.isArray(cals) ? cals : [])
-    }).catch(() => {})
+      if (!cancelled) { setGcalCalendarsList(Array.isArray(cals) ? cals : []); setGcalCalendarsError(false) }
+    }).catch(() => { if (!cancelled) setGcalCalendarsError(true) })
     return () => { cancelled = true }
   }, [statuses.gcal?.connected])
 
@@ -1724,6 +1727,31 @@ function IntegrationsPanel({
                       whichever account Boomerang is connected as, which may not be the one holding the
                       events you want.
                     </div>
+                    <label className="v2-form-label" style={{ marginTop: 14 }}>Show on Today</label>
+                    {/* BOOM-36: every calendar the connection can see, each a
+                        checkbox. Stored as the ones to LEAVE OUT, so a calendar
+                        added later shows up without a trip back here. */}
+                    {gcalCalendarsError ? (
+                      <div className="v2-integrations-hint">Couldn’t load your calendars just now. Today keeps showing the ones it had.</div>
+                    ) : gcalCalendars.length === 0 ? (
+                      <div className="v2-integrations-hint">Loading your calendars…</div>
+                    ) : (
+                      <>
+                        {gcalCalendars.map(c => {
+                          const hidden = (settings.gcal_today_hidden || []).includes(c.id)
+                          return (
+                            <label key={c.id} className="v2-integrations-check">
+                              <input type="checkbox" checked={!hidden} onChange={e => {
+                                const cur = settings.gcal_today_hidden || []
+                                update('gcal_today_hidden', e.target.checked ? cur.filter(id => id !== c.id) : [...cur, c.id])
+                              }} />
+                              <span>{c.summary}{c.primary ? ' (Primary)' : ''}</span>
+                            </label>
+                          )
+                        })}
+                        <div className="v2-integrations-hint">Today shows timed events in Coming up and all-day events at the top. Nothing here turns an event into a task.</div>
+                      </>
+                    )}
                     <div className="v2-integrations-toggle-row">
                       <span>Push tasks as calendar events</span>
                       <Toggle checked={settings.gcal_sync_enabled} onChange={e => update('gcal_sync_enabled', e.target.checked)} />
