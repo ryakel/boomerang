@@ -3601,21 +3601,6 @@ export default function SettingsModal({
                 disabled={!settings.show_week_strip}
                 info="Show the strip expanded when the app loads. Tap the date in the home stats line any time to hide or re-open it."
               />
-              <SettingRow
-                label="Daily task goal"
-                info="Used by the progress bar and the activity intensity on the 7-day strip."
-                trailing={
-                  <input
-                    className="v2-form-input v2-settings-compact-input"
-                    type="number"
-                    min="1"
-                    max="50"
-                    aria-label="Daily task goal"
-                    value={settings.daily_task_goal ?? 3}
-                    onChange={e => update('daily_task_goal', parseInt(e.target.value) || 1)}
-                  />
-                }
-              />
             </SettingsGroup>
 
             <SettingsGroup caption="About">

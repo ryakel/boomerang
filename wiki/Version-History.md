@@ -6,6 +6,12 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-11-17
 
+- feat(kept): remove the daily goal, catch counter and achievements [M]
+  - Owner on the daily task goal: "It's game dressed up and we are moving away from that"; on the proposal: "46 suggestions are good" (BOOM-46).
+  - Gone: the Daily task goal setting (and its default), the Standard theme's progress ring and "N/goal today" chip (now "N done today"), the 7-day strips' goal shading (a day is shaded when something got done), the desktop rail's "N catches" counter, and Analytics' Achievements (`src/badges.js`, `BadgesGrid` deleted). `computeDailyStats` counts tasks finished only, the one definition Analytics uses; project sessions, waiting moves, escalation attempts and the hidden-game win no longer count toward anything.
+  - Kept: "Catch it" as the completion verb; the hidden tic-tac-toe game; every stored provenance key (`badges_earned`, `easter_egg_wins`, a stored `daily_task_goal` is just ignored). The gated-off classic Today still has its old counters.
+  - Checked: npm test 687/687 (scoring test now pins finished-only), lint (warnings down to 13), build. Browser: Analytics has no Achievements and still shows today / 7 / 30 / 365 / lifetime / best day; Settings has no Daily task goal; the 1440px rail has no catch counter and keeps its lists; the Standard theme header reads "✓ 2 done today"; no page errors. Web-only.
+
 - feat(kept): show every chosen google calendar on today [M]
   - Today reads every calendar the Google connection can see, minus the ones unticked under Settings → Integrations → Google Calendar → **Show on Today** (`settings.gcal_today_hidden`; a calendar added later shows up on its own). It used to read only primary plus the push calendar (BOOM-36, owner: "I connect and then choose from all calendars it can see").
   - Events come a week ahead (was today and tomorrow), so Later this week can show them. Timed events stay in Coming up and say which calendar they're from when Today reads more than one; all-day events covering today, multi-day ones included, are a quiet line under the date (`allDayToday`; an all-day `end.date` is exclusive). All-day events never shorten Worth doing next's window. Nothing becomes a task.

@@ -21,7 +21,6 @@ export default function WeekBreakdown({ tasks = [], selected, onSelect }) {
   const [offset, setOffset] = useState(0)
   const settings = loadSettings()
   const eggs = settings.easter_egg_wins || {}
-  const goal = settings.daily_task_goal > 0 ? settings.daily_task_goal : 3
 
   const completionsByDay = useMemo(() => {
     const map = {}
@@ -52,11 +51,11 @@ export default function WeekBreakdown({ tasks = [], selected, onSelect }) {
         isToday: key === todayKey,
         isFuture: key > todayKey,
         count,
-        intensity: count === 0 ? 0 : count < goal ? 1 : count < goal * 2 ? 2 : 3,
+        intensity: count === 0 ? 0 : 1, // no goal to measure against (BOOM-46)
       })
     }
     return out
-  }, [completionsByDay, offset, todayKey, goal]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [completionsByDay, offset, todayKey]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const rangeLabel = useMemo(() => {
     const start = weekStartSunday(new Date())

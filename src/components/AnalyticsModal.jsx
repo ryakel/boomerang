@@ -1,7 +1,5 @@
 import { useState, useEffect, useMemo, useRef } from 'react'
 import { Star, Target, CalendarCheck, CalendarDays, CalendarRange } from 'lucide-react'
-import BadgesGrid from './BadgesGrid'
-import { computeBadges } from '../badges'
 import '../kept/flightlog.css'
 import { ENERGY_TYPES, loadLabels } from '../store'
 import ModalShell from './ModalShell'
@@ -119,11 +117,8 @@ export default function AnalyticsModal({ open, onClose, tasks = [], routines = [
     }
     return { week: sumSince(7), month: sumSince(30), year: sumSince(365) }
   }, [heatMapData])
-  const badges = useMemo(() => computeBadges({
-    lifetimeDone, routines, records, tasks,
-  }), [lifetimeDone, routines, records, tasks])
   const heroStats = [
-    { Icon: CalendarCheck, label: 'today', value: `${dailyStats?.finishedToday ?? dailyStats?.tasksToday ?? 0}\u00d7` },
+    { Icon: CalendarCheck, label: 'today', value: `${dailyStats?.tasksToday ?? 0}\u00d7` },
     { Icon: CalendarDays, label: 'last 7 days', value: `${doneInLast.week}\u00d7` },
     { Icon: CalendarDays, label: 'last 30 days', value: `${doneInLast.month}\u00d7` },
     { Icon: CalendarRange, label: 'last 365 days', value: `${doneInLast.year}\u00d7` },
@@ -450,15 +445,6 @@ export default function AnalyticsModal({ open, onClose, tasks = [], routines = [
                 </div>
                 </div>
               </div>
-            </section>
-          )}
-
-          {tab === 'overview' && (
-            <section className="v2-analytics-section">
-              <div className="v2-analytics-section-head">
-                <h2 className="v2-analytics-section-title">Achievements</h2>
-              </div>
-              <BadgesGrid badges={badges} />
             </section>
           )}
 

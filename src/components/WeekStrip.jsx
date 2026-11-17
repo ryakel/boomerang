@@ -13,7 +13,7 @@ function startOfWeekSunday(date) {
   return d
 }
 
-export default function WeekStrip({ tasks, dailyTaskGoal, easterEggWins }) {
+export default function WeekStrip({ tasks, easterEggWins }) {
   const [weekOffset, setWeekOffset] = useState(0)
   const [selectedDate, setSelectedDate] = useState(null)
 
@@ -45,11 +45,8 @@ export default function WeekStrip({ tasks, dailyTaskGoal, easterEggWins }) {
       const dayTasks = completionsByDate[key] || []
       const eggBonus = easterEggWins?.[key] ? 1 : 0
       const count = dayTasks.length + eggBonus
-      const goal = dailyTaskGoal > 0 ? dailyTaskGoal : 3
-      let intensity = 0
-      if (count > 0 && count < goal) intensity = 1
-      else if (count >= goal && count < goal * 2) intensity = 2
-      else if (count >= goal * 2) intensity = 3
+      // Shaded when something got done; no goal to measure against (BOOM-46).
+      const intensity = count > 0 ? 1 : 0
       out.push({
         date: d,
         key,
@@ -58,12 +55,11 @@ export default function WeekStrip({ tasks, dailyTaskGoal, easterEggWins }) {
         isToday: key === todayKey,
         isFuture: d > new Date(),
         count,
-        goal,
         intensity,
       })
     }
     return out
-  }, [completionsByDate, weekOffset, dailyTaskGoal, easterEggWins])
+  }, [completionsByDate, weekOffset, easterEggWins])
 
   const rangeLabel = useMemo(() => {
     const first = days[0].date
@@ -129,7 +125,7 @@ export default function WeekStrip({ tasks, dailyTaskGoal, easterEggWins }) {
               <span className="v2-week-strip-label">{d.label}</span>
               <span className="v2-week-strip-num">{d.dayNumber}</span>
               {d.isToday && (
-                <span className="v2-week-strip-count">{d.count}/{d.goal}</span>
+                <span className="v2-week-strip-count">{d.count}</span>
               )}
               <span className="v2-week-strip-bar" aria-hidden="true" />
             </button>
