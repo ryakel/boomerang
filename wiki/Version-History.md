@@ -6,6 +6,22 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-11-21
 
+- feat(kept): set and arm alarms from the loop page, with today's alarm on Today [L]
+  - Owner, after the mockup: "Ok. Let's try it in dev." They'd confirmed the sound test rang with the phone locked (BOOM-51).
+  - **Loop page:** an **Alarm** card shows when it rings (a time per weekday), first warning, snooze, the done button's text, one-off changes, and a preview of the next three, with Arm / Re-arm / Turn off. **When it rings** is a sheet: day chips, a time per day, and one-off skips or extra days. Saving never arms.
+  - **Badge:** Not armed yet, Armed on this phone, Changes waiting, Off, or On hold. On hold means the loop's own phone reminder is on (the card offers **Turn off the reminder**), or the loop is paused, ended or on Autopilot.
+  - **Today:** an **Alarm today** card has the done button ("Leaving now"). The tap stops that day's remaining alarms and records it, without completing the loop, and the card then reads "Leaving now at 1:52 PM".
+  - **Settings → Notifications → Alarms:** now an overview with Cancel all. The raw rule form is removed. Permission and the sound test stay in Test channels.
+  - **Fix: arming is capped at 16.** It used to send the whole 28-day plan, which the phone refuses past 16 occurrences, so a five-day-a-week alarm (20) could never be armed. `applyAlarmRulePlan` now sends the next 16 across every rule this phone owns (`armWindow`). The card says how far that reaches and asks for a re-arm within five days of the end. It never re-arms on its own.
+  - **Rules:** the pure model is `src/alarmRuleModel.js`: card state, the arming window, renewal, summaries and Today's alarms, all clock-free. "Changes waiting" compares armed targets up to the last armed date, so a window sliding forward is a renewal, not a change. It also compares the revision this phone last armed, because the phone's readback has no lead or snooze. Alarm views re-read each other after any action (`boom-alarms-changed`).
+  - **Checked:**
+    - `scripts/alarmRuleModel.test.mjs` (10 cases) is new and added to `npm test`: 697/697 pass.
+    - `scripts/alarmRulesBrowser.test.mjs` is rewritten for the card, Today and the overview at 320 and 960px, against the real routes. It covers: saving never arms; arming sends exactly 16 for an every-day rule; a stale plan is refused; the done button syncs and then reads "done at"; Turn off cancels without arming; a paused loop's alarms are cancelled; the held-reminder state offers the fix; and a reload arms nothing. Its fake phone now keeps cancelled cues in the readback, like the Swift code.
+    - The two alarm browser tests now run one after the other; in parallel the longer one starved the other.
+    - The alarm unit suite passes 30/30. Lint is unchanged at 13 warnings. The loop page and Today render without errors in the real app, with the card hidden off the Dev build.
+    - No alarm armed from the new card has been tested on a phone yet.
+  - Web-only.
+
 - fix(ci): run deploys on ubuntu 26 with tailscale action v4 [XS]
   - Undoes this morning's `ubuntu-24.04` pin (BOOM-50). The cause was confirmed by a throwaway probe on `ubuntu-latest`, now Ubuntu 26.04.1 (image 20261116.202.1), where `sudo` is sudo-rs 0.2.13. It prints "preserving the entire environment is not supported, '-E' is ignored". `tailscale/github-action@v2` runs Tailscale 1.42 and turns on OAuth keys through `TS_EXPERIMENT_OAUTH_AUTHKEY`, carried only by `sudo -E`. The probe's v2 control failed exactly as production had ("oauth authkeys are in experimental status", 27 ms).
   - v4.4.0 runs Tailscale 1.104.4 and passes the key as a `tailscale up` argument, so the dropped environment doesn't matter. In the probe it connected on the first try and the Portainer host resolved over the tailnet in about 2 s, on both Ubuntu 26 and 24.04. The same OAuth client and `tag:ci` work unchanged.

@@ -1134,6 +1134,10 @@ export default function AppV2() {
     return true
   }, [tasks, updateTask, pushStatusToTrello])
 
+  // The alarm card's "Turn off the reminder" (BOOM-51): an alarm rule is held
+  // while the loop's own phone reminder is on, so you never get both.
+  const turnOffLoopReminder = useCallback((routineId) => updateRoutine(routineId, { remind: false }), [updateRoutine])
+
   const setLoopAutopilot = useCallback((routineId, on) => {
     const routine = routines.find(r => r.id === routineId)
     if (!routine) return
@@ -1688,6 +1692,7 @@ export default function AppV2() {
           onSetLoopAutopilot={setLoopAutopilot}
           onToggleLoopPause={togglePause}
           onDeleteLoop={deleteRoutine}
+          onTurnOffLoopReminder={turnOffLoopReminder}
           onUnmarkLoopDay={handleUnmarkLoopDay}
           onSkipLoopDay={skipRoutineDay}
           onPushLoopOut={pushLoopOut}
@@ -1753,6 +1758,7 @@ export default function AppV2() {
           onSetLoopAutopilot={setLoopAutopilot}
           onToggleLoopPause={togglePause}
           onDeleteLoop={deleteRoutine}
+          onTurnOffLoopReminder={turnOffLoopReminder}
           onUnmarkLoopDay={handleUnmarkLoopDay}
           onSkipLoopDay={skipRoutineDay}
           onPushLoopOut={pushLoopOut}
