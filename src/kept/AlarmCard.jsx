@@ -29,6 +29,13 @@ const BADGE_ON = new Set(['changes', 'armed'])
 export default function AlarmCard({ kind = 'routine', sourceId, reminderOn = false, onTurnOffReminder }) {
   const { available, state, native, error, busy, load, run } = useAlarmRules()
   const [sheet, setSheet] = useState(null) // 'when' | 'lead' | 'snooze' | 'label' | 'arrive'
+  // "Updated on this phone." after a save re-armed an armed alarm (BOOM-55).
+  const [flash, setFlash] = useState(null)
+  useEffect(() => {
+    if (!flash) return
+    const t = setTimeout(() => setFlash(null), 3500)
+    return () => clearTimeout(t)
+  }, [flash])
   // The phone's location permission, for arriving as done (BOOM-53). Re-read
   // on return from iOS Settings, where Always is granted.
   const [location, setLocation] = useState(null)
@@ -62,13 +69,31 @@ export default function AlarmCard({ kind = 'routine', sourceId, reminderOn = fal
   const authorized = native?.authorization === 'authorized'
   const mine = !!native?.deviceId && (!rule || rule.deviceId === native.deviceId)
 
-  const save = (patch) => run(async () => {
-    if (!native?.deviceId) throw Error('Open Boomerang Dev on this phone to set alarms.')
-    const base = rule || blankAlarmRule(kind, sourceId, deviceZone())
-    await alarmRuleApi.save(rule?.id || crypto.randomUUID(), { ...base, ...patch }, rule?.revision || 0, native.deviceId)
-    // Cancels this rule's cues if it is now off or held. Never arms.
-    await refreshAlarmRuleState()
-  }).then(ok => { if (ok) setSheet(null); return ok })
+  // Once an alarm is armed on this phone, saving a change updates the phone
+  // straight away (owner, 2026-11-21: re-arming "feels clunky"). The FIRST
+  // arming stays a deliberate tap, and nothing re-arms on its own: this only
+  // runs because you saved. Off, held, or no alarm permission: no re-arm.
+  const wasArmed = s.status === 'armed' || s.status === 'changes'
+  const save = (patch) => {
+    let rearmed = false
+    return run(async () => {
+      if (!native?.deviceId) throw Error('Open Boomerang Dev on this phone to set alarms.')
+      const base = rule || blankAlarmRule(kind, sourceId, deviceZone())
+      const id = rule?.id || crypto.randomUUID()
+      await alarmRuleApi.save(id, { ...base, ...patch }, rule?.revision || 0, native.deviceId)
+      // Cancels this rule's cues if it is now off or held.
+      await refreshAlarmRuleState()
+      if (!wasArmed || !authorized) return
+      const fresh = await alarmRuleApi.load()
+      const saved = fresh.rules.find(r => r.id === id)
+      if (!saved?.enabled || !saved.available || saved.conflict) return
+      await applyAlarmRulePlan(fresh, native)
+      rearmed = true
+    }).then(ok => {
+      if (ok) { setSheet(null); if (rearmed) setFlash('Updated on this phone.') }
+      return ok
+    })
+  }
 
   const arm = () => run(async () => {
     const fresh = await alarmRuleApi.load()
@@ -108,19 +133,19 @@ export default function AlarmCard({ kind = 'routine', sourceId, reminderOn = fal
         ? 'Your other alarms fill the phone’s 16 slots first. This one fits once some of theirs have passed.'
         : s.capped
         ? `The phone holds 16 alarms at a time, so arming covers through ${shortDate(s.armsThrough)}. You’ll be asked to re-arm before then.`
-        : `Arming covers through ${shortDate(s.armsThrough)}. Saving a change never arms it.`
+        : `Arming covers through ${shortDate(s.armsThrough)}. After that, changes you save go to the phone right away.`
       primary = { label: 'Arm on this phone', fn: arm, needsAuth: true }
       secondary = turnOff
       break
     case 'changes':
-      note = 'You changed this after arming. The phone keeps the old times until you re-arm.'
+      note = 'The phone still has the earlier version of this alarm. Re-arm to send your latest changes.'
       primary = { label: 'Re-arm changes', fn: arm, needsAuth: true }
       secondary = turnOff
       break
     case 'armed':
       note = s.renewSoon
         ? `Armed through ${shortDate(s.armedThrough)}. Re-arm to add the next weeks.`
-        : `Armed through ${shortDate(s.armedThrough)}. Changes you save wait here until you re-arm.`
+        : `Armed through ${shortDate(s.armedThrough)}. Changes you save go to the phone right away.`
       if (s.renewSoon) primary = { label: 'Re-arm to keep going', fn: arm, needsAuth: true }
       secondary = turnOff
       break
@@ -209,6 +234,7 @@ export default function AlarmCard({ kind = 'routine', sourceId, reminderOn = fal
           {primary && <button className="t2-btn t2-btn-primary" onClick={primary.fn} disabled={busy || (primary.needsAuth && !authorized)}>{busy ? 'Working…' : primary.label}</button>}
         </div>
       )}
+      {flash && <p className="al-note al-flash" role="status">{flash}</p>}
       {note && <p className="al-note">{note}</p>}
       {error && <p className="al-note al-error" role="alert">{error}</p>}
       {native?.lastError && <p className="al-note al-error" role="alert">{native.lastError}</p>}
@@ -315,7 +341,7 @@ function WhenSheet({ rule, todayKey, busy, onClose, onSave }) {
         <button className="t2-btn t2-btn-ghost" onClick={onClose}>Cancel</button>
         <button className="t2-btn t2-btn-primary" disabled={busy || !valid} onClick={() => onSave({ weekly, dates })}>{busy ? 'Saving…' : 'Save'}</button>
       </div>
-      <p className="al-note">Saved changes wait on the loop page until you arm them.</p>
+      <p className="al-note">Once the alarm is armed, saving updates the phone right away.</p>
     </Sheet>
   )
 }
@@ -432,7 +458,7 @@ function ArrivalSheet({ arrival, location, busy, onClose, onSave, onLocationChan
           {working === 'save' ? 'Saving…' : 'Save'}
         </button>
       </div>
-      <p className="al-note">Like any change here, re-arm the alarm to send the place to the phone.</p>
+      <p className="al-note">Once the alarm is armed, saving sends the place to the phone right away.</p>
     </Sheet>
   )
 }

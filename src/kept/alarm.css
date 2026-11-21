@@ -83,4 +83,5 @@
 .al-place-acts { display: flex; gap: 8px; margin-bottom: 8px; }
 .al-address { flex-wrap: nowrap; margin-bottom: 4px; }
 .al-address .al-input { margin: 0; flex: 1 1 auto; min-width: 0; }
+.al-note.al-flash { color: var(--bm-ember); font-weight: 600; }
 

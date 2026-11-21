@@ -6,6 +6,17 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-11-21
 
+- feat(kept): once an alarm is armed, saving a change updates the phone [S]
+  - Owner: re-arming "feels clunky", then "Auto re-arm once armed" (D022, BOOM-55).
+  - The first arming stays a tap. After that, saving any change (times, warning, snooze, done-button text, arrival place) re-arms right away, and the card says "Updated on this phone."
+  - Turning a rule off, a held rule, or missing permission never re-arms, and nothing re-arms on its own.
+  - The card and sheet wording now says changes go to the phone right away. "Changes waiting" now reads as "the phone still has the earlier version", with Re-arm.
+  - **Checked:**
+    - The alarm browser tests now expect an armed alarm's saved change to end on "Armed" with "Updated on this phone", and the plan to be re-sent: an every-day edit re-sends 16 occurrences, and saving the arrival place re-sends with the place.
+    - Turn off still arms nothing.
+    - After an arrival has completed the day's only alarm, switching arrival off doesn't re-arm; `dropPlaces` stops the watching.
+    - All 3 alarm browser suites pass.
+
 - fix(kept): save an arrival place before asking for always location [S]
   - Owner: the flow "worked until re-arm… now its stuck at changes waiting" (BOOM-53).
   - **Likely cause:** saving the place waited for iOS's Always prompt first. When the answer leaves permission unchanged (keeping "While Using"), iOS never calls back, so the save sat for the 30-second timeout. A re-arm in that gap was followed by the late save, which bumped the rule's revision after arming and left the badge on "Changes waiting".

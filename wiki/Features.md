@@ -818,7 +818,7 @@ A loop's page has an **Alarm** card (Dev phone app only). It shows:
 
 Tap a row to change it. **When it rings** is a sheet with day chips, a time per day, and one-off dates or skips.
 
-Saving never reaches the phone. **Arm on this phone** does that. The badge reads Not armed yet, Armed on this phone, Changes waiting, Off, or On hold.
+The first time, **Arm on this phone** sends it to the phone. After that, every change you save goes to the phone right away ("Updated on this phone."). The badge reads Not armed yet, Armed on this phone, Changes waiting, Off, or On hold.
 
 **On hold** means one of two things:
 - the loop's own phone reminder is on, and the card offers **Turn off the reminder** so you don't get both;
