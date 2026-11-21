@@ -14,6 +14,7 @@ import { routineFeathers } from './feathers'
 import RowSwipe from './RowSwipe'
 import { LASTNIGHT_KEY, useNotNow, clock, minutesLabel, useCalendarEvents, useNow } from './today2Hooks'
 import { Ring, Head, NextCard } from './today2Parts'
+import SheetPortal from './SheetPortal'
 import './shell.css'
 import './today2.css'
 
@@ -399,6 +400,7 @@ export default function TodayKept2({
       {m.order.map(id => blocks[id]?.())}
 
       {slippedOpen && (
+        <SheetPortal>
         <div className="bm-sheet-backdrop" onClick={() => setSlippedOpen(false)}>
           <div className="bm-sheet bm-t2 t2-sheet" onClick={e => e.stopPropagation()} role="dialog" aria-label="To look over">
             <div className="bm-grabber" />
@@ -418,9 +420,11 @@ export default function TodayKept2({
             ))}
           </div>
         </div>
+        </SheetPortal>
       )}
 
       {reviewOpen && (
+        <SheetPortal>
         <div className="bm-sheet-backdrop" onClick={() => setReviewOpen(false)}>
           <div className="bm-sheet bm-t2 t2-sheet" onClick={e => e.stopPropagation()} role="dialog" aria-label="Suggestions to review">
             <div className="bm-grabber" />
@@ -439,6 +443,7 @@ export default function TodayKept2({
             ))}
           </div>
         </div>
+        </SheetPortal>
       )}
     </div>
   )

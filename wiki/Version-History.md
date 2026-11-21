@@ -6,6 +6,13 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-11-21
 
+- fix(kept): keep today's sheets above the nav and pin the loop page header [S]
+  - Owner, from iPhone screenshots on prod v2.64.2: the "To look over" and "Suggestions to review" sheets sat under the bottom nav and Throw button. The first rows were unreadable, the header wasn't dimmed, and dragging the sheet scrolled the page behind it. Separately, leaving a loop's page meant scrolling back to the top for Back (BOOM-48).
+  - Cause: those sheets and the Tasks row sheet rendered inside the scrolling surface. iOS WebKit trapped their fixed backdrop in the scroller's layer, so the header and nav painted over it. Chromium draws it correctly, which is why browser checks missed it. The Throw sheet renders beside the surface and never had the problem.
+  - Fix: new `src/kept/SheetPortal.jsx` renders them at the shell root (`.bm-shell` / `.bm-desktop`, host in `sheetHost.js`) and stops touch events from reaching pull-to-refresh. The Today sheets get `overscroll-behavior: contain`. The loop page's Back · title · Edit row is sticky.
+  - Checked in Playwright at 390px and 1440px: the sheets render outside the scroller, the sheet bottom is the sheet and not the nav, the backdrop covers the header, backdrop and Close dismiss, the desktop row sheet stays centered, and Back stays on screen at the bottom of a loop page. No page errors. No WebKit was available, so the phone check is the owner's. Web-only, no rebuild.
+  - Parked by the owner: the Loops list being hard to scan, and paused/ended loops hiding in "N resting" (BOOM-49).
+
 - docs(wiki): record the v2.64.2 production release [XS]
   - Work Status and Decision Log (D019) now record that the Kept 2.0 work is in production. Release #1043 built v2.64.1 without deploying. The runner-pin fix (#1045, promoted in #1046) deployed v2.64.2, confirmed by the health check. #1044 and #1047 relinked `dev` with `main`.
 
