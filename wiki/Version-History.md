@@ -6,6 +6,9 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-11-21
 
+- docs(wiki): record the owner's answers on arriving as done [XS]
+  - D020 now records the four location decisions (BOOM-53): save the place by "here now" or by address (map later); count arrival from 1h before to 1h after the alarm; without Always, the alarm is unchanged; and a quiet notification plus a Today line when it fires. Nothing is built yet.
+
 - docs(wiki): record the v2.65.0 production release [XS]
   - Work Status and Decision Log (D021): release #1056 deployed v2.65.0, confirmed by the health check. It was the first production deploy on Ubuntu 26 with Tailscale action v4. #1057 relinked `dev` with `main`.
 

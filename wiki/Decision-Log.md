@@ -359,7 +359,11 @@ below predate those decisions and are historical recommendations, not authority.
   - Source: "can you use geolocation to complete the task for that day. If I am at the school, I made it and we are done", then "Stop alarms + mark done", and "Today pick first".
   - Decision: arriving at a saved place, within a window around that day's alarm, cancels the day's remaining alarms and marks that day's loop done. Building it means native region monitoring, an "Always" location permission and an iOS rebuild.
   - This reverses D014's "no location inference" for this one, owner-requested use. The place stays on the phone; only the arrival time is recorded.
-  - Still to settle before building: how the place is saved (for example "I'm here now"), the window's width, and what happens without Always permission.
+  - Settled the same day (BOOM-53):
+    - **Saving the place:** both "Use where I am now" and typing an address (geocoded on the phone). Picking on a map is a noted future option.
+    - **Window:** an arrival counts from 1 hour before to 1 hour after that day's alarm.
+    - **Without Always:** the alarm works exactly as today, and the card says arrival can't be detected.
+    - **Feedback:** a quiet notification ("Arrived at school 2:14, pickup done") plus the same line on Today, so a false arrival is noticed before pickup is missed.
 - Merge authority: D017 (standing, `dev` only). Production is unchanged.
 
 ## D021 — Production release v2.65.0: Keep on Today
