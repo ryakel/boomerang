@@ -10,6 +10,7 @@ import LoopsView from './LoopsView'
 import TasksViewKept from './TasksViewKept'
 import MoreView from './MoreView'
 import ThrowSheet from './ThrowSheet'
+import { SheetHostContext } from './sheetHost'
 import './shell.css'
 
 // Kept shell — the Boomerang IA on mobile (spec §6): KeptHeader · active
@@ -34,6 +35,8 @@ export default function KeptShell({
 }) {
   const [tab, setTab] = useState('today')
   const [throwOpen, setThrowOpen] = useState(false)
+  // Sheets opened inside a surface portal to the shell root (SheetPortal.jsx).
+  const [sheetHost, setSheetHost] = useState(null)
 
   let surface
   if (tab === 'loops') {
@@ -80,7 +83,8 @@ export default function KeptShell({
   }
 
   return (
-    <div className="bm-shell">
+    <SheetHostContext.Provider value={sheetHost}>
+    <div className="bm-shell" ref={setSheetHost}>
       <KeptHeader
         onQuokka={onOpenQuokka}
         onBell={onOpenNotifications || onOpenActivity}
@@ -99,5 +103,6 @@ export default function KeptShell({
         onScanSchedule={onScanSchedule}
       />
     </div>
+    </SheetHostContext.Provider>
   )
 }
