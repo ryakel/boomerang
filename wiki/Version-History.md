@@ -4,6 +4,11 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ---
 
+## 2026-11-21
+
+- fix(ci): pin build runners to ubuntu 24.04 so tailscale can connect [XS]
+  - The first prod release run on GitHub's new `ubuntu-latest` (Ubuntu 26 image, 20261116) built and pushed the image (v2.64.1) but never deployed: `tailscale up` exited in ~30 ms on both attempts with "oauth authkeys are in experimental status". That image's `sudo` ignores `-E`, and `tailscale/github-action@v2` (Tailscale 1.42) relies on `sudo -E` to pass `TS_EXPERIMENT_OAUTH_AUTHKEY` to `tailscale up`, so the OAuth key was refused and the runner never joined the tailnet. "Portainer host did not resolve" was the symptom. Both build workflows now pin `runs-on: ubuntu-24.04`, the image every successful deploy ran on. Unpin only with a Tailscale action that works without `sudo -E`.
+
 ## 2026-11-17
 
 - feat(kept): remove the daily goal, catch counter and achievements [M]
