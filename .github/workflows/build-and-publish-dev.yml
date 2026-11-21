@@ -39,7 +39,14 @@ env:
 jobs:
   docker:
     name: Build and Publish (Dev)
-    runs-on: ubuntu-latest
+    # Pinned (2026-11-21): ubuntu-latest moved to the Ubuntu 26 image, whose
+    # sudo ignores -E. tailscale/github-action@v2 relies on `sudo -E` to pass
+    # TS_EXPERIMENT_OAUTH_AUTHKEY to `tailscale up`; without it the OAuth key
+    # is refused ("oauth authkeys are in experimental status", exit 1 in
+    # ~30ms), the runner never joins the tailnet, and Portainer never gets the
+    # webhook. Every successful deploy ran on 24.04. Unpin only together with
+    # a Tailscale action that works without sudo -E.
+    runs-on: ubuntu-24.04
     steps:
 
       - name: Checkout
