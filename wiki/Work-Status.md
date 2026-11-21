@@ -1,5 +1,9 @@
 # Work status and authorization
 
+## Production release v2.65.0 (2026-11-21)
+
+Keep on Today is in production. So is the alarm interface code, which stays off outside dev (D015). Deploys now run on Ubuntu 26 with Tailscale action v4. D021 has the detail.
+
 ## Keep on Today in dev (BOOM-52), location trigger next (2026-11-21)
 
 Keep on Today is built: quick add, both editors, the quick editor chip, the Tasks row sheet, and Quokka. The location trigger is the next build (D020). It needs native code and an iOS rebuild, and the owner chose to do Keep on Today first.
