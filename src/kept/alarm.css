@@ -76,3 +76,11 @@
 .al-choices button.is-on { background: var(--bm-ember); color: var(--bm-on-ember, #fff); font-weight: 600; }
 .al-input { width: 100%; box-sizing: border-box; margin: 4px 0 10px; }
 .al-picks { margin-bottom: 4px; }
+
+/* Arriving as done (BOOM-53) */
+.al-arrive-note { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; }
+.al-place { display: flex; align-items: center; gap: 6px; margin: 2px 0 8px; font-size: 15px; font-weight: 500; color: var(--t2-text); }
+.al-place-acts { display: flex; gap: 8px; margin-bottom: 8px; }
+.al-address { flex-wrap: nowrap; margin-bottom: 4px; }
+.al-address .al-input { margin: 0; flex: 1 1 auto; min-width: 0; }
+

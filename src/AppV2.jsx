@@ -24,6 +24,7 @@ import DoneList from './components/DoneList'
 import ActivityLog from './components/ActivityLog'
 import NotificationsModal from './components/NotificationsModal'
 import RoutinesModal from './components/RoutinesModal'
+import { setArrivalHandler } from './alarmRules'
 import KeptShell from './kept/KeptShell'
 import KeptDesktop from './kept/KeptDesktop'
 import QuickEditTask from './kept/QuickEditTask'
@@ -1089,6 +1090,23 @@ export default function AppV2() {
     }
     if (routine?.resume_at) updateRoutine(routineId, { resume_at: null })
   }, [markRoutineDayDone, routines, tasks, completeTask, updateTask, pushStatusToTrello, updateRoutine])
+
+  // Arriving as done (BOOM-53): an arrival the phone recorded marks that day of
+  // the loop done through the same path as the loop page's calendar (stamp +
+  // close the day's open task). Throwing leaves the arrival pending on the
+  // phone, so a sync that runs before loops have loaded never loses it.
+  const arrivalRef = useRef(null)
+  arrivalRef.current = ({ sourceKind, sourceId, date, recordedAt }) => {
+    if (sourceKind !== 'routine') return
+    if (!routines.some(r => r.id === sourceId)) throw new Error('That loop has not loaded yet; the arrival will sync on the next open.')
+    handleMarkLoopDay(sourceId, date, new Date(recordedAt * 1000).toISOString())
+  }
+  const routinesLoaded = routines.length > 0
+  useEffect(() => {
+    if (!routinesLoaded) return
+    setArrivalHandler((arrival) => arrivalRef.current?.(arrival))
+    return () => setArrivalHandler(null)
+  }, [routinesLoaded])
 
   // The undo twin. Taking a day back off must also reopen the task that mark
   // closed (the latest cycle's only), or the spawn pass would see a finished

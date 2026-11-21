@@ -22,6 +22,12 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         // included, which is what WatchConnectivity needs. Activation is cheap
         // and no-ops on a device with no paired watch.
         WatchBridge.shared.activate()
+        // Arriving as done (BOOM-53): the location manager has to exist on
+        // every launch, background included, because iOS relaunches the app to
+        // deliver a saved place's region entry. Dev alarm build only.
+        #if BOOMERANG_ALARM_PROBE && canImport(AlarmKit)
+        if #available(iOS 26.1, *) { ArrivalMonitor.shared.start() }
+        #endif
         return true
     }
 

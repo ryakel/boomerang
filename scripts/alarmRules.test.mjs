@@ -88,3 +88,24 @@ test('routine completion and skipped days suppress only their dates, preserving 
   assert.deepEqual(s.rules[0].heldDates,['2026-11-18','2026-11-25'])
   assert.equal(s.plans[0].occurrences[0].date,'2026-12-02')
 })
+
+// Arriving as done (BOOM-53): an optional place on the rule, validated as
+// strictly as the clocks. Missing means off; it never invents coordinates.
+test('an arrival place is optional, defaults its radius, and rejects bad coordinates', () => {
+  assert.equal(validateAlarmRule(rule()).arrival, null)
+  const ok = validateAlarmRule(rule({ arrival: { enabled: true, latitude: 41.88, longitude: -87.63, label: '  Lincoln Elementary  ' } }))
+  assert.deepEqual(ok.arrival, { enabled: true, latitude: 41.88, longitude: -87.63, radius: 150, label: 'Lincoln Elementary' })
+  for (const bad of [
+    { enabled: 'yes', latitude: 1, longitude: 1, label: 'x' },
+    { enabled: true, latitude: 91, longitude: 1, label: 'x' },
+    { enabled: true, latitude: 1, longitude: -181, label: 'x' },
+    { enabled: true, latitude: NaN, longitude: 1, label: 'x' },
+    { enabled: true, latitude: 1, longitude: 1, label: '' },
+    { enabled: true, latitude: 1, longitude: 1, radius: 20, label: 'x' },
+  ]) assert.throws(() => validateAlarmRule(rule({ arrival: bad })))
+  const store = createAlarmRuleStore({ get: () => s, set: (x) => { s = x }, flush: () => {}, source: () => ({ title: 'School pickup', status: 'active' }), now: () => now })
+  let s
+  const device = crypto.randomUUID(), id = crypto.randomUUID()
+  store.save(id, rule({ arrival: { enabled: true, latitude: 41.88, longitude: -87.63, label: 'School' } }), 0, device)
+  assert.equal(store.snapshot().rules[0].arrival.label, 'School', 'the place survives a save and a snapshot')
+})

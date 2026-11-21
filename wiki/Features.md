@@ -830,4 +830,13 @@ The phone holds 16 alarms at a time. One arming covers the next 16, and the card
 
 **Settings → Notifications → Alarms** lists what this phone holds and has **Cancel all alarms on this phone**. Permission and the one-minute sound test stay in **Test channels**. Stop on the alarm only silences it.
 
+**Done when I arrive** (Dev phone app, needs one rebuild). On the Alarm card, save a place: tap **Use where I am now**, or type an address and tap **Find**. Then name it and turn it on.
+- Saving asks iOS for "Always" location, so arriving counts even when Boomerang is closed.
+- Arriving there from an hour before to an hour after that day's alarm stops the rest of that day's alarms and marks the loop done for the day.
+- You get a quiet notification ("Arrived at School, 2:14"), and Today's alarm card reads "Arrived at School at 2:14".
+- Outside that window, being there does nothing.
+- **Without Always location:** the card says arrival can't be detected, and the alarm works as before.
+- **Turning arrival off** stops the phone watching the place right away. Any other change waits for a re-arm, like the rest of the card.
+- **Privacy:** only the place you saved and the arrival time are kept, never your location history.
+
 Details and limits: [Alarm Rules](Alarm-Rules.md).
