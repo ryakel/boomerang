@@ -203,23 +203,35 @@ final class AlarmRulesService {
             }
             let incoming = Set(entries.map(\.key))
             try cancel(disk.cues.keys.filter { !incoming.contains(disk.cues[$0]!.entry.key) })
-            for entry in entries where disk.receipts[entry.key] == nil {
+            // A day already done on this phone (the done button, or an arrival
+            // not yet synced to the server) is never scheduled again.
+            for entry in entries where disk.receipts[entry.key] == nil && disk.arrivals?[entry.key] == nil {
                 for early in [false, true] {
                     if early && (!entry.earlyPending || entry.early <= now) { continue }
                     let key = entry.key + (early ? ":early" : ":target")
+                    var fresh = false
                     if let old = disk.cues[key] {
-                        // Missing accepted cues may have been stopped/expired; never recreate them.
-                        if old.cancelled { continue }
-                        if !old.accepted {
-                            guard active.contains(where: { $0.id == old.id }) else { throw error("A previous scheduling outcome is uncertain. Cancel rule alarms and review native status before continuing.") }
+                        let live = active.contains(where: { $0.id == old.id })
+                        if !old.cancelled && !old.accepted {
+                            guard live else { throw error("A previous scheduling outcome is uncertain. Cancel rule alarms and review native status before continuing.") }
                             disk.cues[key]?.accepted = true; try save()
                             continue
                         }
-                        if old.entry == entry { continue }
-                        guard active.contains(where: { $0.id == old.id }) else { continue }
-                        try cancel([key])
+                        if !old.cancelled && live && old.entry == entry { continue }
+                        // Anything else in the plan is scheduled again: a cue
+                        // cancelled by Turn off, a day dropped and added back,
+                        // a day the 16-slot window let go of, one iOS no longer
+                        // lists. This used to `continue` on a cancelled cue, so
+                        // arming after Turn off silently did nothing (BOOM-56).
+                        // Only a deliberate arming gets here, and the plan holds
+                        // only times still ahead (an early cue whose time passed
+                        // is skipped above), so an alarm you stopped never returns.
+                        if live { try cancel([key]) }
+                        fresh = true
                     }
-                    let cue = OwnedAlarmCue(id: cueId(key), entry: entry, earlyCue: early, accepted: false)
+                    // A re-created cue gets a new id so it never collides with
+                    // one iOS is still tearing down.
+                    let cue = OwnedAlarmCue(id: fresh ? UUID() : cueId(key), entry: entry, earlyCue: early, accepted: false)
                     disk.cues[key] = cue; try save() // Own the ID even if scheduling reply is lost.
                     try await schedule(cue)
                     guard try alarms().contains(where: { $0.id == cue.id }) else { throw error("An alarm was not found after arming. Check status; do not retry blindly.") }

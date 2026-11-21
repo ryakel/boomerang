@@ -35,7 +35,7 @@ test('arriving at a saved place stops the day\'s alarm, marks the loop done and 
     },
     load(id){
       if(id==='\0arrival-api') return `export const isNativeShell=()=>true;export async function readJson(r){const d=await r.json();if(!r.ok)throw Error(d.error);return d}`
-      if(id==='\0arrival-proxy') return `import{registerPlugin as real}from'@capacitor/core';
+      if(id==='\0arrival-proxy') return `import{registerPlugin as real}from'@capacitor/core';import{applyNativePlan}from'/scripts/alarmNativeFixture.mjs';
         const state=window.ruleNative={available:true,deviceId:'${device}',authorization:'authorized',cues:[],receipts:[],arrivals:[],places:[],arms:0,lastPlaces:null,dropped:[]};
         const loc=window.locationNative={available:true,authorization:'whenInUse',monitoring:true,precise:true,requests:[]};
         const snap=()=>({...state,placeRules:state.places.map(p=>p.ruleId)});
@@ -47,7 +47,7 @@ test('arriving at a saved place stops the day\'s alarm, marks the loop done and 
           state.cues=state.cues.map(x=>x.key===c.key?{...x,state:'cancelled'}:x);return true};
         export const registerPlugin=name=>real(name,{web:()=>({
           getStatus:async()=>snap(),
-          applyPlan:async({items,places=[]})=>{if(items.length>16)throw Error('At most 16 occurrences fit in this trial.');state.arms++;state.lastPlaces=places;state.places=places;const keep=new Set(items.map(x=>x.key));state.cues=state.cues.filter(x=>!keep.has(x.key)).map(x=>({...x,state:'cancelled'})).concat(items.map(x=>({...x,earlyCue:false,state:'scheduled'})));return snap()},
+          applyPlan:async({items,places=[]})=>{applyNativePlan(state,items,{rules:window.__nativeRules});state.arms++;state.lastPlaces=places;state.places=places;return snap()},
           acknowledge:async({key})=>{const c=state.cues.find(x=>x.key===key);state.receipts.push({key,ruleId:c.ruleId,date:c.date,label:c.ackLabel,recordedAt:Date.now()/1000,synced:false});state.cues=state.cues.map(x=>x.key===key?{...x,state:'cancelled'}:x);return snap()},
           markSynced:async({key})=>{state.receipts.find(x=>x.key===key).synced=true;return snap()},
           arrivalSynced:async({key})=>{state.arrivals.find(x=>x.key===key).synced=true;return snap()},
@@ -69,6 +69,8 @@ test('arriving at a saved place stops the day\'s alarm, marks the loop done and 
   const page=await browser.newPage({viewport:{width:390,height:900},timezoneId:'America/Chicago'})
   const errors=[];page.on('pageerror',e=>errors.push(e.message))
   await page.addInitScript(()=>{window.__BOOMERANG_ALARM_PROBE_BUILD__=true})
+    // ALARM_NATIVE_RULES=before-boom-56 replays the phone's old skip of cancelled cues.
+    await page.addInitScript(r=>{window.__nativeRules=r},process.env.ALARM_NATIVE_RULES||'current')
   await page.goto(`http://127.0.0.1:${vite.httpServer.address().port}/__arrive`)
   const card=page.getByRole('region',{name:'Alarm',exact:true})
   const dialog=page.getByRole('dialog')

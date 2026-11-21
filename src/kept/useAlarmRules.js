@@ -22,15 +22,17 @@ export function useAlarmRules() {
   const running = useRef(false)
 
   const load = useCallback(async ({ sync = false } = {}) => {
-    if (!available) return
+    if (!available) return null
     try {
       if (sync) await refreshAlarmRuleState()
       const n = await alarmRuleStatus()
       const s = await alarmRuleApi.load()
-      if (!alive.current) return
+      if (!alive.current) return null
       setNative(n); setState(s); setError(null)
+      return null
     } catch (e) {
       if (alive.current) setError(e.message)
+      return e.message || 'Could not read the alarm state.'
     }
   }, [available])
 
@@ -56,10 +58,12 @@ export function useAlarmRules() {
     setBusy(true)
     let failure = null
     try { await fn() } catch (e) { failure = e.message || 'Something went wrong.' }
-    // The re-read clears a stale error, so the operation's own error goes last.
-    await load()
+    // The operation's own error wins; if it worked but the re-read failed,
+    // say so. Clearing that error left the card showing stale state with no
+    // hint that it was stale (BOOM-56).
+    const stale = await load()
     running.current = false
-    if (alive.current) { setBusy(false); setError(failure) }
+    if (alive.current) { setBusy(false); setError(failure || stale) }
     window.dispatchEvent(new Event(CHANGED))
     return !failure
   }, [load])
