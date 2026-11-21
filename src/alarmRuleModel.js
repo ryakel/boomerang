@@ -133,10 +133,42 @@ export function alarmCardStatus({ rule, state, native, armedRevision = null, now
   const want = new Set(window.filter(o => o.date <= armedThrough).map(o => `${o.key}@${epoch(o.target)}`))
   const have = new Set(armed.map(c => `${c.key}@${Math.round(c.target)}`))
   const same = want.size === have.size && [...want].every(k => have.has(k))
-  const changed = !same || (armedRevision != null && armedRevision !== rule.revision)
+  const settings = armedRevision != null && armedRevision !== rule.revision
+  const changed = !same || settings
   const more = plan.some(o => o.date > armedThrough)
   const renewSoon = !changed && more && dayDiff(todayKey, armedThrough) <= RENEW_WITHIN_DAYS
-  return { status: changed ? 'changes' : 'armed', armedThrough, renewSoon, next: window.slice(0, 3), armsThrough, capped }
+  return { status: changed ? 'changes' : 'armed', armedThrough, renewSoon, next: window.slice(0, 3), armsThrough, capped,
+    why: changed ? changesWhy({ window, armed, armedThrough, native, settings, sameTimes: same }) : null }
+}
+
+// What "Changes waiting" is actually about (BOOM-56). The card used to say only
+// that something differed, which left a stuck state undiagnosable from the
+// phone. Each missing day carries the phone's own state for it: "cancelled"
+// after an arming means the phone skipped it.
+function changesWhy({ window, armed, armedThrough, native, settings, sameTimes }) {
+  const want = new Map(window.filter(o => o.date <= armedThrough).map(o => [o.key, o]))
+  const have = new Map(armed.map(c => [c.key, c]))
+  const doneOnPhone = new Set([...(native?.receipts || []), ...(native?.arrivals || [])].map(r => r.key))
+  const phoneState = (key) => doneOnPhone.has(key) ? 'marked done' : (native?.cues || []).find(c => c.key === key && !c.earlyCue)?.state || 'absent'
+  const missing = [...want.values()].filter(o => !have.has(o.key)).map(o => ({ date: o.date, state: phoneState(o.key) }))
+  const moved = [...want.values()].filter(o => have.has(o.key) && epoch(o.target) !== Math.round(have.get(o.key).target)).map(o => o.date)
+  const extra = [...have.values()].filter(c => !want.has(c.key)).map(c => c.date)
+  return { missing, moved, extra, settings: settings && sameTimes }
+}
+
+// One plain line for the card from changesWhy().
+export function changesWhyText(why) {
+  if (!why) return null
+  const days = (list) => list.slice(0, 4).map(d => shortDate(d)).join(', ') + (list.length > 4 ? ` and ${list.length - 4} more` : '')
+  const parts = []
+  if (why.missing.length) {
+    const states = [...new Set(why.missing.map(m => m.state))].join('/')
+    parts.push(`The phone doesn’t have ${days(why.missing.map(m => m.date))} (${states} on the phone).`)
+  }
+  if (why.moved.length) parts.push(`Times differ on ${days(why.moved)}.`)
+  if (why.extra.length) parts.push(`The phone still has ${days(why.extra)}, which you removed.`)
+  if (why.settings) parts.push('The warning, snooze or done-button text changed since arming.')
+  return parts.join(' ') || null
 }
 
 // Today's armed alarms on this phone that are still open, plus the ones

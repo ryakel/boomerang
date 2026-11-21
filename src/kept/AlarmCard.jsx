@@ -4,7 +4,7 @@ import SheetPortal from './SheetPortal'
 import { useAlarmRules } from './useAlarmRules'
 import { alarmLocation, alarmRuleApi, applyAlarmRulePlan, armedRevisions, refreshAlarmRuleState } from '../alarmRules'
 import { alarmProbe } from '../alarmProbe'
-import { alarmCardStatus, arrivalState, blankAlarmRule, STATUS_LABEL, ARRIVAL_WINDOW_MINUTES, clock12, ringsSummary, oneOffSummary, shortDate, dayDate, timeIn, DAY_LONG } from '../alarmRuleModel'
+import { alarmCardStatus, arrivalState, blankAlarmRule, STATUS_LABEL, changesWhyText, ARRIVAL_WINDOW_MINUTES, clock12, ringsSummary, oneOffSummary, shortDate, dayDate, timeIn, DAY_LONG } from '../alarmRuleModel'
 import { dateInZone } from '../../server/alarmSchedule.js'
 import './alarm.css'
 
@@ -236,6 +236,7 @@ export default function AlarmCard({ kind = 'routine', sourceId, reminderOn = fal
       )}
       {flash && <p className="al-note al-flash" role="status">{flash}</p>}
       {note && <p className="al-note">{note}</p>}
+      {s.status === 'changes' && s.why && <p className="al-note al-why" data-testid="changes-why">{changesWhyText(s.why)}</p>}
       {error && <p className="al-note al-error" role="alert">{error}</p>}
       {native?.lastError && <p className="al-note al-error" role="alert">{native.lastError}</p>}
 
