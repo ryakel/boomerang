@@ -177,6 +177,23 @@ export default function ThrowSheet({ open, onClose, onThrow, onThrowNote, onMore
         <div className="bm-throw-mode-row">
           <h3 className="bm-sheet-title">{HEADINGS[mode]}</h3>
           <div className="bm-throw-mode">
+            {/* Keep on Today: just the pin, beside the mode chips (owner,
+                2026-11-21: the labelled chip in the date row was too big).
+                Task mode only; dimmed when Today is the chosen day, which
+                already puts it there. */}
+            {mode === 'task' && (
+              <button
+                className={`bm-pick bm-throw-pin${keepToday && dateId !== 'today' ? ' is-on' : ''}`}
+                aria-pressed={keepToday && dateId !== 'today'}
+                aria-label="Keep on Today"
+                title={dateId === 'today' ? 'Already on Today' : 'Keep on Today until it’s done'}
+                disabled={dateId === 'today'}
+                onMouseDown={keepFocus}
+                onClick={() => setKeepToday(v => !v)}
+              >
+                <Pin size={14} strokeWidth={2.2} aria-hidden="true" />
+              </button>
+            )}
             <button className={`bm-pick${mode === 'task' ? ' is-on' : ''}`} onMouseDown={keepFocus} onClick={() => pickMode('task')}>Task</button>
             <button className={`bm-pick${mode === 'reminder' ? ' is-on' : ''}`} onMouseDown={keepFocus} onClick={() => pickMode('reminder')}>Reminder</button>
             <button className={`bm-pick${mode === 'note' ? ' is-on' : ''}`} onMouseDown={keepFocus} onClick={() => pickMode('note')}>Note</button>
@@ -196,11 +213,6 @@ export default function ThrowSheet({ open, onClose, onThrow, onThrowNote, onMore
             {DATES.map(d => (
               <button key={d.id} className={`bm-pick${dateId === d.id ? ' is-on' : ''}`} onMouseDown={keepFocus} onClick={() => setDateId(d.id)}>{d.label}</button>
             ))}
-            {dateId !== 'today' && (
-              <button className={`bm-pick bm-pick-keep${keepToday ? ' is-on' : ''}`} aria-pressed={keepToday} onMouseDown={keepFocus} onClick={() => setKeepToday(v => !v)}>
-                <Pin size={13} strokeWidth={2.2} aria-hidden="true" /> Keep on Today
-              </button>
-            )}
           </div>
         )}
         {mode === 'reminder' && (

@@ -6,6 +6,13 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-11-21
 
+- style(kept): make quick add's keep on today a pin icon in the header [XS]
+  - Owner: "I really dislike that button. It is huge… just use the pin icon and put it up at the top next to the task reminder note stuff… on the left… just the pin and not the text" (BOOM-52).
+  - The labelled chip in the day-chip row is gone. An icon-only pin, the mode chips' height, now sits left of Task / Reminder / Note, labelled "Keep on Today" for screen readers. It shows in Task mode only and is dimmed when Today is the chosen day.
+  - With the pin there, the mode chips tighten slightly (gap 5px, padding 9px) so the row still shares a line with the heading at 375px and up, every current iPhone width. At 320px it already wrapped; at 360px (Android only) it now wraps too.
+  - Checked: the Keep on Today Playwright run passes (pin on, dimmed on Today, saved with a weekend date, shown on Today, and every other entry point unchanged), and header wrapping was measured at 320/360/375/390/430px.
+  - Web-only.
+
 - feat(kept): keep a task on Today without making it due today [M]
   - Owner: they wanted a task that isn't due today on Today, as a conscious choice from quick add or the edit menu, and it "should stay there until it's done or until I uncheck the box or the due date is due or overdue" (BOOM-52).
   - **Field:** reuses `pinned_to_today`, already the sticky project pin in the database, sync and Quokka, so there's no migration. `committed_on` (the watch/Siri daily pick, cleared nightly) is untouched.
