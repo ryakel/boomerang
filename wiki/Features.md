@@ -32,7 +32,7 @@ The Kept Today screen answers three questions in one screen: what genuinely need
 - **Needs attention** is small on purpose: critical tasks, things due today or picked for today, a reminder that just went off, or something due yesterday that you'd marked as mattering. Overdue alone doesn't qualify, and neither does a snooze ending.
 - **Keep on Today** puts a task on Today that isn't due today, as a deliberate choice. It shows under Needs attention as "On Today until done" and stays there day after day until you finish it, untick it, or its due date arrives. Once it's due it shows as due, and past its date it has slipped like any other task.
   - **Where to set it:**
-    - quick add: the **Keep on Today** toggle beside the day chips, which survives **More options**;
+    - quick add: the **pin** at the top, left of Task / Reminder / Note (Task mode only, and dimmed when the day is already Today). It survives **More options**;
     - the quick editor: a **Keep on Today** chip;
     - the full editor and Add form: a checkbox;
     - the Tasks list's row sheet: **Keep on Today** / **Take off Today**.

@@ -307,8 +307,6 @@
   cursor: pointer;
 }
 .bm-pick.is-on { border-color: var(--bm-ember); background: var(--bm-ember-soft); color: var(--bm-ember); }
-/* Keep on Today in the Throw sheet: a toggle beside the day chips, not one of them. */
-.bm-pick-keep { display: inline-flex; align-items: center; gap: 6px; }
 .bm-throw-input {
   width: 100%;
   box-sizing: border-box;
@@ -822,6 +820,13 @@
 /* Compact scale for the three mode chips — a secondary control, and three of
  * them at the full chip size cannot share a 390px row with the heading. */
 .bm-throw-mode .bm-pick { padding: 6px 11px; font-size: 12px; }
+/* Keep on Today: an icon-only pin, the mode chips' height, to their left. */
+.bm-throw-mode .bm-throw-pin { display: inline-grid; place-items: center; padding: 6px 7px; }
+/* With the pin there, the row has four controls: tighten a touch so it still
+ * shares one line with the heading on a 360–375px phone. */
+.bm-throw-mode:has(.bm-throw-pin) { gap: 5px; }
+.bm-throw-mode:has(.bm-throw-pin) .bm-pick:not(.bm-throw-pin) { padding: 6px 9px; }
+.bm-throw-mode .bm-throw-pin:disabled { opacity: 0.35; cursor: default; }
 
 /* --- Crisis tag ("prio") — the one deliberately loud surface in Kept.
  * See wiki/Crisis-Tag-And-Impact-Ranking.md. --- */
