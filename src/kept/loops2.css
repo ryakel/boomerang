@@ -119,3 +119,9 @@
 .lp-delete-acts .t2-btn { flex: 1 1 0; }
 .lp-delete-yes { border: 0; background: color-mix(in srgb, var(--bm-danger) 14%, var(--t2-card)); color: var(--bm-danger) !important; font-weight: 600; }
 .lp-delete-link { color: var(--t2-meta); }
+
+/* Mode sheets on a loop's page (BOOM-54). */
+.lp-stepper { display: inline-flex; align-items: center; gap: 6px; }
+.lp-stepper b { min-width: 28px; text-align: center; font: 600 17px/1 var(--t2-sans); color: var(--t2-text); }
+.lp-item-input { margin: 0; flex: 1 1 auto; min-width: 0; }
+

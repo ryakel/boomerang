@@ -1712,6 +1712,7 @@ export default function AppV2() {
           onToggleLoopPause={togglePause}
           onDeleteLoop={deleteRoutine}
           onTurnOffLoopReminder={turnOffLoopReminder}
+          onUpdateLoop={updateRoutineFromEditor}
           onUnmarkLoopDay={handleUnmarkLoopDay}
           onSkipLoopDay={skipRoutineDay}
           onPushLoopOut={pushLoopOut}
@@ -1778,6 +1779,7 @@ export default function AppV2() {
           onToggleLoopPause={togglePause}
           onDeleteLoop={deleteRoutine}
           onTurnOffLoopReminder={turnOffLoopReminder}
+          onUpdateLoop={updateRoutineFromEditor}
           onUnmarkLoopDay={handleUnmarkLoopDay}
           onSkipLoopDay={skipRoutineDay}
           onPushLoopOut={pushLoopOut}

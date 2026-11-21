@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import { ArrowLeft, Pencil, ChevronLeft, ChevronRight, ChevronDown, Check, Plane, Undo2, History } from 'lucide-react'
 import MonthDots from './MonthDots'
 import AlarmCard from './AlarmCard'
+import LoopModeSheet from './LoopModeSheet'
 import { cycleUnitLabel, loopGaps } from './cycles'
 import { historyByDay } from './heatmapUtils'
 import { formatScheduleAnchor, getNextDueDate, computeHabitStats, loadSettings } from '../store'
@@ -32,13 +33,14 @@ const fullDate = (d) => d.toLocaleDateString('en-US', { weekday: 'short', month:
 export default function LoopDetail({
   routine, color, spawnBlocked = false, tasks = [], awayDays = null,
   onBack, onEdit, onSpawnNow, onSkipCycle, onMarkLoopDay, onUnmarkLoopDay, onSkipLoopDay, onPushLoopOut,
-  onSetAutopilot, onTogglePause, onToggleHabit, onDelete = null, onTurnOffReminder = null,
+  onSetAutopilot, onTogglePause, onToggleHabit, onDelete = null, onTurnOffReminder = null, onUpdateLoop = null,
 }) {
   const [monthRef, setMonthRef] = useState(() => new Date())
   const [logDay, setLogDay] = useState(() => localYMD(new Date()))
   const [fixOpen, setFixOpen] = useState(false)
   const [flash, setFlash] = useState(null)   // 'spawned' | 'blocked' | 'skipped'
   const [confirmDelete, setConfirmDelete] = useState(false)
+  const [modeSheet, setModeSheet] = useState(null) // 'practice' | 'checklist' | 'reminder'
 
   // Hooks before the null guard (rules-of-hooks); loopGaps no-ops on null.
   const gaps = useMemo(() => loopGaps(routine, tasks, 12, awayDays), [routine, tasks, awayDays])
@@ -92,8 +94,13 @@ export default function LoopDetail({
     if (id === mode) return
     if (id === 'autopilot' && canAutopilot(routine)) return onSetAutopilot?.(routine.id, true)
     if (id === 'reminder' && mode === 'autopilot') return onSetAutopilot?.(routine.id, false)
-    // Checklist items and a practice target are structural: the editor sets
-    // them. It opens on the mode tapped here, with a line saying what's left.
+    // Checklist items and a practice target are set right here in a sheet
+    // (BOOM-54); this used to open the old editor. Practice → Reminder needs
+    // no input, so it switches straight away.
+    if (onUpdateLoop) {
+      if (id === 'reminder' && mode === 'practice') return onUpdateLoop(routine.id, { spawn_mode: 'auto', target_count: null, target_period: null })
+      if (id === 'practice' || id === 'checklist' || (id === 'reminder' && mode === 'checklist')) return setModeSheet(id)
+    }
     onEdit?.(routine, id)
   }
 
@@ -159,6 +166,11 @@ export default function LoopDetail({
               {routine.paused ? 'Resume' : 'Edit'}
             </button>
           </section>
+        )}
+
+        {modeSheet && (
+          <LoopModeSheet kind={modeSheet} routine={routine} onClose={() => setModeSheet(null)}
+            onSave={(patch) => { onUpdateLoop?.(routine.id, patch); setModeSheet(null) }} />
         )}
 
         <section className="t2-card">
