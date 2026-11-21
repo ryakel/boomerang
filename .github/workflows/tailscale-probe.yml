@@ -1,0 +1,75 @@
+name: Tailscale probe (throwaway, BOOM-50)
+
+# Throwaway experiment: never merged. Lives only on the claude/tailscale-26-probe
+# branch. Joins the tailnet and checks that the Portainer host RESOLVES. It never
+# calls the webhook, so nothing deploys.
+on:
+  push:
+    branches: [claude/tailscale-26-probe]
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    name: ${{ matrix.label }}
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - label: "ubuntu-latest + action v2 (control, expected to fail)"
+            runner: ubuntu-latest
+            action: v2
+          - label: "ubuntu-latest + action v4"
+            runner: ubuntu-latest
+            action: v4
+          - label: "ubuntu-24.04 + action v4"
+            runner: ubuntu-24.04
+            action: v4
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Runner image
+        run: |
+          . /etc/os-release && echo "OS: $PRETTY_NAME"
+          echo "ImageVersion: ${ImageVersion:-unknown}"
+          sudo --version | head -1
+          sudo -E env | grep -c PROBE_ENV_VAR || echo "sudo -E dropped PROBE_ENV_VAR"
+        env:
+          PROBE_ENV_VAR: kept
+
+      - name: Connect (action v2)
+        if: matrix.action == 'v2'
+        id: ts_v2
+        continue-on-error: true
+        uses: tailscale/github-action@v2
+        with:
+          oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID }}
+          oauth-secret: ${{ secrets.TS_OAUTH_SECRET }}
+          tags: tag:ci
+
+      - name: Connect (action v4)
+        if: matrix.action == 'v4'
+        id: ts_v4
+        continue-on-error: true
+        uses: tailscale/github-action@v4.4.0
+        with:
+          oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID }}
+          oauth-secret: ${{ secrets.TS_OAUTH_SECRET }}
+          tags: tag:ci
+
+      - name: Check tailnet reachability (DNS only, no webhook call)
+        id: dns
+        if: steps.ts_v2.outcome == 'success' || steps.ts_v4.outcome == 'success'
+        continue-on-error: true
+        env:
+          WEBHOOK_URL: ${{ secrets.PORTAINER_WEBHOOK_URL }}
+        run: bash .github/scripts/await-tailnet-dns.sh
+
+      - name: Result
+        run: |
+          echo "connect v2: ${{ steps.ts_v2.outcome || 'n/a' }}"
+          echo "connect v4: ${{ steps.ts_v4.outcome || 'n/a' }}"
+          echo "tailnet DNS: ${{ steps.dns.outcome || 'not run' }}"
+          if [ "${{ steps.dns.outcome }}" = "success" ]; then echo "RESULT: PASS"; else echo "RESULT: FAIL"; exit 1; fi
