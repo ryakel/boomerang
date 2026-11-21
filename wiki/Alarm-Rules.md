@@ -188,3 +188,5 @@ Launch and resume still never schedule anything.
 - `marked done` (a receipt or an arrival on the phone).
 
 A day that still reads cancelled right after an arming means the phone didn't schedule it.
+
+**Errors stay put.** `useAlarmRules` keeps a re-read error (cleared by the next good read) apart from an action's error (kept until the next action). They used to share one slot. The `boom-alarms-changed` event each action sends made the same card re-read and wipe its own error within a second, so a refused Re-arm only flashed.

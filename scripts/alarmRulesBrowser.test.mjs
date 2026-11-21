@@ -42,7 +42,7 @@ test('alarm card sets up, arms and acknowledges a loop alarm; saving never arms'
           getStatus:async()=>({...state}),
           // Like BoomerangAlarmRules.swift: cancelled cues stay in the readback
           // with state 'cancelled'; a plan cancels whatever it leaves out.
-          applyPlan:async({items})=>{applyNativePlan(state,items,{rules:window.__nativeRules});state.arms++;state.lastItems=items.length;return {...state}},
+          applyPlan:async({items})=>{if(state.failNext){const m=state.failNext;state.failNext=null;throw Error(m)}applyNativePlan(state,items,{rules:window.__nativeRules});state.arms++;state.lastItems=items.length;return {...state}},
           acknowledge:async({key})=>{const c=state.cues.find(x=>x.key===key);state.receipts.push({key,ruleId:c.ruleId,date:c.date,label:c.ackLabel,recordedAt:Date.now()/1000,synced:false});state.cues=state.cues.map(x=>x.key===key?{...x,state:'cancelled'}:x);return{...state}},
           markSynced:async({key})=>{state.receipts.find(x=>x.key===key).synced=true;return{...state}},
           cancelRules:async({ruleIds=[],keys=[]})=>{state.cues=state.cues.map(x=>ruleIds.includes(x.ruleId)||keys.includes(x.key)?{...x,state:'cancelled'}:x);return {...state}},cancelAll:async()=>{state.cues=state.cues.map(x=>({...x,state:'cancelled'}));return{...state}}
@@ -133,6 +133,14 @@ test('alarm card sets up, arms and acknowledges a loop alarm; saving never arms'
     // must schedule them afresh (BOOM-56: the phone used to skip them).
     await card.getByRole('button',{name:'Turn on'}).click()
     await badge('Not armed yet')
+    // A refused arming keeps its message on screen. It used to flash and
+    // vanish when the card's own "alarms changed" event re-read it (BOOM-56).
+    await page.evaluate(()=>{window.ruleNative.failNext='An owned alarm is ringing or snoozed.'})
+    await card.getByRole('button',{name:'Arm on this phone'}).click()
+    const refusal=card.getByRole('alert').filter({hasText:'ringing or snoozed'})
+    await refusal.waitFor()
+    await page.waitForTimeout(1500)
+    assert.equal(await refusal.isVisible(),true,'the refusal stays on the card')
     await card.getByRole('button',{name:'Arm on this phone'}).click()
     await badge('Armed on this phone')
     assert.equal(await live(page),16,'arming after Turn off schedules every day again')

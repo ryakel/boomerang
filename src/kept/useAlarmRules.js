@@ -16,7 +16,13 @@ export function useAlarmRules() {
   const available = alarmRulesAvailable()
   const [state, setState] = useState(null)
   const [native, setNative] = useState(null)
-  const [error, setError] = useState(null)
+  // Two errors, kept apart: a failed re-read clears itself on the next good
+  // read, but an operation's own failure stays until you act again. They used
+  // to share one slot, and the "alarms changed" event every operation sends
+  // made this same card re-read and wipe its own error a moment after showing
+  // it: Re-arm failed with a message that flashed and vanished (BOOM-56).
+  const [loadError, setLoadError] = useState(null)
+  const [opError, setOpError] = useState(null)
   const [busy, setBusy] = useState(false)
   const alive = useRef(true)
   const running = useRef(false)
@@ -28,10 +34,10 @@ export function useAlarmRules() {
       const n = await alarmRuleStatus()
       const s = await alarmRuleApi.load()
       if (!alive.current) return null
-      setNative(n); setState(s); setError(null)
+      setNative(n); setState(s); setLoadError(null)
       return null
     } catch (e) {
-      if (alive.current) setError(e.message)
+      if (alive.current) setLoadError(e.message)
       return e.message || 'Could not read the alarm state.'
     }
   }, [available])
@@ -56,17 +62,15 @@ export function useAlarmRules() {
     if (running.current) return false
     running.current = true
     setBusy(true)
+    setOpError(null)
     let failure = null
     try { await fn() } catch (e) { failure = e.message || 'Something went wrong.' }
-    // The operation's own error wins; if it worked but the re-read failed,
-    // say so. Clearing that error left the card showing stale state with no
-    // hint that it was stale (BOOM-56).
-    const stale = await load()
+    await load()
     running.current = false
-    if (alive.current) { setBusy(false); setError(failure || stale) }
+    if (alive.current) { setBusy(false); setOpError(failure) }
     window.dispatchEvent(new Event(CHANGED))
     return !failure
   }, [load])
 
-  return { available, state, native, error, busy, load, run }
+  return { available, state, native, error: opError || loadError, busy, load, run }
 }
