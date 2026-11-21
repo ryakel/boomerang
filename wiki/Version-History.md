@@ -6,6 +6,12 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-11-21
 
+- fix(kept): keep an alarm action's error on the card instead of flashing it [XS]
+  - Owner: "re-arm changes flashes to other text and then does not change 'Changes waiting'" (BOOM-56).
+  - Every alarm action broadcasts "alarms changed" so other alarm views re-read. The card that sent it re-read too, and the re-read cleared the action's error a moment after showing it. A refused Re-arm was therefore unreadable.
+  - Re-read errors and action errors now live apart. An action's error stays until the next action.
+  - The browser test makes an arming fail and checks the message is still there 1.5s later. The old code fails that check.
+
 - feat(kept): say why an alarm reads changes waiting [XS]
   - Owner, after the BOOM-56 rebuild: "Still not rearming. Stuck in waiting."
   - Under the badge, the card names what differs:
