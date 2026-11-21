@@ -36,13 +36,13 @@ test('alarm card sets up, arms and acknowledges a loop alarm; saving never arms'
     },
     load(id){
       if(id==='\0rules-api') return `export const isNativeShell=()=>true;export async function readJson(r){const d=await r.json();if(!r.ok)throw Error(d.error);return d}`
-      if(id==='\0rules-proxy') return `import{registerPlugin as real}from'@capacitor/core';
+      if(id==='\0rules-proxy') return `import{registerPlugin as real}from'@capacitor/core';import{applyNativePlan}from'/scripts/alarmNativeFixture.mjs';
         const state=window.ruleNative={available:true,deviceId:'${device}',authorization:'authorized',cues:[],receipts:[],arms:0,lastItems:0};
         export const registerPlugin=name=>real(name,{web:()=>({
           getStatus:async()=>({...state}),
           // Like BoomerangAlarmRules.swift: cancelled cues stay in the readback
           // with state 'cancelled'; a plan cancels whatever it leaves out.
-          applyPlan:async({items})=>{if(items.length>16)throw Error('At most 16 occurrences fit in this trial.');state.arms++;state.lastItems=items.length;const keep=new Set(items.map(x=>x.key));state.cues=state.cues.filter(x=>!keep.has(x.key)).map(x=>({...x,state:'cancelled'})).concat(items.map(x=>({...x,earlyCue:false,state:'scheduled'})));return {...state}},
+          applyPlan:async({items})=>{applyNativePlan(state,items,{rules:window.__nativeRules});state.arms++;state.lastItems=items.length;return {...state}},
           acknowledge:async({key})=>{const c=state.cues.find(x=>x.key===key);state.receipts.push({key,ruleId:c.ruleId,date:c.date,label:c.ackLabel,recordedAt:Date.now()/1000,synced:false});state.cues=state.cues.map(x=>x.key===key?{...x,state:'cancelled'}:x);return{...state}},
           markSynced:async({key})=>{state.receipts.find(x=>x.key===key).synced=true;return{...state}},
           cancelRules:async({ruleIds=[],keys=[]})=>{state.cues=state.cues.map(x=>ruleIds.includes(x.ruleId)||keys.includes(x.key)?{...x,state:'cancelled'}:x);return {...state}},cancelAll:async()=>{state.cues=state.cues.map(x=>({...x,state:'cancelled'}));return{...state}}
@@ -61,6 +61,8 @@ test('alarm card sets up, arms and acknowledges a loop alarm; saving never arms'
     const page=await browser.newPage({viewport:{width,height:900},timezoneId:'America/Chicago'})
     const errors=[];page.on('pageerror',e=>errors.push(e.message))
     await page.addInitScript(()=>{window.__BOOMERANG_ALARM_PROBE_BUILD__=true})
+    // ALARM_NATIVE_RULES=before-boom-56 replays the phone's old skip of cancelled cues.
+    await page.addInitScript(r=>{window.__nativeRules=r},process.env.ALARM_NATIVE_RULES||'current')
     await page.goto(url)
     const card=page.getByRole('region',{name:'Alarm',exact:true})
     const badge=text=>card.locator('.al-badge',{hasText:text}).waitFor()
@@ -127,9 +129,23 @@ test('alarm card sets up, arms and acknowledges a loop alarm; saving never arms'
     assert.equal(await arms(page),2)
 
     // Back on and armed, then the loop is paused: its alarms are cancelled.
+    // Turn off cancelled every one of these days on the phone; arming again
+    // must schedule them afresh (BOOM-56: the phone used to skip them).
     await card.getByRole('button',{name:'Turn on'}).click()
     await badge('Not armed yet')
     await card.getByRole('button',{name:'Arm on this phone'}).click()
+    await badge('Armed on this phone')
+    assert.equal(await live(page),16,'arming after Turn off schedules every day again')
+
+    // A day dropped and added back while armed comes back on the phone too.
+    await card.getByRole('button',{name:/^Rings/}).click()
+    await dialog.getByRole('button',{name:'Thursday'}).click()
+    await dialog.getByRole('button',{name:'Save',exact:true}).click()
+    await card.getByText('Updated on this phone.').waitFor()
+    await card.getByRole('button',{name:/^Rings/}).click()
+    await dialog.getByRole('button',{name:'Thursday'}).click()
+    await dialog.getByRole('button',{name:'Save',exact:true}).click()
+    await page.waitForFunction(()=>window.ruleNative.cues.some(x=>x.state==='scheduled'&&new Date(x.target*1000).getDay()===4),null,{timeout:5000})
     await badge('Armed on this phone')
     await page.evaluate(async()=>{const m=await import('/src/alarmRules.js');await m.reconcileAlarmRuleSources([],[{id:'r-1',paused:true}])})
     assert.equal(await live(page),0)

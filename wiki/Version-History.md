@@ -6,6 +6,14 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-11-21
 
+- fix(ios): arming again schedules days whose alarms were cancelled [S]
+  - Owner: "Now arm on this phone doesn't work at all… It's persistently off now" (BOOM-56).
+  - The phone's apply skipped any cue it had cancelled, so after Turn off → Turn on, Arm scheduled nothing and reported no error. The same skip hit a day dropped and added back.
+  - A deliberate arming now schedules every plan entry that isn't already live and unchanged, with a fresh alarm id. Stopped alarms, done days and arrivals not yet synced still never come back.
+  - The browser fixture now mirrors the Swift apply (`scripts/alarmNativeFixture.mjs`); the old rules fail the new Turn off → Turn on → Arm step.
+  - The card shows a failed re-read instead of quietly showing stale state.
+  - Native: needs one iOS rebuild.
+
 - feat(kept): once an alarm is armed, saving a change updates the phone [S]
   - Owner: re-arming "feels clunky", then "Auto re-arm once armed" (D022, BOOM-55).
   - The first arming stays a tap. After that, saving any change (times, warning, snooze, done-button text, arrival place) re-arms right away, and the card says "Updated on this phone."

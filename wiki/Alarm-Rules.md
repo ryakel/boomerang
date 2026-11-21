@@ -157,3 +157,25 @@ The re-arm goes through `applyAlarmRulePlan`, so the stale-plan check, the 16-oc
 
 Turning a rule off never re-arms; the sync cancels it. A failed re-arm leaves the card on "Changes waiting", with the error and a Re-arm button.
 
+
+## Arming schedules cancelled days again (BOOM-56, 2026-11-21)
+
+On the Dev phone, Turn off → Turn on → Arm did nothing. The card stayed on "Not armed yet" with no error.
+
+**Cause.** The native apply skipped any cue its ledger had marked cancelled. The skip existed to keep a stopped alarm from coming back. But Turn off cancels every upcoming day of the rule, so the next arming skipped all of them. The same skip hit:
+- a day dropped and added back (the likely cause of the earlier stuck "Changes waiting");
+- days the 16-slot window let go of and later took back;
+- an accepted cue that iOS no longer lists.
+
+**The rule now.** A deliberate arming (Arm, Re-arm, or a save re-arm on an armed rule) schedules every plan entry that isn't already live and unchanged. A re-created cue gets a fresh id.
+
+**What still never comes back:**
+- an alarm you stopped: the plan holds only times still ahead, and an early cue whose time has passed is skipped;
+- a day with a done-button receipt;
+- a day with an arrival not yet synced to the server, which lives in its own store on the phone.
+
+Launch and resume still never schedule anything.
+
+**Why the tests missed it.** The browser fixture re-scheduled cancelled cues, which the Swift never did. Both alarm browser suites now share `scripts/alarmNativeFixture.mjs`, which mirrors the Swift apply. `ALARM_NATIVE_RULES=before-boom-56` replays the old skip and fails at Turn off → Turn on → Arm. A change to the Swift apply must change that file in the same commit.
+
+`useAlarmRules.run` also used to clear a failed re-read when the operation itself had succeeded. The card then showed stale state with no hint. The re-read's error now shows.
