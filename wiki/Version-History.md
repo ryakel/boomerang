@@ -6,6 +6,11 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-11-21
 
+- fix(ci): run deploys on ubuntu 26 with tailscale action v4 [XS]
+  - Undoes this morning's `ubuntu-24.04` pin (BOOM-50). The cause was confirmed by a throwaway probe on `ubuntu-latest`, now Ubuntu 26.04.1 (image 20261116.202.1), where `sudo` is sudo-rs 0.2.13. It prints "preserving the entire environment is not supported, '-E' is ignored". `tailscale/github-action@v2` runs Tailscale 1.42 and turns on OAuth keys through `TS_EXPERIMENT_OAUTH_AUTHKEY`, carried only by `sudo -E`. The probe's v2 control failed exactly as production had ("oauth authkeys are in experimental status", 27 ms).
+  - v4.4.0 runs Tailscale 1.104.4 and passes the key as a `tailscale up` argument, so the dropped environment doesn't matter. In the probe it connected on the first try and the Portainer host resolved over the tailnet in about 2 s, on both Ubuntu 26 and 24.04. The same OAuth client and `tag:ci` work unchanged.
+  - Both build workflows now use `tailscale/github-action@v4.4.0` (connect and retry) on `ubuntu-latest`. The probe never called the webhook and its branch was never merged.
+
 - fix(kept): keep today's sheets above the nav and pin the loop page header [S]
   - Owner, from iPhone screenshots on prod v2.64.2: the "To look over" and "Suggestions to review" sheets sat under the bottom nav and Throw button. The first rows were unreadable, the header wasn't dimmed, and dragging the sheet scrolled the page behind it. Separately, leaving a loop's page meant scrolling back to the top for Back (BOOM-48).
   - Cause: those sheets and the Tasks row sheet rendered inside the scrolling surface. iOS WebKit trapped their fixed backdrop in the scroller's layer, so the header and nav painted over it. Chromium draws it correctly, which is why browser checks missed it. The Throw sheet renders beside the surface and never had the problem.

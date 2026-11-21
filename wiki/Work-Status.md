@@ -13,6 +13,7 @@ fix separately ("yes, promote it once it's merged"). D019 has the detail.
   fix. A manual run on `main` (workflow 44911059431) joined the tailnet, sent
   the webhook, and the health check confirmed the server is on v2.64.2.
 - #1044 and #1047 relinked `dev` with `main` after each release.
+- Follow-up (BOOM-50): the build workflows went back to `ubuntu-latest` (Ubuntu 26) once `tailscale/github-action@v4.4.0` was proven to connect there. v2 needed `sudo -E`, which Ubuntu 26's sudo-rs ignores.
 - The production iOS app needs no rebuild. The Dev app needs one rebuild for
   BOOM-38.
 
