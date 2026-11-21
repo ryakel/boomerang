@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState } from 'react'
-import { computeTaskPoints } from '../store'
 import './Toast.css'
 
 const MESSAGES_QUICK = [
@@ -121,8 +120,8 @@ function getStaticSubtitle(daysOnList, todayCount, isReopen, taskTitle) {
 
 export default function Toast({ task, todayCount, variant = 'complete', onDone, onUndo, nextTask, onNextTaskClick, onCreditYesterday }) {
   const isReopen = variant === 'reopen'
-  // The confirmation after "Did it yesterday": a fixed line, no points, no
-  // shuffle — it is a receipt, not a celebration.
+  // The confirmation after "Did it yesterday": a fixed line, no shuffle — it
+  // is a receipt, not a celebration.
   const isCredited = variant === 'yesterday'
   const daysOnList = Math.floor(
     (Date.now() - new Date(task.created_at).getTime()) / 86400000
@@ -133,19 +132,14 @@ export default function Toast({ task, todayCount, variant = 'complete', onDone, 
   if (!frozen.current && isCredited) {
     frozen.current = {
       message: 'Counted for yesterday.',
-      subtitle: task.routine_id ? 'Streak and loop updated' : 'Streak updated',
+      subtitle: task.routine_id ? 'Loop updated too' : 'Moved to yesterday',
     }
   }
   if (!frozen.current) {
     const variantKey = getVariantKey(daysOnList, isReopen)
     const ai = task.toast_messages?.[variantKey]
     const message = ai?.message || getStaticMessage(daysOnList, isReopen)
-    const pts = isReopen ? 0 : computeTaskPoints(task)
-    const aiSub = ai?.subtitle
-    const staticSub = getStaticSubtitle(daysOnList, todayCount, isReopen, task.title)
-    let subtitle = aiSub
-      ? `${aiSub}${pts ? ` · +${pts} pts` : ''}`
-      : `${staticSub}${pts ? ` · +${pts} pts` : ''}`
+    let subtitle = ai?.subtitle || getStaticSubtitle(daysOnList, todayCount, isReopen, task.title)
     // Impact-3 completions get told so — the visible payoff for doing the
     // thing that actually mattered (impact ranking spec, "the feeling of
     // impact" surface).

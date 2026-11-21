@@ -1,105 +1,138 @@
 import { useMemo, useState } from 'react'
-import { ArrowLeft, Pencil, ChevronLeft, ChevronRight, Repeat2, Plus, FastForward, Check, AlertCircle, Plane, Undo2 } from 'lucide-react'
+import { ArrowLeft, Pencil, ChevronLeft, ChevronRight, ChevronDown, Check, Plane, Undo2, History } from 'lucide-react'
 import MonthDots from './MonthDots'
-import CycleChips from './CycleChips'
-import { cycleWindows, habitWindows, cycleUnitLabel, cycleRally, loopGaps } from './cycles'
+import { cycleUnitLabel, loopGaps } from './cycles'
 import { historyByDay } from './heatmapUtils'
-import { formatCadence, formatScheduleAnchor } from '../store'
+import { formatScheduleAnchor, getNextDueDate, computeHabitStats, loadSettings } from '../store'
 import { localYMD } from '../dates'
+import { loopMode, canAutopilot, scheduleLabel, clockLabel, lastDoneWord, doneOnDay } from '../loopModes'
 import './shell.css'
+import './today2.css'
+import './loops2.css'
 
-// Loop detail (K4): tapping a loop card lands HERE — rally / best / total
-// stat cards, the cycle-chip trail, and a steppable month calendar — instead
-// of dumping straight into the editor. Edit is a deliberate button.
-export default function LoopDetail({ routine, color, spawnBlocked = false, tasks = [], awayDays = null, onBack, onEdit, onSpawnNow, onSkipCycle, onMarkLoopDay, onUnmarkLoopDay, onSkipLoopDay, onPushLoopOut }) {
+// A loop's own page (Kept 2.0, BOOM-35). How it comes back (its mode), when,
+// and a calendar to fix the record. Nothing here keeps score: no trail, no
+// "caught N of M", no lifetime count, no red "needs attention".
+//
+// The repair tools stay, because some loop shapes have no other way to fix
+// their history: the away offer, the collapsed "not recorded" list, the
+// editable calendar and the log-a-day field all go through the same
+// stampLoopDay path (onMarkLoopDay / onUnmarkLoopDay / onSkipLoopDay).
+
+const MODES = [
+  { id: 'reminder', label: 'Reminder' },
+  { id: 'checklist', label: 'Checklist' },
+  { id: 'practice', label: 'Practice' },
+  { id: 'autopilot', label: 'Autopilot' },
+]
+
+const fullDate = (d) => d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
+
+export default function LoopDetail({
+  routine, color, spawnBlocked = false, tasks = [], awayDays = null,
+  onBack, onEdit, onSpawnNow, onSkipCycle, onMarkLoopDay, onUnmarkLoopDay, onSkipLoopDay, onPushLoopOut,
+  onSetAutopilot, onTogglePause, onToggleHabit, onDelete = null,
+}) {
   const [monthRef, setMonthRef] = useState(() => new Date())
-  const [spawned, setSpawned] = useState(false)
-  const [skipped, setSkipped] = useState(false)
-  // The day the "log a past day" field points at. Seeded to today; the field
-  // and the calendar below it edit the same thing from opposite ends (type a
-  // date, or step back and tap it).
   const [logDay, setLogDay] = useState(() => localYMD(new Date()))
+  const [fixOpen, setFixOpen] = useState(false)
+  const [flash, setFlash] = useState(null)   // 'spawned' | 'blocked' | 'skipped'
+  const [confirmDelete, setConfirmDelete] = useState(false)
 
-  // Days needing attention (plan follow-up): unrecorded completions + missed
-  // cycles, each fixable per-day (Mark done / Skip). Recomputed live so a row
-  // disappears the instant it's resolved. (Hooks run before the null guard
-  // below — rules-of-hooks; the helper no-ops for a null routine.)
+  // Hooks before the null guard (rules-of-hooks); loopGaps no-ops on null.
   const gaps = useMemo(() => loopGaps(routine, tasks, 12, awayDays), [routine, tasks, awayDays])
-  const gapItems = useMemo(() => [
+  const fixItems = useMemo(() => [
     ...gaps.unrecorded.map(g => ({ ...g, kind: 'unrecorded' })),
     ...gaps.missed.map(g => ({ ...g, kind: 'missed' })),
   ].sort((a, b) => b.day.localeCompare(a.day)), [gaps])
-  // Cycles that fell while the user was away. Already protected — they don't
-  // count as missed and don't break the rally — so this is an OFFER to
-  // reschedule, not a list of failures. Kept out of "Needs attention" so a
-  // trip never reads as a backlog.
   const awayItems = gaps.away || []
 
   if (!routine) return null
 
-  // Archive state: a paused or ended loop keeps its full history here —
-  // the banner names the state and the road back (edit → unpause / clear
-  // the end date).
-  const ended = !!routine.end_date && Date.now() > new Date(routine.end_date + 'T23:59:59').getTime()
-  const restingWhy = routine.paused ? 'paused' : (ended ? `ended ${routine.end_date}` : null)
-
-  const byDay = historyByDay(routine.completed_history)
-  const total = routine.completed_history?.length || 0
-
-  // Retroactive logging. The needs-attention list can only offer days the app
-  // can INFER, and whole loop shapes fall outside that — a stack never reports
-  // a missed cycle, a habit loop reports no gaps at all, and a plain loop only
-  // looks back a dozen cycles. This is the direct route for "we did it on
-  // Friday and by Monday there was nowhere to say so": any day from the loop's
-  // first to today, logged or un-logged, whatever kind of loop it is.
-  const todayYMD = localYMD(new Date())
+  const mode = loopMode(routine)
+  const now = new Date()
+  const todayYMD = localYMD(now)
   const createdYMD = routine.created_at ? localYMD(new Date(routine.created_at)) : null
+  // A practice loop's day is a log task as well as a stamp (older logs have
+  // no stamp), so its calendar shows either.
+  const byDay = (() => {
+    const base = historyByDay(routine.completed_history)
+    if (mode !== 'practice') return base
+    const out = { ...base }
+    for (const t of tasks) {
+      if (t.routine_id !== routine.id || t.parent_id || t.status !== 'done' || !t.completed_at) continue
+      const k = localYMD(new Date(t.completed_at))
+      out[k] = Math.max(out[k] || 0, 1)
+    }
+    return out
+  })()
+  const ended = !!routine.end_date && Date.now() > new Date(`${routine.end_date}T23:59:59`).getTime()
+  const resting = routine.paused || ended
+  const doneToday = mode === 'practice' ? doneOnDay(routine, tasks, todayYMD) : (byDay[todayYMD] || 0) > 0
   const logDayLogged = (byDay[logDay] || 0) > 0
+  const at = clockLabel(routine.trigger_time)
+
   const toggleLoopDay = (ymd) => {
     if (!ymd || ymd > todayYMD || (createdYMD && ymd < createdYMD)) return
     if ((byDay[ymd] || 0) > 0) onUnmarkLoopDay?.(routine.id, ymd)
     else onMarkLoopDay?.(routine.id, ymd, null)
   }
-  const isHabit = routine.spawn_mode === 'habit' && routine.target_count
-
-  // Rally/best are measured in the loop's own CYCLES, not calendar days —
-  // a weekly loop's rally is consecutive weeks caught. Deep window set so
-  // best isn't artificially capped by the visible chip count.
-  const deepWins = isHabit ? habitWindows(routine, 60) : cycleWindows(routine, 60)
-  const { rally, best } = cycleRally(deepWins, isHabit ? routine.target_count : 1, awayDays)
-  const wins = deepWins.slice(-16)
-  // Away cycles are out of the denominator — see LoopsView. The trail bridges
-  // them, so counting them as unmet would have the caption contradict the chart.
-  const awaySet = awayDays instanceof Set ? awayDays : new Set(awayDays || [])
-  const past = wins.filter(w => !w.current && !(w.hits === 0 && awaySet.has(w.key)))
-  const target = isHabit ? routine.target_count : 1
-  const met = past.filter(w => w.hits >= target).length
-  const unit = isHabit
-    ? (routine.target_period === 'month' ? 'months' : 'weeks')
-    : cycleUnitLabel(routine, past.length === 1)
-
-  const anchor = formatScheduleAnchor(routine)
-  const meta = (isHabit
-    ? `habit · ${routine.target_count}× / ${routine.target_period}`
-    : `${formatCadence(routine)}${anchor ? ` · ${anchor}` : ''}${routine.trigger_time ? ` · ${routine.trigger_time}` : ''}`)
-    + (routine.assignee ? ` · for ${routine.assignee}` : '')
-
-  const handleSpawn = () => {
-    if (spawnBlocked) return
-    onSpawnNow?.(routine.id)
-    setSpawned(true)
-    setTimeout(() => setSpawned(false), 1500)
-  }
-  const handleSkip = () => {
-    onSkipCycle?.(routine.id)
-    setSkipped(true)
-    setTimeout(() => setSkipped(false), 1500)
+  // A practice loop's "done today" is a logged task, not a raw stamp, so it
+  // logs through the habit log (toggleHabitDay) like the list's Log today;
+  // taking it back goes through the unmark path, which removes a log AND the
+  // stamp (a calendar mark has a stamp and no log).
+  const markToday = () => {
+    if (mode !== 'practice') return toggleLoopDay(todayYMD)
+    if (doneToday) return onUnmarkLoopDay?.(routine.id, todayYMD)
+    return onToggleHabit?.(routine, todayYMD)
   }
 
-  const stepMonth = (dir) => {
-    setMonthRef(m => new Date(m.getFullYear(), m.getMonth() + dir, 1))
+  const pickMode = (id) => {
+    if (id === mode) return
+    if (id === 'autopilot' && canAutopilot(routine)) return onSetAutopilot?.(routine.id, true)
+    if (id === 'reminder' && mode === 'autopilot') return onSetAutopilot?.(routine.id, false)
+    // Checklist items and a practice target are structural: the editor sets
+    // them. It opens on the mode tapped here, with a line saying what's left.
+    onEdit?.(routine, id)
   }
-  const monthLabel = monthRef.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
+
+  const help = {
+    reminder: 'A task shows up on Today when it’s due. Tick it there or here. If a cycle slips by, it simply waits; nothing piles up.',
+    checklist: `A set of items that comes back together${at ? ` at ${at}` : ''}. Change the items in the editor.`,
+    practice: 'No task and no due date. Log it when you do it. The target is a direction, not a score.',
+    autopilot: 'Something you already do. Boomerang won’t ask, remind you or count misses. Tap a day below if you want a record.',
+  }[mode]
+
+  const weekStartsOn = loadSettings()?.week_starts_on === 0 ? 0 : 1
+  const habit = mode === 'practice' ? computeHabitStats(routine, tasks, weekStartsOn) : null
+  const openTask = tasks
+    .filter(t => t.routine_id === routine.id && !t.parent_id && ['not_started', 'doing', 'in_progress', 'waiting'].includes(t.status))
+    .sort((a, b) => String(a.due_date || '').localeCompare(String(b.due_date || '')))[0]
+  const nextDate = (() => {
+    if (resting || mode === 'practice' || mode === 'autopilot') return null
+    if (openTask?.due_date) return new Date(`${String(openTask.due_date).slice(0, 10)}T12:00:00`)
+    const d = getNextDueDate(routine)
+    return d && Number.isFinite(d.getTime()) ? d : null
+  })()
+  const nextLabel = nextDate ? (localYMD(nextDate) <= todayYMD ? 'Today' : fullDate(nextDate)) : null
+  const last = lastDoneWord(routine, now)
+
+  const rows = [
+    mode === 'practice'
+      ? ['Aiming for', routine.target_count ? `${routine.target_count} a ${routine.target_period === 'month' ? 'month' : 'week'}` : 'No target']
+      : ['Schedule', `${scheduleLabel(routine, formatScheduleAnchor(routine))}${at && mode !== 'autopilot' ? `, ${at}` : ''}`],
+    mode === 'practice' && habit ? [`This ${routine.target_period === 'month' ? 'month' : 'week'}`, `${habit.completions} so far`] : null,
+    mode === 'checklist' ? ['Items', String(routine.members.length)] : null,
+    ['Last done', last ? last.replace(/^./, c => c.toUpperCase()) : 'Not yet'],
+    nextLabel ? ['Next', nextLabel] : null,
+    routine.assignee ? ['For', routine.assignee] : null,
+  ].filter(Boolean)
+
+  const stepMonth = (dir) => setMonthRef(m => new Date(m.getFullYear(), m.getMonth() + dir, 1))
+  const monthLabel = monthRef.toLocaleDateString('en-US', { month: 'long', year: monthRef.getFullYear() === now.getFullYear() ? undefined : 'numeric' })
+  const blink = (k) => { setFlash(k); setTimeout(() => setFlash(null), 1500) }
+  const missedCount = fixItems.filter(g => g.kind === 'missed').length
+  const cyclic = mode === 'reminder' || mode === 'checklist'
 
   return (
     <div className="bm-surface bm-loop-detail" style={{ '--loop': color }}>
@@ -108,222 +141,160 @@ export default function LoopDetail({ routine, color, spawnBlocked = false, tasks
           <ArrowLeft size={17} strokeWidth={2.2} />
         </button>
         <h1 className="bm-h1 bm-detail-title">{routine.title}</h1>
-        <button className="bm-btn bm-btn-tonal" style={{ marginLeft: 'auto', padding: '9px 14px' }} onClick={() => onEdit?.(routine)}>
+        <button className="lp-new" style={{ marginLeft: 'auto' }} onClick={() => onEdit?.(routine)}>
           <Pencil size={13} strokeWidth={2.2} /> Edit
         </button>
       </div>
-      <div className="bm-detail-meta">
-        <span className="bm-loop-ring" style={{ width: 24, height: 24 }}><Repeat2 size={12} strokeWidth={2.2} /></span>
-        {meta}{routine.paused ? ' · paused' : ''}
-      </div>
-      {restingWhy && (
-        <div style={{ margin: '10px 0 2px', padding: '10px 12px', borderRadius: 12, border: '1px solid var(--bm-hairline)', background: 'var(--bm-gold-soft, rgba(232,176,75,0.14))', fontSize: 13, color: 'var(--bm-text)' }}>
-          This loop is <strong>{restingWhy}</strong> — its stats are kept and nothing spawns or nags.
-          {' '}
-          <button className="bm-btn" style={{ padding: '4px 10px', marginLeft: 6 }} onClick={() => onEdit?.(routine)}>
-            {routine.paused ? 'Edit to resume' : 'Edit to reactivate'}
-          </button>
-        </div>
-      )}
 
-      <div className="bm-stat-row">
-        <div className="bm-stat-card">
-          <div className="bm-stat-num">↻ {rally}</div>
-          <div className="bm-stat-cap">rally</div>
-        </div>
-        <div className="bm-stat-card">
-          <div className="bm-stat-num">{best}</div>
-          <div className="bm-stat-cap">best</div>
-        </div>
-        <div className="bm-stat-card">
-          <div className="bm-stat-num">{total}×</div>
-          <div className="bm-stat-cap">lifetime</div>
-        </div>
-      </div>
+      <div className="bm-t2 t2-tasks lp">
+        {resting && (
+          <section className="t2-card lp-resting">
+            <p>
+              {routine.paused
+                ? 'Paused. Nothing comes back until you resume it, and its record is kept.'
+                : `Ended ${new Date(`${routine.end_date}T12:00:00`).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}. Its record is kept; change the end date to bring it back.`}
+            </p>
+            <button className="t2-chip" onClick={() => (routine.paused ? onTogglePause?.(routine.id) : onEdit?.(routine))}>
+              {routine.paused ? 'Resume' : 'Edit'}
+            </button>
+          </section>
+        )}
 
-      {/* Quick actions (plan item 1) — Spawn now + Skip cycle, the tap-through
-          twins of the Loops-card swipe. Habit loops are logged elsewhere, so
-          they don't carry these. */}
-      {!isHabit && (
-        <div className="bm-loop-actions">
-          <button
-            className="bm-btn bm-loop-action-spawn"
-            onClick={handleSpawn}
-            disabled={spawnBlocked || spawned}
-            title={spawnBlocked
-              ? 'An instance is already on your list — finish or skip it first'
-              : 'Create a one-off task now without affecting the schedule'}
-          >
-            {spawned ? <Check size={14} strokeWidth={2.4} /> : <Plus size={14} strokeWidth={2.4} />}
-            {spawned ? 'Spawned' : spawnBlocked ? 'On list' : 'Spawn now'}
-          </button>
-          <button
-            className="bm-btn bm-loop-action-skip"
-            onClick={handleSkip}
-            disabled={skipped}
-            title="Skip this cycle — advance the schedule without spawning a task"
-          >
-            {skipped ? <Check size={14} strokeWidth={2.4} /> : <FastForward size={14} strokeWidth={2} />}
-            {skipped ? 'Skipped' : 'Skip cycle'}
-          </button>
-        </div>
-      )}
-
-      {/* While you were away — cycles whose due day fell inside an away window.
-          These are already protected (not counted missed, rally untouched), so
-          this is an offer to RESCHEDULE, not a backlog. Actions are loop-level
-          because a six-day trip is one decision, not six. */}
-      {!isHabit && awayItems.length > 0 && (
-        <div className="bm-card bm-loop-away">
-          <div className="bm-card-title">
-            <span className="bm-loop-away-icon"><Plane size={15} strokeWidth={2.2} /></span>
-            While you were away
-            <span className="bm-loop-fix-count">{awayItems.length}</span>
-          </div>
-          <p className="bm-loop-fix-hint">
-            {awayItems.length} {cycleUnitLabel(routine, awayItems.length === 1)} fell during a trip
-            ({awayItems[awayItems.length - 1].label} – {awayItems[0].label}). They aren&apos;t counted
-            against you and your rally is intact — pick up where you left off, or push the schedule out.
-          </p>
-          <div className="bm-loop-away-acts">
-            <button
-              className="bm-loop-fix-btn bm-loop-fix-done"
-              onClick={() => onPushLoopOut?.(routine.id)}
-            >Push it out one {cycleUnitLabel(routine, true)}</button>
-            <button
-              className="bm-loop-fix-btn bm-loop-fix-skip"
-              onClick={() => { for (const g of awayItems) onSkipLoopDay?.(routine.id, g.day) }}
-            >Pick it up as normal</button>
-          </div>
-          <ul className="bm-loop-fix-list">
-            {awayItems.map(g => (
-              <li key={`away-${g.key}`} className="bm-loop-fix-row">
-                <span className="bm-loop-fix-day">
-                  <span className="bm-loop-fix-date">{g.label}</span>
-                  <span className="bm-loop-fix-tag bm-loop-fix-tag-away">away</span>
-                </span>
-                <span className="bm-loop-fix-acts">
-                  <button
-                    className="bm-loop-fix-btn bm-loop-fix-done"
-                    onClick={() => onMarkLoopDay?.(routine.id, g.day, g.iso)}
-                  ><Check size={13} strokeWidth={2.6} /> Did it</button>
-                </span>
-              </li>
+        <section className="t2-card">
+          <div className="t2-head"><h2 className="t2-head-title">How it comes back</h2></div>
+          <div className="lp-seg" role="radiogroup" aria-label="How it comes back">
+            {MODES.map(m => (
+              <button key={m.id} role="radio" aria-checked={mode === m.id}
+                className={mode === m.id ? 'is-on' : ''} onClick={() => pickMode(m.id)}>{m.label}</button>
             ))}
-          </ul>
-        </div>
-      )}
-
-      {/* Needs attention — days the loop never recorded (you finished the task)
-          and cycles you were due but missed. Mark done credits the cycle; Skip
-          acknowledges it without crediting. Each row vanishes when resolved. */}
-      {!isHabit && gapItems.length > 0 && (
-        <div className="bm-card bm-loop-fix">
-          <div className="bm-card-title">
-            <span className="bm-loop-fix-icon"><AlertCircle size={15} strokeWidth={2.2} /></span>
-            Needs attention
-            <span className="bm-loop-fix-count">{gapItems.length}</span>
           </div>
-          <p className="bm-loop-fix-hint">
-            Mark a day done to credit the cycle, or skip it to move on without crediting.
-          </p>
-          {/* Bulk skip. A trip or a bad fortnight can put a dozen rows here,
-              and clearing them one tap at a time is how "I have no way to fix
-              these" happens. Only offered for MISSED days — bulk-crediting
-              days you didn't do isn't a shortcut, it's a lie. */}
-          {gapItems.filter(g => g.kind === 'missed').length > 1 && (
-            <button
-              className="bm-loop-fix-btn bm-loop-fix-skip bm-loop-fix-skipall"
-              onClick={() => {
-                const days = gapItems.filter(g => g.kind === 'missed')
-                if (!window.confirm(`Skip all ${days.length} missed cycles? They'll stop asking; nothing gets credited.`)) return
-                for (const g of days) onSkipLoopDay?.(routine.id, g.day)
-              }}
-            >Skip all {gapItems.filter(g => g.kind === 'missed').length} missed</button>
-          )}
-          <ul className="bm-loop-fix-list">
-            {gapItems.map(g => (
-              <li key={`${g.kind}-${g.key}`} className="bm-loop-fix-row">
-                <span className="bm-loop-fix-day">
-                  <span className="bm-loop-fix-date">{g.label}</span>
-                  <span className={`bm-loop-fix-tag bm-loop-fix-tag-${g.kind}`}>
-                    {g.kind === 'unrecorded' ? 'finished, not recorded' : 'missed'}
-                  </span>
-                </span>
-                <span className="bm-loop-fix-acts">
-                  <button
-                    className="bm-loop-fix-btn bm-loop-fix-done"
-                    onClick={() => onMarkLoopDay?.(routine.id, g.day, g.iso)}
-                  ><Check size={13} strokeWidth={2.6} /> Mark done</button>
-                  <button
-                    className="bm-loop-fix-btn bm-loop-fix-skip"
-                    onClick={() => onSkipLoopDay?.(routine.id, g.day)}
-                  >Skip</button>
-                </span>
-              </li>
+          <p className="lp-help">{help}</p>
+          {rows.map(([k, v]) => <div key={k} className="lp-kv"><span>{k}</span><b>{v}</b></div>)}
+        </section>
+
+        {cyclic && awayItems.length > 0 && (
+          <section className="t2-card">
+            <div className="t2-head">
+              <Plane size={15} strokeWidth={2} style={{ color: 'var(--t2-meta)' }} aria-hidden="true" />
+              <h2 className="t2-head-title">While you were away</h2>
+              <span className="t2-head-count">{awayItems.length}</span>
+            </div>
+            <p className="t2-card-sub">
+              {awayItems.length} {cycleUnitLabel(routine, awayItems.length === 1)} fell during a trip
+              ({awayItems[awayItems.length - 1].label} – {awayItems[0].label}). They don’t count against you.
+            </p>
+            <div className="t2-picks">
+              <button className="t2-pick" onClick={() => onPushLoopOut?.(routine.id)}>Push it out one {cycleUnitLabel(routine, true)}</button>
+              <button className="t2-pick" onClick={() => { for (const g of awayItems) onSkipLoopDay?.(routine.id, g.day) }}>Pick it up as normal</button>
+            </div>
+            {awayItems.map((g, i) => (
+              <div key={`away-${g.key}`} className={`lp-fix${i === 0 ? ' is-first' : ''}`}>
+                <span className="lp-fix-day">{g.label}<span className="t2-faint">away</span></span>
+                <button className="t2-pick" onClick={() => onMarkLoopDay?.(routine.id, g.day, g.iso)}><Check size={12} strokeWidth={2.6} /> Did it</button>
+              </div>
             ))}
-          </ul>
-        </div>
-      )}
+          </section>
+        )}
 
-      <div className="bm-card">
-        <div className="bm-card-title">Recent cycles</div>
-        <CycleChips
-          awayDays={awayDays}
-          windows={wins}
-          target={target}
-          caption={past.length > 0
-            ? `${isHabit ? 'target met' : 'caught'} ${met} of last ${past.length} ${unit}`
-            : 'first cycle in flight'}
-        />
-      </div>
+        {cyclic && fixItems.length > 0 && (
+          <section className="t2-card lp-fix-card">
+            <button className="t2-qrow lp-fix-toggle" onClick={() => setFixOpen(o => !o)} aria-expanded={fixOpen}>
+              <History size={16} strokeWidth={1.9} />
+              <span className="t2-qrow-text"><b>{fixItems.length} day{fixItems.length === 1 ? '' : 's'} not recorded</b></span>
+              {fixOpen ? <ChevronDown size={16} strokeWidth={1.9} /> : <ChevronRight size={16} strokeWidth={1.9} />}
+            </button>
+            {fixOpen && (
+              <>
+                <p className="t2-card-sub">Mark a day done if it happened, or skip it. Either way it stops asking.</p>
+                {fixItems.map((g, i) => (
+                  <div key={`${g.kind}-${g.key}`} className={`lp-fix${i === 0 ? ' is-first' : ''}`}>
+                    <span className="lp-fix-day">{g.label}<span className="t2-faint">{g.kind === 'unrecorded' ? 'finished, not recorded' : 'no record'}</span></span>
+                    <span className="lp-fix-acts">
+                      <button className="t2-pick" onClick={() => onMarkLoopDay?.(routine.id, g.day, g.iso)}><Check size={12} strokeWidth={2.6} /> Mark done</button>
+                      <button className="t2-letgo" onClick={() => onSkipLoopDay?.(routine.id, g.day)}>Skip</button>
+                    </span>
+                  </div>
+                ))}
+                {missedCount > 1 && (
+                  <button className="t2-more" onClick={() => {
+                    if (!window.confirm(`Skip all ${missedCount} days with no record? They’ll stop asking; nothing gets marked done.`)) return
+                    for (const g of fixItems) if (g.kind === 'missed') onSkipLoopDay?.(routine.id, g.day)
+                  }}>Skip all {missedCount} with no record</button>
+                )}
+              </>
+            )}
+          </section>
+        )}
 
-      <div className="bm-card">
-        <div className="bm-card-title bm-month-head">
-          <button className="bm-back" style={{ width: 26, height: 26 }} onClick={() => stepMonth(-1)} aria-label="Previous month">
-            <ChevronLeft size={14} strokeWidth={2.2} />
-          </button>
-          <span style={{ flex: '1 1 auto', textAlign: 'center' }}>{monthLabel}</span>
-          <button className="bm-back" style={{ width: 26, height: 26 }} onClick={() => stepMonth(1)} aria-label="Next month">
-            <ChevronRight size={14} strokeWidth={2.2} />
-          </button>
-        </div>
-        <MonthDots
-          monthRef={monthRef}
-          valueByDay={byDay}
-          color={color}
-          onToggleDay={toggleLoopDay}
-          maxDay={todayYMD}
-          minDay={createdYMD}
-        />
-        {/* Log a past day. Step back as many months as you like and tap, or
-            type the date — same action either way. Removing is the same tap
-            again, so a mis-tap costs nothing. */}
-        <div className="bm-loop-log">
-          <p className="bm-loop-fix-hint">
-            Did it but the app never recorded it? Tap any past day above, or pick it here.
-          </p>
-          <div className="bm-loop-log-row">
+        <section className="t2-card">
+          <div className="t2-head lp-month-head">
+            <h2 className="t2-head-title">{monthLabel}</h2>
+            <button className="bm-back" style={{ width: 28, height: 28, marginLeft: 'auto' }} onClick={() => stepMonth(-1)} aria-label="Previous month">
+              <ChevronLeft size={14} strokeWidth={2.2} />
+            </button>
+            <button className="bm-back" style={{ width: 28, height: 28 }} onClick={() => stepMonth(1)} aria-label="Next month">
+              <ChevronRight size={14} strokeWidth={2.2} />
+            </button>
+          </div>
+          <MonthDots monthRef={monthRef} valueByDay={byDay} color={color} onToggleDay={toggleLoopDay} maxDay={todayYMD} minDay={createdYMD} />
+          <p className="t2-card-sub lp-cal-hint">Tap a day to fix the record. Nothing here counts against you.</p>
+          <div className="lp-log-row">
             <input
               type="date"
-              className="v2-form-input bm-loop-log-date"
+              className="v2-form-input lp-log-date"
               value={logDay}
               max={todayYMD}
               {...(createdYMD ? { min: createdYMD } : {})}
               onChange={(e) => setLogDay(e.target.value)}
-              aria-label="Day to log"
+              aria-label="Day to mark"
             />
             <button
-              className={`bm-loop-fix-btn ${logDayLogged ? 'bm-loop-fix-skip' : 'bm-loop-fix-done'}`}
+              className="t2-pick"
               disabled={!logDay || logDay > todayYMD || (createdYMD && logDay < createdYMD)}
               onClick={() => toggleLoopDay(logDay)}
             >
-              {logDayLogged
-                ? <><Undo2 size={13} strokeWidth={2.4} /> Remove</>
-                : <><Check size={13} strokeWidth={2.6} /> Mark done</>}
+              {logDayLogged ? <><Undo2 size={12} strokeWidth={2.4} /> Remove</> : <><Check size={12} strokeWidth={2.6} /> Mark done</>}
             </button>
           </div>
+        </section>
+
+        <div className="lp-actions">
+          <button className="t2-btn t2-btn-ghost" onClick={() => onTogglePause?.(routine.id)}>{routine.paused ? 'Resume' : 'Pause'}</button>
+          <button className="t2-btn t2-btn-primary" onClick={markToday}>
+            {doneToday ? <><Check size={15} strokeWidth={2.6} /> Done today</> : 'Mark done today'}
+          </button>
         </div>
+        {cyclic && !resting && (
+          <div className="lp-more">
+            <button className="t2-letgo" disabled={spawnBlocked || !!flash} onClick={() => {
+              if (spawnBlocked) return
+              // Say "Added" only if something was: the handler refuses when an
+              // instance is already waiting anywhere (backlog included).
+              const made = onSpawnNow?.(routine.id)
+              blink(Array.isArray(made) && made.length ? 'spawned' : 'blocked')
+            }}>
+              {flash === 'spawned' ? 'Added' : flash === 'blocked' || spawnBlocked ? 'Already on your list' : 'Add a task now'}
+            </button>
+            <button className="t2-letgo" disabled={flash === 'skipped'} onClick={() => { onSkipCycle?.(routine.id); blink('skipped') }}>
+              {flash === 'skipped' ? 'Skipped' : 'Skip this cycle'}
+            </button>
+          </div>
+        )}
+        {onDelete && (
+          <div className="lp-delete">
+            {confirmDelete ? (
+              <>
+                <p>Delete this loop? Tasks it already made stay where they are.</p>
+                <div className="lp-delete-acts">
+                  <button className="t2-btn lp-delete-yes" onClick={() => onDelete(routine.id)}>Delete loop</button>
+                  <button className="t2-btn t2-btn-ghost" onClick={() => setConfirmDelete(false)}>Keep it</button>
+                </div>
+              </>
+            ) : (
+              <button className="t2-letgo lp-delete-link" onClick={() => setConfirmDelete(true)}>Delete loop</button>
+            )}
+          </div>
+        )}
       </div>
     </div>
   )

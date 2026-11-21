@@ -73,6 +73,9 @@
   color: var(--t2-text);
 }
 .t2-date-sub { font-size: 14px; font-weight: 400; color: var(--t2-meta); }
+/* All-day events covering today (BOOM-36): a quiet line under the date. */
+.t2-allday { display: flex; align-items: flex-start; gap: 6px; margin: 6px 0 0; font-size: 13px; line-height: 1.4; color: var(--t2-label); }
+.t2-allday svg { flex: 0 0 auto; margin-top: 2px; color: var(--t2-meta); }
 
 /* ── Section rhythm ───────────────────────────────────────────────────── */
 .bm-t2 > .t2-card, .bm-t2 > .t2-stack, .bm-t2 > .t2-clear { margin-top: var(--t2-section-gap); }
@@ -272,3 +275,30 @@ button.t2-clock { cursor: pointer; }
   cursor: pointer;
 }
 .t2-nudge { margin: 10px var(--t2-gutter) 0; font-size: 13.5px; line-height: 1.45; color: var(--t2-meta); }
+
+/* ── Tasks list (TasksViewKept, BOOM-37) ──────────────────────────────── */
+/* The Upcoming tab reuses these cards inside .bm-surface, which already has
+ * the page gutter, so the cards drop their own inset and Today's bottom pad. */
+.bm-t2.t2-tasks { padding: 4px 0 0; }
+.t2-tasks .t2-card { margin-left: 0; margin-right: 0; }
+.t2-tasks .t2-card + .t2-card { margin-top: var(--t2-section-gap); }
+.t2-tasks .t2-row-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; }
+.t2-tasks .t2-row-meta .bm-tagdot { font-size: 12.5px; }
+.t2-tasks .t2-clock-time { font-weight: 400; color: var(--t2-label); }
+.t2-tasks .t2-clock-bar { background: var(--t2-div); }
+.t2-card-sub { margin: -2px 0 2px; font-size: 12.5px; color: var(--t2-meta); }
+.t2-picks { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 8px; }
+.t2-pick {
+  border: 0; border-radius: 999px; padding: 6px 12px;
+  background: color-mix(in srgb, var(--t2-text) 6%, transparent);
+  color: var(--t2-label); font: 500 12.5px/1.2 var(--t2-sans); cursor: pointer;
+}
+.t2-pick:active { background: color-mix(in srgb, var(--t2-text) 12%, transparent); }
+.t2-letgo {
+  border: 0; background: none; padding: 6px 4px; cursor: pointer;
+  color: var(--t2-meta); font: 500 12.5px/1.2 var(--t2-sans);
+  text-decoration: underline; text-underline-offset: 3px;
+}
+.t2-undo-row { display: flex; align-items: center; gap: 10px; padding: 10px 0; border-top: 1px solid var(--t2-div); font-size: 13px; color: var(--t2-meta); }
+.t2-undo-row b { font-weight: 500; color: var(--t2-label); flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.t2-crit { color: var(--bm-danger); font-weight: 500; }

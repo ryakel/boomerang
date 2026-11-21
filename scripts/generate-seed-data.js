@@ -50,7 +50,6 @@ Use these exact defaults (dev-friendly, no API keys):
   "max_open_tasks": 10,
   "sort_by": "age",
   "daily_task_goal": 3,
-  "daily_points_goal": 15,
   "vacation_mode": false,
   "vacation_started": null,
   "vacation_end": null,

@@ -70,6 +70,8 @@ All settings are accessible via the gear icon in the header, organized into six 
 - **Trello API key + token** — for Trello card sync. Stored in localStorage, sent as `x-trello-key` and `x-trello-token` headers. Hidden when env vars are set. After entering credentials, click Connect to select a board and list.
 - **Google Calendar Client ID + Secret** — for Google Calendar sync. Stored in localStorage, sent as `x-google-client-id` and `x-google-client-secret` headers. Hidden when env vars are set. After entering credentials, click Connect to complete OAuth flow and select a calendar.
 
+- **Google Calendar → Show on Today** (`gcal_today_hidden`, default `[]`) — every calendar the connection can see is listed with a checkbox; unticked ones are left off Today. Stored as the calendars to leave out, so a calendar added later shows up on its own. Ordinary preference in the settings blob.
+
 ### Display
 - **Task count display** — controls the header task count format:
   - **Open only** — just the non-snoozed open count
@@ -138,15 +140,9 @@ Digest emails to your inbox (not spam) require sender authentication. The defaul
 - **Server logs** — live tail of the server process (Google/Push/Email/DB/SSE lines + errors), folded in here from the old standalone `Logs` tab as of the 2026-07-11 reorg — same diagnostics category as Activity above
 - **Danger zone** — clear completed tasks / clear all data (see below)
 
-### Activity Rings and Goals
-- **Daily task goal** — number of tasks to complete per day for the Tasks ring (default: configurable)
-- **Daily points goal** — point target per day for the Points ring (default: configurable)
-- **Free day** — pause streak for a single day without entering Away mode
-- **Away mode** — see Notifications below. (This entry used to describe a vacation
-  duration picker under Rings and Goals. That control was lost in an earlier UI
-  rewrite and the doc kept advertising it for months while nothing could set it —
-  rebuilt 2026-07-29 as Away mode, and it now suppresses notifications as well as
-  freezing the streak.)
+### Activity Rings and Goals (removed)
+- The daily task goal, its progress ring and the points goal are gone (points 2026-11-15, BOOM-33; the task goal 2026-11-17, BOOM-46). A stored `daily_task_goal` is ignored.
+- **Away mode** — see Notifications below.
 
 ### Danger Zone
 - **Clear completed tasks** — removes all done tasks

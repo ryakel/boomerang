@@ -7,7 +7,7 @@ import { logProjectSession as apiLogProjectSession,
   dismissEscalationAdvancePrompt as apiDismissEscalationAdvancePrompt,
   resolveEscalation as apiResolveEscalation,
 } from '../api'
-import { computeProjectSessionPoints, PROJECT_SESSION_CAP } from '../scoring'
+import { PROJECT_SESSION_CAP } from '../scoring'
 import { sameJson } from '../utils/sameJson'
 
 // Activity-log noise filter. updateTask is called from many paths
@@ -165,7 +165,9 @@ export function useTasks() {
         else if (hasMeaningfulEdit) logActivity('edited', task)
       }
       return prev.map(t =>
-        t.id === id ? { ...t, ...updates, last_touched: new Date().toISOString() } : t
+        // An explicit last_touched wins: an undo restores the old one rather
+        // than resetting staleness and the "waiting N days" clock.
+        t.id === id ? { ...t, ...updates, last_touched: updates.last_touched || new Date().toISOString() } : t
       )
     })
   }, [])
@@ -279,23 +281,21 @@ export function useTasks() {
     ))
   }, [])
 
-  // Log a "worked on this" project session. Hits the server (which is the
-  // points authority) and applies the result optimistically. Returns the
-  // session result so callers can pop a toast with the points awarded;
-  // throws with code='SESSION_CAP_REACHED' when the cap is exhausted.
-  // Reads `tasks` via closure rather than functional setState so the
-  // server call has the latest snapshot for offline-fallback points math.
+  // Log a "worked on this" project session. Hits the server (which enforces
+  // the session cap) and applies the result optimistically. Returns the
+  // session count so callers can confirm it; throws with
+  // code='SESSION_CAP_REACHED' when the cap is exhausted. Sessions carry no
+  // points since 2026-11-15 (BOOM-33).
   const logProjectSession = useCallback(async (projectId) => {
     const project = tasks.find(t => t.id === projectId)
     if (!project) throw new Error('Project not found')
-    const expectedPoints = computeProjectSessionPoints(project, tasks)
     try {
       const result = await apiLogProjectSession(projectId)
       // Server is canonical — overwrite the project with the returned record
       // (session_count, last_session_at, session_log all updated).
       setTasks(prev => prev.map(t => t.id === projectId ? { ...t, ...result.task } : t))
-      logActivity('session_logged', { ...project, _session_points: result.points })
-      return { points: result.points, sessionCount: result.session_count, sessionCap: result.session_cap }
+      logActivity('session_logged', project)
+      return { sessionCount: result.session_count, sessionCap: result.session_cap }
     } catch (err) {
       if (err.code === 'SESSION_CAP_REACHED') {
         throw err
@@ -307,7 +307,7 @@ export function useTasks() {
         if (t.id !== projectId) return t
         const log = Array.isArray(t.session_log) ? [...t.session_log] : []
         if ((t.session_count || 0) >= PROJECT_SESSION_CAP) return t
-        log.push({ timestamp: now, points: expectedPoints })
+        log.push({ timestamp: now })
         return {
           ...t,
           session_count: (t.session_count || 0) + 1,
@@ -316,8 +316,8 @@ export function useTasks() {
           last_touched: now,
         }
       }))
-      logActivity('session_logged', { ...project, _session_points: expectedPoints })
-      return { points: expectedPoints, sessionCount: (project.session_count || 0) + 1, sessionCap: PROJECT_SESSION_CAP, offline: true }
+      logActivity('session_logged', project)
+      return { sessionCount: (project.session_count || 0) + 1, sessionCap: PROJECT_SESSION_CAP, offline: true }
     }
   }, [tasks])
 

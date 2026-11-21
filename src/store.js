@@ -1,7 +1,7 @@
+import { practiceCount } from './loopModes'
 import { applyResumeFloor } from './resumeFloor.js'
 import { deferFloorBase } from './loopSpawnStatus.js'
 import { localYMD, parseLocalDate } from './dates'
-import { walkStreak, dayKey } from '../server/streakWalk.js'
 // crypto.randomUUID is unavailable over plain HTTP (non-secure context)
 export const uuid = () =>
   typeof crypto !== 'undefined' && crypto.randomUUID
@@ -49,23 +49,21 @@ export const DEFAULT_SETTINGS = {
   // repair overwrote the real key — removed 2026-06-12. last_sync is a
   // server-side standalone key too.
   sort_by: 'age',
-  daily_task_goal: 3,
-  daily_points_goal: 15,
   // 7-day calendar strip above the task sections. Opt-in in light/dark,
   // auto-on in terminal mode. Today's cell shows N/goal inline + intensity
   // fill; this is the single source of truth for daily-goal progress
   // (GoalProgressBar was removed 2026-05-11).
   show_week_strip: false,
   // Today screen layout. false = Kept 2.0 Today (TodayKept2.jsx); true = the
-  // previous screen with the points arc (TodayView.jsx). The revert switch for
-  // the redesign; Settings → General → Home screen.
+  // classic screen (TodayView.jsx). Gated off since 2026-11-15 (BOOM-33):
+  // ignored unless CLASSIC_TODAY_ENABLED in src/kept/classicToday.js is true.
   today_classic: false,
   // Per-section collapsed state on the home task list. Map of section
   // name → bool (true = collapsed). Synced via settings so the preference
   // persists across reloads. Sections not in the map default to expanded.
   collapsed_sections: {},
   // Days the user won the hidden tic-tac-toe Easter egg. Map of
-  // ISO date → true. Each win contributes +1 task + +1 point to that
+  // ISO date → true. Each win counts as one thing done in that
   // day's computeDailyStats, but only once per day. Trigger: 7-tap the
   // EditTaskModal title (Android-build-number metaphor).
   easter_egg_wins: {},
@@ -92,6 +90,10 @@ export const DEFAULT_SETTINGS = {
   gcal_client_secret: '',
   gcal_calendar_id: 'primary',
   gcal_sync_enabled: false,
+  // Calendars Today leaves out (BOOM-36). Today shows every calendar the
+  // Google connection can see except these; a calendar added later shows up
+  // on its own. Ids from GET /api/gcal/calendars.
+  gcal_today_hidden: [],
   gcal_sync_statuses: ['not_started', 'doing', 'waiting', 'open'],
   gcal_use_timed_events: true,
   gcal_default_time: '09:00',
@@ -391,14 +393,14 @@ export function createTask(title, tags = [], dueDate = null, notes = '') {
     routine_id: null,
     high_priority: false,
     low_priority: false,
-    size: 'M',           // default to M so points always compute; background auto-sizer will refine
+    size: 'M',           // default size; the background auto-sizer refines it
     size_inferred: false, // set true after successful inferSize or manual user pick
     energy: null,        // energy type: desk|people|errand|confrontation|creative|physical
     energyLevel: null,   // drain intensity: 1 (low), 2 (medium), 3 (high)
     attachments: [],
     checklists: [],      // [{ id, name, items: [{ id, text, completed }], hideCompleted }]
     comments: [],
-    stack_bonus: null,   // bonus points stamped on the task that clears a routine
+    stack_bonus: null,   // legacy: bonus points from before BOOM-33; stored, never read
                          // "stack" cycle (20% of the cycle's combined member points)
   }
 }
@@ -436,8 +438,8 @@ export function createRoutine(title, cadence, customDays = null, tags = [], note
                          // active instance forward instead of stacking a new
                          // task. Use case: pills, anything you can't double up
                          // on. Full spec: wiki/Activity-Prompts.md.
-    spawn_mode: 'auto',  // 'auto' (cadence-driven) | 'habit' (target frequency,
-                         // no auto-spawn, "+ Log it" + behind-pace nudges).
+    spawn_mode: 'auto',  // 'auto' (cadence-driven) | 'autopilot' (never spawns or asks) | 'habit' (target frequency,
+                         // no auto-spawn, "+ Log it"; the behind-pace push was deleted 2026-07-24).
                          // Habit mode ignores cadence + schedule_day_of_week
                          // + auto_roll.
     target_count: null,  // habit mode: completions per period (e.g. 2)
@@ -703,6 +705,9 @@ export function isRoutineDue(routine) {
   // automatic way. Users log them proactively via "+ Log it" or through
   // a behind-pace push nudge. Skip entirely.
   if (routine.spawn_mode === 'habit') return false
+  // Autopilot (BOOM-35): something you already do. It never spawns a task, so
+  // nothing reaches Today, Tasks, notifications or device alarms.
+  if (routine.spawn_mode === 'autopilot') return false
   if (isRoutineEnded(routine)) return false
   const nextDue = getNextDueDate(routine)
   return Date.now() >= nextDue.getTime()
@@ -758,64 +763,10 @@ export function getHabitPeriodBounds(period, weekStartsOn = 1, now = new Date())
   return { start, end, lengthDays }
 }
 
-// Count completions linked to a habit routine in [start, end).
-function countHabitCompletions(routineId, tasks, start, end) {
-  return tasks.filter(t => {
-    if (t.routine_id !== routineId) return false
-    if (!t.completed_at) return false
-    const c = new Date(t.completed_at).getTime()
-    return c >= start.getTime() && c < end.getTime()
-  }).length
-}
-
-// Streak: walk backwards period-by-period from the most recently completed
-// period (not including current). Each period that hit target adds 1.
-// Periods where target_count is 0 are skipped — paused / inactive periods
-// don't reset the streak (mirrors computeStreak's no-fault day semantics).
-function computeHabitStreak(routine, tasks, weekStartsOn) {
-  if (!routine.target_count) return 0
-  const periodStartOf = routine.target_period === 'week'
-    ? (d) => {
-        const out = new Date(d); out.setHours(0, 0, 0, 0)
-        const diff = (out.getDay() - weekStartsOn + 7) % 7
-        out.setDate(out.getDate() - diff)
-        return out
-      }
-    : (d) => {
-        const out = new Date(d); out.setHours(0, 0, 0, 0); out.setDate(1)
-        return out
-      }
-
-  // Start at the period BEFORE current.
-  const currentStart = periodStartOf(new Date())
-  let cursorStart = new Date(currentStart)
-  if (routine.target_period === 'week') cursorStart.setDate(cursorStart.getDate() - 7)
-  else cursorStart.setMonth(cursorStart.getMonth() - 1)
-
-  let streak = 0
-  // Cap walk at 52 periods (year) to avoid runaway in case of bad data.
-  for (let i = 0; i < 52; i++) {
-    const cursorEnd = new Date(cursorStart)
-    if (routine.target_period === 'week') cursorEnd.setDate(cursorEnd.getDate() + 7)
-    else cursorEnd.setMonth(cursorEnd.getMonth() + 1)
-    const completions = countHabitCompletions(routine.id, tasks, cursorStart, cursorEnd)
-    if (completions >= routine.target_count) {
-      streak++
-      // step back one period
-      if (routine.target_period === 'week') cursorStart.setDate(cursorStart.getDate() - 7)
-      else cursorStart.setMonth(cursorStart.getMonth() - 1)
-    } else {
-      break
-    }
-  }
-  return streak
-}
-
 // Return habit stats for an active habit-mode routine, or null if not habit.
 //   completions: int — number of completions in current period
 //   target: int — routine.target_count
 //   period_start / period_end: Date objects (start inclusive, end exclusive)
-//   streak: consecutive prior periods that hit target
 //   behind_pace: bool — true if completions are below expected linear pace
 //                       AND we're past the early "give-it-a-rest" window
 export function computeHabitStats(routine, tasks, weekStartsOn = 1) {
@@ -823,7 +774,8 @@ export function computeHabitStats(routine, tasks, weekStartsOn = 1) {
     return null
   }
   const { start, end, lengthDays } = getHabitPeriodBounds(routine.target_period, weekStartsOn)
-  const completions = countHabitCompletions(routine.id, tasks, start, end)
+  // Logs and calendar marks both count (practiceCount, BOOM-35 audit).
+  const completions = practiceCount(routine, tasks, start, end)
   const elapsedMs = Date.now() - start.getTime()
   const elapsedDays = Math.max(0, elapsedMs / 86400000)
   const elapsedRatio = Math.min(1, elapsedDays / lengthDays)
@@ -836,7 +788,6 @@ export function computeHabitStats(routine, tasks, weekStartsOn = 1) {
     period_end: end,
     completions,
     target: routine.target_count,
-    streak: computeHabitStreak(routine, tasks, weekStartsOn),
     behind_pace: behindPace,
     elapsed_ratio: elapsedRatio,
   }
@@ -920,191 +871,8 @@ export function sortTasks(list, sortBy) {
   return sorted
 }
 
-// Scoring functions moved to src/scoring.js:
-// computeDailyStats, computeRecords, computeTaskPoints, calculateTaskPoints
-// Re-exported below for backward compatibility.
-
-// Did the user have any actionable tasks on a given date? Used by
-// computeStreak to skip "empty days" (no tasks queued, nothing due) so
-// the streak doesn't punish for not gaming the list to keep it alive.
-// A task counts as actionable on date D if:
-//   - status is active (not done before D, not backlog/project/cancelled)
-//   - created_at <= end-of-D (existed by then)
-//   - snoozed_until is null or <= end-of-D (not snoozed past it)
-// Tasks that were completed ON D obviously count (they're an action).
-function hadActiveTasksOnDay(tasks, date) {
-  const endOfDay = new Date(date)
-  endOfDay.setHours(23, 59, 59, 999)
-  const startOfDay = new Date(date)
-  startOfDay.setHours(0, 0, 0, 0)
-
-  for (const t of tasks) {
-    if (['backlog', 'project', 'cancelled'].includes(t.status)) continue
-    if (!t.created_at) continue
-    const created = new Date(t.created_at)
-    if (created > endOfDay) continue
-    // If already completed before this day, it wasn't actionable on D.
-    if (t.status === 'done' && t.completed_at) {
-      const completed = new Date(t.completed_at)
-      if (completed < startOfDay) continue
-    }
-    // If snoozed past end-of-day, it wasn't actionable on D.
-    if (t.snoozed_until) {
-      const snoozedUntil = new Date(t.snoozed_until)
-      if (snoozedUntil > endOfDay) continue
-    }
-    return true
-  }
-  return false
-}
-
-export function computeStreak(tasks, settings) {
-  if (settings.vacation_mode) {
-    // Auto-expire vacation if end date has passed
-    if (settings.vacation_end && new Date() >= new Date(settings.vacation_end)) {
-      // Expired — treat vacation days as free days for streak calculation below
-    } else {
-      return settings.streak_current || 0
-    }
-  }
-
-  // `vacation_mode` above is LEGACY and nothing writes it any more. The away
-  // window moved to its own app_data carve-out on 2026-07-29 (the settings blob
-  // is last-writer-wins and any stale client pushed `false`) — and the streak
-  // guard was left behind pointing at the abandoned flag, so a trip protected
-  // notifications and silently ended the streak instead. Cost a 100-day streak
-  // on 2026-08-03.
-  //
-  // The days the window covered are STAMPED server-side into `away_days`
-  // (server/awayDays.js) and PAUSE the walk below. Stamped rather than derived
-  // so coming home — switching the window off — cannot retroactively
-  // un-protect the trip.
-  const freeDays = new Set(settings.free_days || [])
-  // Away days PAUSE the streak: they neither break it nor build it. The walk
-  // steps straight over them, so a week away leaves the number exactly where it
-  // was — 100 in, 100 out.
-  //
-  // Not the same as a free day, which COUNTS as kept. Treating a trip as seven
-  // kept days would hand out a streak nobody worked for, and the streak's only
-  // job is to be worth something. "This should be actually paused" — correct.
-  const awayDays = new Set(settings.away_days || [])
-  const easterEggWins = settings.easter_egg_wins || {}
-  // Durable provenance for completion days whose task rows were deleted —
-  // stamped server-side by deleteTask (see db.js). Without this, deleting
-  // a done task retroactively turned its day into a fault day.
-  const provenanceDays = new Set(settings.completion_days || [])
-
-  // Count consecutive days with at least 1 completion (or a free day),
-  // working backward from today. Empty-task days (no completions AND no
-  // tasks were active on that day) are treated as no-fault — the streak
-  // continues across them. Easter-egg wins count as a completion.
-  // Project session logs also count as completions for streak purposes —
-  // chipping away at a project counts as "did something today" the same
-  // as ticking off a one-shot task.
-  const completionDates = new Set()
-  let earliest = null
-  for (const t of tasks) {
-    if (t.status === 'done' && t.completed_at) {
-      completionDates.add(new Date(t.completed_at).toDateString())
-    }
-    if (t.status === 'waiting' && t.waiting_at) {
-      completionDates.add(new Date(t.waiting_at).toDateString())
-    }
-    if (t.status === 'project' && Array.isArray(t.session_log)) {
-      for (const entry of t.session_log) {
-        if (entry?.timestamp) completionDates.add(new Date(entry.timestamp).toDateString())
-      }
-    }
-    if (Array.isArray(t.escalation_attempt_log)) {
-      for (const entry of t.escalation_attempt_log) {
-        if (entry?.at) completionDates.add(new Date(entry.at).toDateString())
-      }
-    }
-    if (t.created_at) {
-      const c = new Date(t.created_at)
-      if (Number.isFinite(c.getTime()) && (!earliest || c < earliest)) earliest = c
-    }
-  }
-
-  // Streak floor — once we walk past the user's earliest task, there's
-  // nothing meaningful before then. Without this floor, no-fault empty
-  // days (which all pre-history days qualify as) would walk back
-  // indefinitely until JS Date underflowed and `.toISOString()` threw.
-  //
-  // The floor honors `settings.streak_anchor` (a 'YYYY-MM-DD' that only
-  // ever moves BACKWARD, maintained in AppV2 from tasks + the server's
-  // analytics history): deriving the floor purely from live tasks meant
-  // deleting your oldest record — e.g. dismissing an old Gmail import —
-  // retroactively shortened the streak (prod incident: 36 → 27).
-  const anchorDate = settings.streak_anchor ? parseLocalDate(settings.streak_anchor) : null
-  const floorBasis = anchorDate && (!earliest || anchorDate < earliest) ? anchorDate : earliest
-  const floor = floorBasis
-    ? new Date(floorBasis.getFullYear(), floorBasis.getMonth(), floorBasis.getDate())
-    : null
-
-  const isNoFaultDay = (d) => {
-    const iso = localYMD(d)
-    if (freeDays.has(iso)) return true
-    if (easterEggWins[iso]) return false // counted as completion below, not no-fault
-    return !hadActiveTasksOnDay(tasks, d)
-  }
-  const hasCompletionOn = (d) => (
-    completionDates.has(d.toDateString()) || !!easterEggWins[localYMD(d)] || provenanceDays.has(localYMD(d))
-  )
-
-  // ONE implementation of the walk, shared with the server's analytics streak
-  // (server/streakWalk.js). Two hand-mirrored copies is how the away window came
-  // to be honoured in one place and not the other.
-  return walkStreak({
-    todayMs: Date.now(),
-    isKept: (d) => hasCompletionOn(d) || isNoFaultDay(d),
-    isPaused: (d) => awayDays.has(dayKey(d)),
-    floorMs: floor ? floor.getTime() : null,
-  })
-}
-
-// Per-routine streak — counts consecutive cadence cycles completed without
-// a miss, walking back from the most recent completion. A "miss" is a gap
-// between two consecutive `completed_history` entries that exceeds 1.5×
-// the cadence interval. Returns 0 if the routine has never been completed.
-//
-// Used by TaskCard to render a small `🔥N` indicator next to routine-spawned
-// tasks in terminal mode (PR G density). Per-routine, not per-task — every
-// task spawned by routine X shares the same routine streak number.
-export function computeRoutineStreak(routine) {
-  const history = routine?.completed_history || []
-  if (history.length === 0) return 0
-  if (history.length === 1) return 1
-
-  const tolerance = cadenceIntervalMs(routine.cadence, routine.custom_days, routine.custom_unit) * 1.5
-  let streak = 1
-  for (let i = history.length - 1; i > 0; i--) {
-    const a = new Date(history[i]).getTime()
-    const b = new Date(history[i - 1]).getTime()
-    if (a - b <= tolerance) streak++
-    else break
-  }
-  return streak
-}
-
-function cadenceIntervalMs(cadence, customDays, customUnit = 'days') {
-  const day = 24 * 60 * 60 * 1000
-  switch (cadence) {
-    case 'daily': return day
-    case 'weekly': return 7 * day
-    case 'monthly': return 30 * day
-    case 'quarterly': return 91 * day
-    case 'annually': return 365 * day
-    case 'custom': {
-      // Streak tolerance only — approximate months as 30 days. Exact
-      // month-length variation (28-31) doesn't matter for the 1.5x
-      // tolerance window used in computeRoutineStreak.
-      const multiplier = customUnit === 'months' ? 30 : 1
-      return (customDays || 1) * multiplier * day
-    }
-    default: return day
-  }
-}
+// Completion counting lives in src/scoring.js (computeDailyStats,
+// computeRecords), re-exported below for backward compatibility.
 
 // Activity log — tracks task lifecycle events for recovery.
 //
@@ -1377,6 +1145,6 @@ export function getSnoozeOptionsShort() {
 }
 
 // Re-export scoring functions so existing imports from store.js keep working
-export { computeDailyStats, computeRecords, calculateTaskPoints as computeTaskPoints, SIZE_POINTS, ENERGY_MULTIPLIER } from './scoring.js'
+export { computeDailyStats, computeRecords } from './scoring.js'
 
 export { ACTIVE_STATUSES, STATUS_META, isActiveTask, LABEL_COLORS, RECURRENCE_OPTIONS, ENERGY_TYPES, AVOIDANCE_ENERGY_TYPES }

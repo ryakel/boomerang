@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Plus, Play, Pause, Pencil, Trash2, RotateCw, FastForward, X, ChevronUp, ChevronDown, Check, Flame } from 'lucide-react'
+import { Plus, Play, Pause, Pencil, Trash2, RotateCw, FastForward, X, ChevronUp, ChevronDown, Check } from 'lucide-react'
 import { loadLabels, loadSettings, RECURRENCE_OPTIONS, formatCadence, formatScheduleAnchor, getNextDueDate, computeHabitStats, localYMD } from '../store'
 import ModalShell from './ModalShell'
 import FormDisclosure from './FormDisclosure'
@@ -59,12 +59,13 @@ function RoutineRow({ routine, tasks, expanded, onToggleExpand, onSpawnNow, onLo
   useEffect(() => { if (!expanded) setConfirmDelete(false) }, [expanded])
 
   const isHabit = routine.spawn_mode === 'habit'
+  const isAutopilot = routine.spawn_mode === 'autopilot'
   const weekStartsOn = loadSettings()?.week_starts_on ?? 1
   const habitStats = isHabit ? computeHabitStats(routine, tasks, weekStartsOn) : null
 
   const cadenceLabel = isHabit && habitStats
-    ? `habit · ${habitStats.target}× / ${routine.target_period}`
-    : formatCadence(routine)
+    ? `practice · ${habitStats.target}× / ${routine.target_period}`
+    : isAutopilot ? `autopilot · ${formatCadence(routine)}` : formatCadence(routine)
   const anchorLabel = !isHabit ? formatScheduleAnchor(routine) : ''
   const dayOfWeek = anchorLabel ? ` · ${anchorLabel}` : ''
   const triggerLabel = !isHabit && routine.trigger_time
@@ -72,7 +73,6 @@ function RoutineRow({ routine, tasks, expanded, onToggleExpand, onSpawnNow, onLo
     : ''
   const memberCount = Array.isArray(routine.members) ? routine.members.length : 0
   const stackLabel = memberCount > 0 ? ` · ${memberCount} items` : ''
-  const completeCount = routine.completed_history?.length || 0
 
   const handleSpawn = () => {
     if (hasActiveTask) return  // button is disabled in this state, but defensive
@@ -95,13 +95,10 @@ function RoutineRow({ routine, tasks, expanded, onToggleExpand, onSpawnNow, onLo
           {isHabit && habitStats && (
             <>
               {' · '}
-              <span className={habitStats.behind_pace ? 'v2-habit-progress v2-habit-progress-behind' : 'v2-habit-progress'}>
+              <span className="v2-habit-progress">
                 {habitStats.completions}/{habitStats.target}
                 {habitStats.target_period === 'week' ? ' this week' : ' this month'}
               </span>
-              {habitStats.streak > 0 && (
-                <span className="v2-habit-streak"> · <Flame size={11} strokeWidth={1.75} /> {habitStats.streak}</span>
-              )}
             </>
           )}
         </span>
@@ -112,20 +109,20 @@ function RoutineRow({ routine, tasks, expanded, onToggleExpand, onSpawnNow, onLo
             {isHabit ? (
               <>
                 <span>
-                  {habitStats?.completions || 0} of {habitStats?.target || routine.target_count} this {routine.target_period}
+                  {habitStats?.completions || 0} so far this {routine.target_period}
                 </span>
+              </>
+            ) : isAutopilot ? (
+              <>
+                <span>{formatLastDone(routine)}</span>
                 <span className="v2-routine-meta-sep">·</span>
-                <span>streak: {habitStats?.streak || 0}</span>
-                <span className="v2-routine-meta-sep">·</span>
-                <span>{completeCount}× lifetime</span>
+                <span>Boomerang won’t ask or count misses</span>
               </>
             ) : (
               <>
                 <span>{formatLastDone(routine)}</span>
                 <span className="v2-routine-meta-sep">·</span>
                 <span>{formatNextDue(routine)}</span>
-                <span className="v2-routine-meta-sep">·</span>
-                <span>{completeCount}× completed</span>
               </>
             )}
           </div>
@@ -146,7 +143,7 @@ function RoutineRow({ routine, tasks, expanded, onToggleExpand, onSpawnNow, onLo
                   <><Plus size={14} strokeWidth={2} /> Log it</>
                 )}
               </button>
-            ) : (
+            ) : isAutopilot ? null : (
               <button
                 className={`v2-routine-action v2-routine-action-primary${
                   spawnState === 'spawned' ? ' v2-routine-action-spawn-spawned' : ''
@@ -166,7 +163,7 @@ function RoutineRow({ routine, tasks, expanded, onToggleExpand, onSpawnNow, onLo
                 )}
               </button>
             )}
-            {!routine.paused && !isHabit && (
+            {!routine.paused && !isHabit && !isAutopilot && (
               <button className="v2-routine-action" onClick={() => onSkipCycle(routine.id)} title="Skip this cycle (advance schedule, no task)">
                 <FastForward size={14} strokeWidth={1.75} /> Skip cycle
               </button>
@@ -345,7 +342,7 @@ function FollowUpStepRow({ step, index, isFirst, isLast, onChange, onRemove, onM
   )
 }
 
-function RoutineForm({ initial, onSave, noun = 'routine' }) {
+function RoutineForm({ initial, onSave, noun = 'routine', initialMode = null }) {
   const isNew = !initial
   const [title, setTitle] = useState(initial?.title || '')
   const [cadence, setCadence] = useState(initial?.cadence || 'weekly')
@@ -381,13 +378,19 @@ function RoutineForm({ initial, onSave, noun = 'routine' }) {
   const [notes, setNotes] = useState(initial?.notes || '')
   // Who this loop is actually for — e.g. a kid's chore the user supervises
   // rather than their own task (migration 038). Free text, blank = mine.
-  // Propagated onto every spawned task; scores a flat point per completion
-  // (see calculateTaskPoints in scoring.js) instead of size x energy.
+  // Propagated onto every spawned task.
   const [assignee, setAssignee] = useState(initial?.assignee || '')
   const [highPriority, setHighPriority] = useState(initial?.high_priority || false)
   const [endDate, setEndDate] = useState(initial?.end_date || '')
   const [autoRoll, setAutoRoll] = useState(initial?.auto_roll || false)
-  const [spawnMode, setSpawnMode] = useState(initial?.spawn_mode || 'auto')
+  // initialMode: the mode a loop page asked for when it opened the editor
+  // (BOOM-35 audit), so tapping Practice there lands on Practice here.
+  const [spawnMode, setSpawnMode] = useState(() => {
+    if (initialMode === 'practice') return 'habit'
+    if (initialMode === 'autopilot') return 'autopilot'
+    if (initialMode === 'reminder' || initialMode === 'checklist') return 'auto'
+    return initial?.spawn_mode || 'auto'
+  })
   const [targetCount, setTargetCount] = useState(initial?.target_count || 2)
   const [targetPeriod, setTargetPeriod] = useState(initial?.target_period || 'week')
   const [followUps, setFollowUps] = useState(() =>
@@ -409,6 +412,19 @@ function RoutineForm({ initial, onSave, noun = 'routine' }) {
     : ''
   const [lastDone, setLastDone] = useState(initialLastDone)
   const isHabit = spawnMode === 'habit'
+  // Autopilot (BOOM-35): something you already do. No task, no reminder,
+  // nothing counted as missed. Plain loops only: a loop with stack items is a
+  // checklist, so Autopilot is offered only while it has none.
+  const isAutopilot = spawnMode === 'autopilot'
+  const hasItems = members.some(m => (m.title || '').trim())
+  // Why the loop page sent us here, said once above the form.
+  const modeNote = initialMode === 'checklist' && !hasItems
+    ? 'Add two or more stack items below to make this a checklist.'
+    : initialMode === 'reminder' && hasItems
+      ? 'Remove the stack items below to make this a plain reminder.'
+      : (initialMode === 'practice' || initialMode === 'autopilot') && hasItems
+        ? `Remove the stack items below first: ${initialMode === 'practice' ? 'Practice' : 'Autopilot'} is for loops without items.`
+        : null
 
   const labels = loadLabels()
   const today = localYMD()
@@ -531,7 +547,8 @@ function RoutineForm({ initial, onSave, noun = 'routine' }) {
     scheduleDayOfMonth: outDayOfMonth,
     scheduleWeekOfMonth: outWeekOfMonth,
     triggerTime: triggerTime || null,
-    remind: !!triggerTime && remind,
+    // Autopilot never rings; practice has no due time to ring at.
+    remind: !isAutopilot && !isHabit && !!triggerTime && remind,
     completedHistory: resolveCompletedHistory(),
     followUps: followUpsArray,
     members: cleanMembers(),
@@ -608,33 +625,57 @@ function RoutineForm({ initial, onSave, noun = 'routine' }) {
           header. ModalShell's close affordance is now the single exit. */}
       <input
         className="v2-form-input v2-form-title"
-        placeholder={isHabit ? "What habit?" : "What recurring task?"}
+        placeholder={isHabit ? "What do you want to practice?" : isAutopilot ? "What do you already do?" : "What comes back around?"}
         value={title}
         onChange={e => setTitle(e.target.value)}
       />
 
       <div className="v2-form-section">
-        <div className="v2-form-segmented v2-form-mode-segmented">
+        {/* The modes the loop page names (BOOM-35). Checklist isn't a separate
+            choice: a reminder loop with stack items IS a checklist, so the
+            first button takes that name once items exist. */}
+        <div className="v2-form-segmented v2-form-mode-segmented" role="radiogroup" aria-label="How it comes back">
           <button
             type="button"
-            className={`v2-form-seg${!isHabit ? ' v2-form-seg-active' : ''}`}
+            role="radio"
+            aria-checked={!isHabit && !isAutopilot}
+            className={`v2-form-seg${!isHabit && !isAutopilot ? ' v2-form-seg-active' : ''}`}
             onClick={() => setSpawnMode('auto')}
           >
-            Auto (cadence)
+            {hasItems ? 'Checklist' : 'Reminder'}
           </button>
           <button
             type="button"
+            role="radio"
+            aria-checked={isHabit}
             className={`v2-form-seg${isHabit ? ' v2-form-seg-active' : ''}`}
             onClick={() => setSpawnMode('habit')}
+            disabled={hasItems && !isHabit}
           >
-            Habit (target frequency)
+            Practice
+          </button>
+          <button
+            type="button"
+            role="radio"
+            aria-checked={isAutopilot}
+            className={`v2-form-seg${isAutopilot ? ' v2-form-seg-active' : ''}`}
+            onClick={() => setSpawnMode('autopilot')}
+            disabled={hasItems && !isAutopilot}
+          >
+            Autopilot
           </button>
         </div>
         <div className="v2-form-section-hint">
           {isHabit
-            ? 'Tracks a target frequency (e.g. 2× / week) without locking it to specific days — log proactively or get a gentle behind-pace nudge.'
-            : 'Spawns a task on a cadence (daily, weekly, etc.) and nags like any task.'}
+            ? 'No task and no due date. Log it when you do it. The target is a direction, not a score.'
+            : isAutopilot
+              ? 'Something you already do. Boomerang won’t make a task, remind you or count misses. You can still mark a day on the loop’s page.'
+              : hasItems
+                ? 'Comes back as a checklist: each stack item shows up on Today as its own task. If a cycle slips by, it simply waits.'
+                : 'A task shows up on Today when it’s due. If a cycle slips by, it simply waits; nothing piles up.'}
+          {hasItems && !isAutopilot && !isHabit ? ' Practice and Autopilot are for loops without stack items.' : ''}
         </div>
+        {modeNote && <div className="v2-form-section-hint v2-form-mode-note">{modeNote}</div>}
       </div>
 
       {!isHabit && (
@@ -766,6 +807,7 @@ function RoutineForm({ initial, onSave, noun = 'routine' }) {
             </div>
           )}
 
+          {!isAutopilot && (<>
           <div className="v2-form-row">
             <div className="v2-form-field">
               <label className="v2-form-label">At time</label>
@@ -790,7 +832,7 @@ function RoutineForm({ initial, onSave, noun = 'routine' }) {
             </div>
           </div>
           <div className="v2-form-section-hint">
-            Don't show or nag before this time. Leave blank for any time.
+            Don't show it before this time. Leave blank for any time.
           </div>
           {triggerTime && (
             <>
@@ -803,12 +845,13 @@ function RoutineForm({ initial, onSave, noun = 'routine' }) {
                 <span>Remind me at this time</span>
               </label>
               <div className="v2-form-section-hint">
-                Each spawned task gets an alarm at {triggerTime}, delivered by Apple
-                Reminders — Boomerang itself still sends nothing. Needs the Reminders
-                integration connected.
+                Your phone rings at {triggerTime} each time this loop comes due. It is
+                scheduled on the phone itself, so it works offline; the server sends
+                nothing.
               </div>
             </>
           )}
+          </>)}
         </>
       )}
 
@@ -878,7 +921,7 @@ function RoutineForm({ initial, onSave, noun = 'routine' }) {
             </button>
           </div>
         )}
-        {!isHabit && (
+        {!isHabit && !isAutopilot && (
           <div className="v2-form-section">
             <label className="v2-form-label">Auto-roll</label>
             <div className="v2-form-section-hint">
@@ -921,20 +964,20 @@ function RoutineForm({ initial, onSave, noun = 'routine' }) {
               </div>
             </div>
             <div className="v2-form-section-hint">
-              When you last completed this. Sets the next due date — use it to fix a routine that's nagging after lost history.
+              When you last completed this. Sets the next due date — use it to fix a loop that keeps coming back after lost history.
             </div>
           </>
         )}
       </FormDisclosure>
 
-      {!isHabit && (
+      {!isHabit && !isAutopilot && (
         <FormDisclosure
           label="Stack items"
           summary={members.length > 0 ? `${members.length} item${members.length === 1 ? '' : 's'}` : undefined}
-          defaultOpen={members.length > 0}
+          defaultOpen={members.length > 0 || initialMode === 'checklist'}
         >
           <div className="v2-form-section-hint">
-            Add 2+ items and this {noun} becomes a <strong>stack</strong>: each cycle it spawns one independent task per item, all sharing the cadence and time above. Each item scores its own points; clearing every item in a cycle pays a 20% bonus.
+            Add 2+ items and this {noun} becomes a <strong>stack</strong>: each cycle it spawns one independent task per item, all sharing the cadence and time above. Clearing every item completes that cycle.
           </div>
           {members.length > 0 && (
             <ol className="v2-stack-member-edit-list">
@@ -965,6 +1008,7 @@ function RoutineForm({ initial, onSave, noun = 'routine' }) {
         </FormDisclosure>
       )}
 
+      {!isAutopilot && (
       <FormDisclosure
         label="Follow-ups"
         summary={followUps.length > 0 ? `${followUps.length} step${followUps.length === 1 ? '' : 's'}` : undefined}
@@ -994,6 +1038,7 @@ function RoutineForm({ initial, onSave, noun = 'routine' }) {
           + Add step
         </button>
       </FormDisclosure>
+      )}
 
       <FormDisclosure
         label="Labels & notes"
@@ -1030,7 +1075,7 @@ function RoutineForm({ initial, onSave, noun = 'routine' }) {
             onChange={e => setAssignee(e.target.value)}
           />
           <div className="v2-form-section-hint">
-            Marks this as someone else's chore you're supervising. Spawned tasks score a flat 1 point each (instead of size × energy) but still count toward your own daily total.
+            Marks this as someone else's chore you're supervising. Spawned tasks still count toward your own daily total.
           </div>
         </div>
         <div className="v2-form-section">
@@ -1065,7 +1110,7 @@ function RoutineForm({ initial, onSave, noun = 'routine' }) {
 
 export default function RoutinesModal({
   open, routines, tasks = [], onAdd, onDelete, onTogglePause, onUpdate, onSpawnNow, onLogHabit, onSkipCycle, onClose,
-  editRoutineId, onClearEditRoutineId, activeRoutineIds,
+  editRoutineId, editRoutineMode = null, onClearEditRoutineId, activeRoutineIds,
   title = 'Routines', noun = 'routine',
   openToForm = false, onConsumeOpenToForm,
 }) {
@@ -1078,6 +1123,7 @@ export default function RoutinesModal({
   // return to that list instead. (Plan item 3: stop dumping Kept users on the
   // leftover internal "Loops · N active" list after a save.)
   const [openedToForm, setOpenedToForm] = useState(false)
+  const [formMode, setFormMode] = useState(null)
 
   // Reset to list view whenever the modal opens fresh.
   useEffect(() => {
@@ -1086,6 +1132,7 @@ export default function RoutinesModal({
       setEditing(null)
       setExpandedId(null)
       setOpenedToForm(false)
+      setFormMode(null)
     }
   }, [open])
 
@@ -1108,12 +1155,13 @@ export default function RoutinesModal({
       const target = routines.find(r => r.id === editRoutineId)
       if (target) {
         setEditing(target)
+        setFormMode(editRoutineMode)
         setView('form')
         setOpenedToForm(true)
       }
       onClearEditRoutineId?.()
     }
-  }, [open, editRoutineId, routines, onClearEditRoutineId])
+  }, [open, editRoutineId, editRoutineMode, routines, onClearEditRoutineId])
 
   const active = routines.filter(r => !r.paused)
   const paused = routines.filter(r => r.paused)
@@ -1179,8 +1227,10 @@ export default function RoutinesModal({
     >
       {view === 'form' ? (
         <RoutineForm
+          key={editing?.id || 'new'}
           noun={noun}
           initial={editing}
+          initialMode={formMode}
           onSave={handleSubmitForm}
         />
       ) : (

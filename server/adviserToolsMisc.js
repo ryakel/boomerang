@@ -340,6 +340,9 @@ export function registerSettingsTools() {
       for (const k of ['anthropic_api_key', 'openai_api_key', 'notion_token', 'trello_api_key', 'trello_secret', 'gcal_client_secret', 'tracking_api_key', 'shippo_api_token', 'pushover_user_key', 'pushover_app_token']) {
         if (redacted[k]) redacted[k] = '***redacted***'
       }
+      // Points and rally were removed (BOOM-33); their provenance stays stored
+      // but Quokka must not read a score back to the user.
+      for (const k of ['streak_current', 'streak_best', 'streak_anchor', 'daily_points_goal', 'points_goal', 'best_points', 'longest_streak']) delete redacted[k]
       return { result: redacted }
     },
   })
@@ -386,18 +389,17 @@ export function registerSettingsTools() {
 
   registerTool({
     name: 'get_analytics',
-    description: 'Fetch analytics summary: today\'s tasks + points, streak, completion rate, distributions.',
+    description: 'Fetch analytics summary: tasks completed today and the best day ever (by tasks completed). Boomerang has no points or streaks.',
     readOnly: true,
     schema: { type: 'object', properties: {} },
     execute: async () => {
-      const settings = getData('settings') || {}
-      return { result: getAnalytics(settings) }
+      return { result: getAnalytics() }
     },
   })
 
   registerTool({
     name: 'get_analytics_history',
-    description: 'Fetch historical daily completion + points data for charting. Default 30 days.',
+    description: 'Fetch historical completion counts (daily, and by tag, energy, size, impact and weekday). Default 30 days.',
     readOnly: true,
     schema: {
       type: 'object',

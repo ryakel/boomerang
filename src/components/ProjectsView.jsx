@@ -1,14 +1,14 @@
 import { useState, useMemo } from 'react'
 import { FolderKanban, Pin, PinOff, Plus, ChevronDown, ChevronRight } from 'lucide-react'
 import { sortTasks, isActiveTask } from '../store'
-import { computeProjectBudget, PROJECT_SESSION_CAP } from '../scoring'
+import { PROJECT_SESSION_CAP } from '../scoring'
 import ModalShell from './ModalShell'
 import EmptyState from './EmptyState'
 import TaskCard from './TaskCard'
 import './ProjectsView.css'
 
 // Projects modal — list of all projects with drill-down. Each project
-// card surfaces session/budget/sub counts + Pin and Add-sub buttons.
+// card surfaces session/sub counts + Pin and Add-sub buttons.
 // Tap a project to expand its subs inline (active + backstage). Active
 // subs render as full TaskCards (so they can be completed/snoozed in
 // place); backstage subs show as compact rows.
@@ -70,7 +70,6 @@ export default function ProjectsView({
           {projectTasks.map(project => {
             const children = childrenByParent.get(project.id) || []
             const activeChildren = children.filter(c => isActiveTask(c))
-            const budget = computeProjectBudget(project, tasks)
             const expanded = expandedProjectId === project.id
             const sessionCount = project.session_count || 0
             const capped = sessionCount >= PROJECT_SESSION_CAP
@@ -96,9 +95,7 @@ export default function ProjectsView({
                         )}
                         {children.length === 0 ? 'no subs' : `${activeChildren.length}/${children.length} subs`}
                         <span className="v2-pv-meta-sep">·</span>
-                        {sessionCount > 0 ? `🔥 ${sessionCount}${capped ? ` (capped)` : ''}` : 'no sessions'}
-                        <span className="v2-pv-meta-sep">·</span>
-                        budget {budget}
+                        {sessionCount > 0 ? `${sessionCount} session${sessionCount === 1 ? '' : 's'}${capped ? ' (capped)' : ''}` : 'no sessions'}
                       </span>
                     </span>
                   </button>

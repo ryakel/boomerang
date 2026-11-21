@@ -1,6 +1,46 @@
 # Work status and authorization
 
-## Current focus: configurable task/routine alarm rules (2026-11-15)
+## Current focus: Kept 2.0 beyond Today (2026-11-15)
+
+Claude took over from Codex on 2026-11-15. The Kept 2.0 redesign had reached
+only the Today screen; everything else still ran on points, rallies and red
+overdue rows. Owner decisions are in D016. Tracked in It's a Plan:
+
+| Ticket | Work | State |
+|---|---|---|
+| BOOM-33 | Remove points and rally app-wide; Analytics counts completions; classic Today gated off | Merged to `dev` (#1034); dev deploy verified by workflow 43736032458. Not in production. |
+| BOOM-34 | Carry the Kept 2.0 type (Fraunces/DM Sans variable) to every mobile surface | Merged to `dev` (#1035) |
+| BOOM-37 | Tasks list on Kept 2.0 rules: Worth doing next, quiet Slipped card, grouped cards | Merged to `dev` (#1036) |
+| BOOM-38 | Dev iPhone build takes web updates again (only native changes need a rebuild) | PR to `dev`; needs one final Dev rebuild |
+| BOOM-35 | Loops grouped by mode (Reminder / Checklist / Practice / Autopilot); no trails or counts; marking a day closes the cycle's task | Merged to `dev` (#1038); audit fixes in #1039 |
+| BOOM-36 | Today shows every chosen Google calendar (picker in Settings; timed in Coming up, all-day at the top, a week ahead) | Merged to `dev` (#1041) |
+| BOOM-41–45 | Analytics Loops tab last-done only; delete a loop; Not now synced across devices; desktop rail Due today; loop GCal series persisted and owned by the loop | Merged to `dev` (#1040) |
+| BOOM-46 | Remove the daily goal, catch counter and achievements ("game dressed up") | PR to `dev` |
+| BOOM-40 | Loop editor uses the loop page's mode names; Autopilot can be made there. Plus fixes from a full audit of everything shipped 2026-11-15/16 (loops, Tasks list, points leftovers, iOS type, Dev OTA) | PR #1039 to `dev` |
+
+Desktop is deferred by the owner. BOOM-32 (Kept 2.0 Today) is closed; its
+open Loops question moved to BOOM-35.
+
+**Standing authority (owner, 2026-11-15):** "you are always permitted to run
+the runs to push the app in dev." Merging PRs into `dev`, and the automatic
+`boomerang-dev` deploy that follows, need no per-PR approval. Not covered:
+promoting to `main`/production and rebuilding or installing the iOS app; for
+those, tell the owner when one is needed and wait for their go-ahead (D017).
+
+**iOS note:** both apps take web changes over the air from their server. The
+Dev build pinned its packaged UI during the alarm experiment; BOOM-38 removed
+that, which itself needs one rebuild. After that, only native changes need a
+rebuild, and the owner is told to rebuild only then.
+
+## Alarm rules: code in production, feature Dev-only (2026-11-15)
+
+Release #1032 put the alarm-rule code on `main`, and production workflow
+43725385116 deployed and verified it. Arming stays Dev-only by the owner's
+choice (D015): the API returns 403 off dev and the client requires the Dev
+native build. Enabling it in production needs a physical-device test matrix
+and separate approval. The section below is the pre-release snapshot.
+
+### Pre-release snapshot: configurable task/routine alarm rules
 
 The owner requested accumulated dev changes promoted to production, then the next
 batch built in dev. Release #1029 deployed v2.62.0 and #1030 reconciled ancestry.

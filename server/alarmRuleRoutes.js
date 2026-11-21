@@ -10,7 +10,7 @@ export function createAlarmRuleStore({get, set, flush, source, now=()=>Date.now(
       const state=read()
       const rules=state.rules.map(rule=>{
         const parent=source(rule.sourceKind,rule.sourceId)
-        const available=!!parent && !['done','completed','cancelled','archived'].includes(parent.status) && parent.active!==false && !parent.paused
+        const available=!!parent && !['done','completed','cancelled','archived'].includes(parent.status) && parent.active!==false && !parent.paused && parent.spawn_mode!=='autopilot'
         const conflict=!!(parent && (rule.sourceKind==='task' ? parent.remind_at : parent.remind))
         return {...rule,title:parent?.title || 'Missing source',available,conflict,heldDates:rule.sourceKind==='routine' ? sourceHeldDates(parent,rule.timeZone) : []}
       })

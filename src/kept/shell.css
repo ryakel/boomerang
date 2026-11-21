@@ -188,7 +188,7 @@
   text-align: left; cursor: pointer;
   color: inherit; font: inherit;
 }
-.bm-row-title { font-size: 15px; font-weight: 550; line-height: 1.3; color: var(--bm-text); }
+.bm-row-title { font-size: 15px; font-weight: 500; line-height: 1.32; color: var(--bm-text); } /* Kept 2.0 task row (Today-Kept2 §4): DM Sans 500, same as Today */
 .bm-row-title.is-done { color: var(--bm-text-meta); text-decoration: line-through; }
 .bm-row-meta {
   display: flex; flex-wrap: wrap; align-items: center; gap: 10px;
@@ -221,7 +221,6 @@
 .bm-loop-body { flex: 1 1 auto; min-width: 0; background: none; border: none; padding: 0; text-align: left; cursor: pointer; color: inherit; }
 .bm-loop-title { font-size: 14.5px; font-weight: 600; color: var(--bm-text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .bm-loop-sub { font-size: 11.5px; color: var(--bm-text-meta); margin-top: 1px; }
-.bm-loop-rally { color: var(--bm-gold); font-weight: 700; }
 .bm-loop-chk {
   flex: 0 0 auto;
   width: 28px; height: 28px; border-radius: 50%;
@@ -376,13 +375,6 @@
 .bm-hero-date { display: flex; align-items: baseline; gap: 8px; margin-bottom: 4px; }
 .bm-hero-day { font-family: var(--v2-font-display); font-weight: 700; font-size: 21px; }
 .bm-hero-sub { font-size: 12.5px; color: var(--bm-text-meta); }
-.bm-rally-chip {
-  margin-left: auto; flex: 0 0 auto;
-  font-size: 12px; font-weight: 700;
-  color: var(--bm-gold);
-  background: var(--bm-gold-soft);
-  border-radius: 10px; padding: 4px 10px;
-}
 /* The whole arc + stats block is one tap target for the daily breakdown —
    a skinny stats row alone was an unfindable target (prod report). */
 .bm-hero-tap {
@@ -436,7 +428,6 @@
   font-size: 12.5px; padding: 3.5px 0;
 }
 .bm-week-item-title { color: var(--bm-text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.bm-week-item-pts { color: var(--bm-gold); font-weight: 700; flex: 0 0 auto; }
 
 /* Swipe-to-reveal on hairline rows */
 .bm-row-swipe { position: relative; overflow: hidden; }

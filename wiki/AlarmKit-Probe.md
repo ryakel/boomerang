@@ -1,5 +1,10 @@
 # Disposable AlarmKit test — Mac handoff
 
+> **2026-11-15 (BOOM-38):** the Dev build takes web updates again. The probe
+> marker still gates the alarm features; the packaged-UI pin described under
+> "Missing controls" below was removed once the alarm code shipped in the dev
+> server's bundle. Web-only changes no longer need a rebuild to reach the phone.
+
 Status: **5138c77 built and installed; native builtin readiness and owner
 launch/resume checks pass. Owner approved PR #1028 merge into dev and staging
 deployment.** Phone UI `v2.61.1-20-g5138c77`; server last observed `dev-347e0e2`

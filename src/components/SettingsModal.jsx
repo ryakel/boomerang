@@ -24,6 +24,7 @@ import AlarmProbePanel from './AlarmProbePanel'
 import AlarmRulesPanel from './AlarmRulesPanel'
 import { applyTheme } from '../theme'
 import './SettingsModal.css'
+import { CLASSIC_TODAY_ENABLED } from '../kept/classicToday'
 import { MODEL_CATALOG as AI_MODEL_CATALOG, TIER_DEFAULTS as AI_TIER_DEFAULTS } from '../../server/aiModels.js'
 
 // Collapsible settings section — session-local state that ALWAYS starts
@@ -678,6 +679,9 @@ function IntegrationsPanel({
   const [trelloLists, setTrelloListsList] = useState([])
   const [trelloListsLoading, setTrelloListsLoading] = useState(false)
   const [gcalCalendars, setGcalCalendarsList] = useState([])
+  // Failed is not the same as empty: an unreachable server must not read as
+  // "no calendars" (CLAUDE.md, the Share Extension picker lesson).
+  const [gcalCalendarsError, setGcalCalendarsError] = useState(false)
 
   // Load Trello boards + GCal calendars when their integrations are connected.
   useEffect(() => {
@@ -704,8 +708,8 @@ function IntegrationsPanel({
     if (!statuses.gcal?.connected) return
     let cancelled = false
     import('../api').then(m => m.gcalListCalendars()).then(cals => {
-      if (!cancelled) setGcalCalendarsList(Array.isArray(cals) ? cals : [])
-    }).catch(() => {})
+      if (!cancelled) { setGcalCalendarsList(Array.isArray(cals) ? cals : []); setGcalCalendarsError(false) }
+    }).catch(() => { if (!cancelled) setGcalCalendarsError(true) })
     return () => { cancelled = true }
   }, [statuses.gcal?.connected])
 
@@ -1723,6 +1727,31 @@ function IntegrationsPanel({
                       whichever account Boomerang is connected as, which may not be the one holding the
                       events you want.
                     </div>
+                    <label className="v2-form-label" style={{ marginTop: 14 }}>Show on Today</label>
+                    {/* BOOM-36: every calendar the connection can see, each a
+                        checkbox. Stored as the ones to LEAVE OUT, so a calendar
+                        added later shows up without a trip back here. */}
+                    {gcalCalendarsError ? (
+                      <div className="v2-integrations-hint">Couldn’t load your calendars just now. Today keeps showing the ones it had.</div>
+                    ) : gcalCalendars.length === 0 ? (
+                      <div className="v2-integrations-hint">Loading your calendars…</div>
+                    ) : (
+                      <>
+                        {gcalCalendars.map(c => {
+                          const hidden = (settings.gcal_today_hidden || []).includes(c.id)
+                          return (
+                            <label key={c.id} className="v2-integrations-check">
+                              <input type="checkbox" checked={!hidden} onChange={e => {
+                                const cur = settings.gcal_today_hidden || []
+                                update('gcal_today_hidden', e.target.checked ? cur.filter(id => id !== c.id) : [...cur, c.id])
+                              }} />
+                              <span>{c.summary}{c.primary ? ' (Primary)' : ''}</span>
+                            </label>
+                          )
+                        })}
+                        <div className="v2-integrations-hint">Today shows timed events in Coming up and all-day events at the top. Nothing here turns an event into a task.</div>
+                      </>
+                    )}
                     <div className="v2-integrations-toggle-row">
                       <span>Push tasks as calendar events</span>
                       <Toggle checked={settings.gcal_sync_enabled} onChange={e => update('gcal_sync_enabled', e.target.checked)} />
@@ -2623,7 +2652,7 @@ function NotificationsPanel({ settings, update, page, setPage }) {
           label="Away mode"
           summary={vacationSummary}
           onPress={() => setPage('Notifications/vacation')}
-          info="Stops due dates and nags while you're away, and freezes the streak. Critical tasks still get through. Can be set for dates that have already passed."
+          info="Stops due dates and nags while you're away, and loops don't count those days as missed. Critical tasks still get through. Can be set for dates that have already passed."
         />
         <NavRow
           label="Critical mode"
@@ -2710,8 +2739,8 @@ function NotificationsPanel({ settings, update, page, setPage }) {
             label="Away"
             persistentInfo={
               vacation?.away_now
-                ? 'Suppressing now. Due dates and nags are held; critical tasks still get through; the streak is frozen.'
-                : 'Holds due dates and nags while the window is open, freezes the streak, and lets critical tasks through.'
+                ? 'Suppressing now. Due dates and nags are held; critical tasks still get through; loops won\'t count these days as missed.'
+                : 'Holds due dates and nags while the window is open, keeps loops from counting those days as missed, and lets critical tasks through.'
             }
             trailing={
               <Toggle
@@ -3548,12 +3577,14 @@ export default function SettingsModal({
             </SettingsGroup>
 
             <SettingsGroup caption="Home screen">
-              <ToggleRow
-                label="Classic Today screen"
-                checked={!!settings.today_classic}
-                onChange={e => update('today_classic', e.target.checked)}
-                info="Brings back the previous Today screen with the points arc and loop trails. Nothing about your tasks, loops or stats changes either way."
-              />
+              {CLASSIC_TODAY_ENABLED && (
+                <ToggleRow
+                  label="Classic Today screen"
+                  checked={!!settings.today_classic}
+                  onChange={e => update('today_classic', e.target.checked)}
+                  info="Brings back the previous Today screen with its loop trails. Nothing about your tasks, loops or stats changes either way."
+                />
+              )}
               <ToggleRow
                 label="Show 7-day strip"
                 checked={settings.show_week_strip}
@@ -3569,21 +3600,6 @@ export default function SettingsModal({
                 onChange={e => update('week_strip_always_open', e.target.checked)}
                 disabled={!settings.show_week_strip}
                 info="Show the strip expanded when the app loads. Tap the date in the home stats line any time to hide or re-open it."
-              />
-              <SettingRow
-                label="Daily task goal"
-                info="Used by the progress bar and the activity intensity on the 7-day strip."
-                trailing={
-                  <input
-                    className="v2-form-input v2-settings-compact-input"
-                    type="number"
-                    min="1"
-                    max="50"
-                    aria-label="Daily task goal"
-                    value={settings.daily_task_goal ?? 3}
-                    onChange={e => update('daily_task_goal', parseInt(e.target.value) || 1)}
-                  />
-                }
               />
             </SettingsGroup>
 

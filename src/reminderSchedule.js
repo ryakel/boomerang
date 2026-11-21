@@ -104,8 +104,13 @@ export function planLocalReminders({
   // slot no matter how far out it runs. Sacrificing it to make room for a
   // one-off next Tuesday would be exactly backwards.
   const ringingRoutineIds = new Set()
+  const nowYMD = ymdLocal(now)
   for (const r of routines) {
     if (!r?.id || !r.remind) continue
+    // A loop that never asks never rings: autopilot (BOOM-35: "won't remind
+    // you"), practice (no due time to ring at), paused, or past its end date.
+    if (r.spawn_mode === 'autopilot' || r.spawn_mode === 'habit' || r.paused) continue
+    if (r.end_date && String(r.end_date).slice(0, 10) < nowYMD) continue
     const clock = parseClock(r.trigger_time)
     if (!clock) continue
     const shape = repeatShape(r)

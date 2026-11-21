@@ -25,6 +25,16 @@ test('a daily ringing loop costs ONE slot and repeats', () => {
   assert.equal(schedule[0].id, 'loop:r1')
 })
 
+test('a loop that never asks never rings: autopilot, practice, paused, ended', () => {
+  // BOOM-35 audit: switching a loop to Autopilot ("won't remind you") left its
+  // repeating 9 PM alarm on the phone forever; paused and ended loops too.
+  for (const extra of [{ spawn_mode: 'autopilot' }, { spawn_mode: 'habit' }, { paused: true }, { end_date: '2026-07-31' }]) {
+    const { repeating } = planLocalReminders({ routines: [loop(extra)], now: NOW })
+    assert.equal(repeating, 0, JSON.stringify(extra))
+  }
+  assert.equal(planLocalReminders({ routines: [loop({ end_date: '2026-08-01' })], now: NOW }).repeating, 1, 'ends at the end of its last day')
+})
+
 test('a weekly loop carries the weekday, converted to Apple\'s 1=Sunday', () => {
   // The app stores 0=Sunday; iOS wants 1=Sunday. Off by one here means the
   // alarm fires on the wrong day, every week, silently.

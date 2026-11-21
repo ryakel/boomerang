@@ -2339,3 +2339,23 @@ export function remoteLinksOf(task) {
   if (task.gcal_event_id) out.push({ source: 'gcal', remote_id: task.gcal_event_id, title: task.title })
   return out
 }
+
+// "Not now" on Worth doing next, shared across devices (BOOM-43). Offline or
+// failing: null, and the device keeps its local copy.
+export async function notNowGet() {
+  try {
+    const res = await fetch('/api/today/not-now', { signal: AbortSignal.timeout(8000) })
+    if (!res.ok) return null
+    return (await res.json()).state || null
+  } catch { return null }
+}
+export async function notNowPost(state) {
+  try {
+    const res = await fetch('/api/today/not-now', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ state }), signal: AbortSignal.timeout(8000),
+    })
+    if (!res.ok) return null
+    return (await res.json()).state || null
+  } catch { return null }
+}

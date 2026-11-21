@@ -13,7 +13,7 @@
 // auto-reverts to the previous bundle when a swapped-in bundle never reports
 // ready, so a broken download can't brick the shell.
 import { getApiBase, isNativeShell } from './apiConfig'
-import { startOtaUpdateLifecycle } from './otaUpdateLifecycle'
+import { startOtaUpdateLifecycle, sameCommit } from './otaUpdateLifecycle'
 
 const CURRENT_VERSION = typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : 'dev'
 
@@ -27,6 +27,11 @@ async function checkOnce(CapacitorUpdater) {
     const manifest = await res.json()
     if (!manifest?.available || !manifest.version) return
     if (manifest.version === CURRENT_VERSION) return
+    // Same code, different label (BOOM-38 audit): a Mac build is stamped by
+    // `git describe` (v2.63.0-7-g4f728b6) and the dev server's image by
+    // `dev-4f728b6`, so the strings never match even when the commit does.
+    // Without this every fresh Dev install reloaded into an identical bundle.
+    if (sameCommit(manifest.version, CURRENT_VERSION)) return
     // Already running a downloaded bundle of this version (CURRENT_VERSION is
     // baked at build; the plugin knows what it actually swapped in).
     const current = await CapacitorUpdater.current().catch(() => null)
@@ -54,15 +59,20 @@ export function initOtaUpdates() {
   ;(async () => {
     try {
       const mode = await startOtaUpdateLifecycle({
-        bundledOnly: window.__BOOMERANG_ALARM_PROBE_BUILD__ === true,
+        // The Dev build with alarm features used to pin its packaged UI here
+        // (bundledOnly). Since the alarm code ships in the dev server's bundle
+        // (#1031), every build takes web updates; only native changes need a
+        // rebuild (BOOM-38). The lifecycle still supports bundledOnly for a
+        // future native-only experiment.
+        bundledOnly: false,
         loadUpdater: () => import('@capgo/capacitor-updater'),
         loadApp: () => import('@capacitor/app'),
         checkOnce,
         // Phase-only logs locate a stuck native callback without credentials,
         // bundle URLs or user data. No extra updater call or retry is added.
-        onProbeStage: stage => console.log(`[OTA] alarm experiment stage: ${stage}`),
+        onProbeStage: stage => console.log(`[OTA] bundled-only stage: ${stage}`),
       })
-      if (mode !== 'server-updates') console.info(`[OTA] alarm experiment: ${mode}`)
+      if (mode !== 'server-updates') console.info(`[OTA] update mode: ${mode}`)
     } catch (e) {
       console.warn('[OTA] updater unavailable:', e?.message || e)
     }

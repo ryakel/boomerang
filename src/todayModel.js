@@ -137,12 +137,19 @@ export function normalizeEvents(raw, tasks = []) {
     const timed = !!e.start?.dateTime
     const startMs = timed ? ms(e.start.dateTime) : null
     const endMs = timed && e.end?.dateTime ? ms(e.end.dateTime) : null
+    const day = timed ? ymdOf(startMs) : String(e.start?.date || '').slice(0, 10)
+    // An all-day event's end.date is EXCLUSIVE (a one-day event ends the next
+    // day), so its last day is the one before. Multi-day events cover every day
+    // between (BOOM-36).
+    const endDate = !timed && e.end?.date ? addDaysYmd(String(e.end.date).slice(0, 10), -1) : null
     out.push({
       id: e.id,
       title: e.title || e.summary || '(No title)',
       location: e.location || '',
+      calendar: e.calendarCount > 1 ? (e.calendarName || '') : '',
       allDay: !timed,
-      day: timed ? ymdOf(startMs) : String(e.start?.date || '').slice(0, 10),
+      day,
+      lastDay: !timed && endDate && endDate > day ? endDate : day,
       startMs,
       endMs,
       // Free events (transparency: transparent) are on the calendar but don't
@@ -482,7 +489,12 @@ export function buildTodayModel({
     ? ['attention', 'checklists', 'loops', 'later', 'tomorrow', 'upcoming', 'arcs', 'quiet']
     : ['attention', 'next', 'later', 'checklists', 'loops', 'tomorrow', 'upcoming', 'arcs', 'quiet']
 
+  // All-day events covering today (BOOM-36): a quiet line at the top, never a
+  // card. They take no time, so they never shorten Worth doing next's window.
+  const allDayToday = evs.filter(e => e.allDay && e.day <= todayKey && e.lastDay >= todayKey)
+
   return {
+    allDayToday,
     todayKey, tomorrowKey, nowMs, quiet, phase, order, headline,
     attention, needsReview, checklists, loopTasks, next, nextAbsent, nextCommitment,
     later, tomorrow, upcoming, review, lastNight, pinnedArcs, allClear,

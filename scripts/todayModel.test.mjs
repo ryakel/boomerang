@@ -644,3 +644,31 @@ test('quiet hours wrap past midnight', () => {
   assert.equal(inQuietHours(s, at(8, 0)), false)
   assert.equal(inQuietHours({ ...s, quiet_hours_enabled: false }, at(23, 0)), false)
 })
+
+// ── BOOM-36: the calendar on Today ─────────────────────────────────────────
+test('all-day events covering today sit at the top; multi-day ones every day they cover', () => {
+  const raw = [
+    { id: 'trip', summary: 'Grandma visiting', start: { date: '2026-11-09' }, end: { date: '2026-11-12' } },   // Mon–Wed
+    { id: 'bday', summary: 'Sam birthday', start: { date: TODAY }, end: { date: TOMORROW } },                // today only
+    { id: 'done', summary: 'Yesterday only', start: { date: YESTERDAY }, end: { date: TODAY } },             // ended (exclusive)
+    { id: 'tmr', summary: 'Tomorrow only', start: { date: TOMORROW }, end: { date: '2026-11-12' } },
+    { id: 'mtg', summary: 'Dentist', start: { dateTime: iso(15) }, end: { dateTime: iso(16) } },
+  ]
+  const m = model({ events: normalizeEvents(raw) })
+  assert.deepEqual(m.allDayToday.map(e => e.id).sort(), ['bday', 'trip'])
+})
+
+test('an event names its calendar only when Today reads more than one', () => {
+  const one = normalizeEvents([{ id: 'a', summary: 'x', start: { dateTime: iso(15) }, calendarName: 'Family', calendarCount: 1 }])
+  const many = normalizeEvents([{ id: 'a', summary: 'x', start: { dateTime: iso(15) }, calendarName: 'Family', calendarCount: 3 }])
+  assert.equal(one[0].calendar, '')
+  assert.equal(many[0].calendar, 'Family')
+})
+
+test('all-day events take no time: they never block Worth doing next', () => {
+  const t = task({ due_date: TOMORROW, high_priority: true, size: 'XS' })
+  const raw = [{ id: 'trip', summary: 'Away', start: { date: TODAY }, end: { date: TOMORROW } }]
+  const withEv = model({ tasks: [t], now: at(10), events: normalizeEvents(raw) })
+  const without = model({ tasks: [t], now: at(10), events: [] })
+  assert.equal(withEv.next?.task.id, without.next?.task.id)
+})

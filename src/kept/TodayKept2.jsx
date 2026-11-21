@@ -5,42 +5,25 @@ import {
 } from 'lucide-react'
 import '@fontsource-variable/fraunces/full.css'
 import '@fontsource-variable/dm-sans/opsz.css'
-import { getTodayGrowthArea, gcalListEvents, gcalStatus } from '../api'
+import { getTodayGrowthArea } from '../api'
 import { loadSettings, isCrisisTask, safeSetItem } from '../store'
 import { buildImpactCtx } from '../impactContext'
 import { localYMD } from '../dates'
-import { buildTodayModel, normalizeEvents, recordNotNow } from '../todayModel'
+import { buildTodayModel, normalizeEvents } from '../todayModel'
 import { routineFeathers } from './feathers'
 import RowSwipe from './RowSwipe'
+import { LASTNIGHT_KEY, useNotNow, clock, minutesLabel, useCalendarEvents, useNow } from './today2Hooks'
+import { Ring, Head, NextCard } from './today2Parts'
 import './shell.css'
 import './today2.css'
 
 // Kept 2.0 Today. What shows and why lives in src/todayModel.js; this file only
 // renders it and wires the existing handlers. No points, rally, arc or catches:
-// that data is untouched and still lives in Analytics (the header's Flight log).
-// The classic screen (TodayView.jsx) is one toggle away in Settings → General.
+// Analytics counts completions (points and rally were removed, BOOM-33). The
+// classic screen (TodayView.jsx) is gated off in src/kept/classicToday.js.
 
-const NOT_NOW_KEY = 'boom_today_notnow'
-const LASTNIGHT_KEY = 'boom_lastnight_hidden_on'   // shared with the classic screen
-const EVENTS_TTL_MS = 10 * 60 * 1000
 
-function readJSON(key) {
-  try { return JSON.parse(localStorage.getItem(key)) } catch { return null }
-}
 
-const clock = (msOrIso) => {
-  const d = new Date(msOrIso)
-  const h = d.getHours()
-  const m = d.getMinutes()
-  return `${h % 12 || 12}:${String(m).padStart(2, '0')}${h < 12 ? 'a' : 'p'}`
-}
-const minutesLabel = (min) => {
-  if (min == null) return null
-  if (min < 60) return `${min} min`
-  const h = Math.floor(min / 60)
-  const r = min % 60
-  return r ? `${h} hr ${r} min` : `${h} hr`
-}
 const shortDate = (ms) => new Date(ms).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
 
 function attentionLabel(reason) {
@@ -78,67 +61,6 @@ const routineIcon = (r) => {
   return h < 12 ? Sunrise : h < 17 ? Sun : Moon
 }
 
-// Calendar events for today and tomorrow, from the existing read-only
-// GET /api/gcal/events. Not connected, offline or slow: no events, no error.
-function useCalendarEvents(todayKey) {
-  const [raw, setRaw] = useState(null)
-  useEffect(() => {
-    let cancelled = false
-    const load = async () => {
-      // Ask once whether Google Calendar is connected before asking for events.
-      const status = await gcalStatus().catch(() => null)
-      if (cancelled) return
-      if (!status?.connected) { setRaw(null); return }
-      const s = loadSettings()
-      const start = new Date(); start.setHours(0, 0, 0, 0)
-      const end = new Date(start); end.setDate(end.getDate() + 2)
-      const calendars = [...new Set(['primary', s.gcal_calendar_id].filter(Boolean))]
-      const results = await Promise.allSettled(calendars.map(c => gcalListEvents(start.toISOString(), end.toISOString(), c)))
-      if (cancelled) return
-      const ok = results.filter(r => r.status === 'fulfilled')
-      if (ok.length === 0) { setRaw(null); return }
-      const seen = new Set()
-      const merged = []
-      for (const r of ok) for (const e of r.value || []) { if (!seen.has(e.id)) { seen.add(e.id); merged.push(e) } }
-      setRaw(merged)
-    }
-    load()
-    const timer = setInterval(load, EVENTS_TTL_MS)
-    const onVisible = () => { if (document.visibilityState === 'visible') load() }
-    document.addEventListener('visibilitychange', onVisible)
-    return () => { cancelled = true; clearInterval(timer); document.removeEventListener('visibilitychange', onVisible) }
-  }, [todayKey])
-  return raw
-}
-
-// The current minute, so time-based sections move without a reload.
-function useNow() {
-  const [now, setNow] = useState(() => new Date())
-  useEffect(() => {
-    const t = setInterval(() => setNow(new Date()), 60 * 1000)
-    const onVisible = () => { if (document.visibilityState === 'visible') setNow(new Date()) }
-    document.addEventListener('visibilitychange', onVisible)
-    return () => { clearInterval(t); document.removeEventListener('visibilitychange', onVisible) }
-  }, [])
-  return now
-}
-
-function Ring({ color, onClick, label }) {
-  return <button className="t2-ring" style={{ '--ring': color }} onClick={onClick} aria-label={label} />
-}
-
-function Head({ icon: Icon, color, title, count, onTitle }) {
-  return (
-    <div className="t2-head">
-      <Icon size={15} strokeWidth={2} style={{ color }} aria-hidden="true" />
-      {onTitle
-        ? <button className="t2-head-title t2-head-link" onClick={onTitle}>{title}</button>
-        : <h2 className="t2-head-title">{title}</h2>}
-      {count != null && <span className="t2-head-count">{count}</span>}
-    </div>
-  )
-}
-
 function TaskRow({ task, ring, meta, onComplete, onOpen, onDelete, first }) {
   const row = (
     <div className={`t2-row${first ? ' is-first' : ''}`} data-task-id={task.id}>
@@ -164,7 +86,7 @@ export default function TodayKept2({
   const rawEvents = useCalendarEvents(todayKey)
   const settings = loadSettings()
 
-  const [notNow, setNotNow] = useState(() => readJSON(NOT_NOW_KEY))
+  const [notNow, dismissNotNow] = useNotNow(todayKey)
   const [lastNightHiddenOn, setLastNightHiddenOn] = useState(() => {
     try { return localStorage.getItem(LASTNIGHT_KEY) } catch { return null }
   })
@@ -196,9 +118,7 @@ export default function TodayKept2({
 
   const dismissNext = () => {
     if (!m.next) return
-    const nextState = recordNotNow(notNow, todayKey, m.next.task.id, m.next.reasonKey)
-    safeSetItem(NOT_NOW_KEY, JSON.stringify(nextState))
-    setNotNow(nextState)
+    dismissNotNow(m.next.task.id, m.next.reasonKey)
   }
   const hideLastNight = () => {
     safeSetItem(LASTNIGHT_KEY, todayKey)
@@ -232,7 +152,7 @@ export default function TodayKept2({
       const e = it.event
       title = e.title
       const dur = !e.allDay && e.endMs && e.startMs ? minutesLabel(Math.round((e.endMs - e.startMs) / 60000)) : null
-      meta = [it.ongoing ? 'now' : soon, e.allDay ? 'all day' : null, e.location, dur].filter(Boolean).join(' · ') || 'Calendar'
+      meta = [it.ongoing ? 'now' : soon, e.allDay ? 'all day' : null, e.location, dur, e.calendar].filter(Boolean).join(' · ') || 'Calendar'
       bar = 'var(--bm-f-billabong)'
     } else if (it.kind === 'checklist') {
       title = it.routine.title
@@ -306,23 +226,7 @@ export default function TodayKept2({
     ),
 
     next: () => m.next && (
-      <section key="next" className="t2-card">
-        <Head icon={Compass} color="var(--bm-ember)" title="Worth doing next" />
-        <div className="t2-next">
-          <span className="t2-next-title">{m.next.task.title}</span>
-          <span className="t2-next-meta">
-            <Clock size={12} strokeWidth={2} aria-hidden="true" />
-            <span>{[m.next.minutes != null && `About ${minutesLabel(m.next.minutes)}`, ...m.next.reasons].filter(Boolean).join(' · ')}</span>
-          </span>
-          {m.next.fitsBefore && (
-            <span className="t2-next-meta">Fits before {m.next.fitsBefore.title} at {clock(m.next.fitsBefore.startMs)}</span>
-          )}
-          <div className="t2-next-actions">
-            <button className="t2-btn t2-btn-primary" onClick={() => onOpenTask?.(m.next.task)}>Open task</button>
-            <button className="t2-btn t2-btn-ghost" onClick={dismissNext}>Not now</button>
-          </div>
-        </div>
-      </section>
+      <NextCard key="next" next={m.next} onOpen={onOpenTask} onDismiss={dismissNext} />
     ),
 
     later: () => m.later.items.length > 0 && (
@@ -476,6 +380,12 @@ export default function TodayKept2({
           <span className="t2-date-sub">{now.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>
         </div>
         {!bigClear && <p className="t2-subtitle">{subtitle(m)}</p>}
+        {m.allDayToday?.length > 0 && (
+          <p className="t2-allday">
+            <CalendarDays size={13} strokeWidth={2} aria-hidden="true" />
+            <span>{m.allDayToday.map(e => e.calendar ? `${e.title} (${e.calendar})` : e.title).join(' · ')}</span>
+          </p>
+        )}
       </div>
 
       {bigClear && (

@@ -265,3 +265,66 @@ below predate those decisions and are historical recommendations, not authority.
 - Implementation mechanics, bounded scheduling/ownership, checks and device-test
   limits: [Alarm Rules](Alarm-Rules.md). Build/review the next batch in dev; do not
   infer approval for later production releases or automatic activation.
+
+## D015 — Production code release of alarm rules, feature kept Dev-only
+
+- Date/status: 2026-11-15, **accepted and deployed**.
+- Source: owner chose Codex's recommended option for PR #1032: deploy the code
+  to production, keep alarm-rule arming Dev-only.
+- Evidence: [#1032](https://github.com/ryakel/boomerang/pull/1032) merged to
+  `main`; production workflow
+  [43725385116](https://github.com/ryakel/boomerang/actions/runs/43725385116)
+  passed its image push, Portainer redeploy and deploy verification. Gates
+  checked in code: `/api/alarm-rules` returns 403 off dev
+  (`server/alarmRuleRoutes.js`) and the client requires the Dev native build
+  flag (`src/alarmRules.js`). Relink [#1033](https://github.com/ryakel/boomerang/pull/1033).
+- Not authorized: enabling alarm rules in production, a new production native
+  build, arming physical alarms, real pickup/medication workflows. Enabling
+  needs an agreed physical-device test matrix and separate approval.
+
+## D016 — Kept 2.0 beyond Today: points and rally removed
+
+- Date/status: 2026-11-15, **accepted**; implementation in BOOM-33 (PR to `dev`).
+- Source: owner, after reviewing the app against the Kept 2.0 brief: Kept 2.0
+  had reached only the Today screen. "No points, but still want to track the
+  tasks getting done in analytics. Points need to die. I think rally is
+  probably just points without a score."
+- Decision: points and rally (day streak, loop rallies) are removed as product
+  concepts on every surface, Quokka and notifications included. Analytics keeps
+  completion counts. Provenance data stays stored.
+- Related, same conversation: the classic Today screen is gated off but not
+  deleted ("not ready to fully kill" it); desktop is deferred ("get the app
+  running the way I like it and we can rethink desktop"); the theme is settled
+  as Kept with the warmer Kept 2.0 type carried to every mobile surface
+  (BOOM-34); Loops gets its own redesign around routine modes (BOOM-35,
+  needs a spec and owner decisions before code).
+- Merge authority: not included. PRs to `dev` wait for explicit approval.
+
+## D017 — Standing authority to merge into `dev`
+
+- Date/status: 2026-11-15, **accepted (standing)**.
+- Source: owner, in conversation: "you are always permitted to run the runs to
+  push the app in dev. Let me know if/when we need to rebuild the iOS app or
+  push to prod."
+- Covers: merging PRs into `dev` and the automatic `boomerang-dev` deploy.
+- Excludes: `dev → main` promotion (production) and iOS rebuilds/installs.
+  For those, say when one is needed and wait for explicit approval.
+
+## D018 — Loops: modes, not tracking
+
+- Date/status: 2026-11-15, **accepted**; implementation in BOOM-35.
+- Source: owner, reviewing a Loops mockup and screenshots of their real loops,
+  answering five open questions: "1. Silent 2 quiet row 3. Not sure what this
+  is 4. Example? 5. Screenshot incoming they are all over the place", then "Go"
+  on the proposed defaults.
+- Decisions:
+  1. Autopilot is completely silent: no task, no reminder, nothing counted as
+     missed.
+  2. Missed reminder cycles get one quiet row on Loops, never a badge or banner.
+  3. The habit behind-pace push stays gone (deleted 2026-07-24); only copy that
+     still promised it changes.
+  4. Marking a day done on a loop's page also closes that cycle's open task.
+  5. Modes are derived from what a loop already is (stack → Checklist, habit →
+     Practice, otherwise Reminder); Autopilot is the owner's choice per loop,
+     made on the loop's page. No production loop is changed by the release.
+- Merge authority: D017 (standing, `dev` only).

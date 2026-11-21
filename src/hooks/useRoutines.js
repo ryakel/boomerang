@@ -41,8 +41,9 @@ function triggerRemindAt(dueDateYMD, triggerTime, remind) {
 // IS the cycle key used for grouped display, the same-day re-spawn guard, and
 // bonus scoping on completion. Energy / notes / tags fall back to the routine's
 // when a member leaves them unset. size_inferred stays false so the background
-// auto-sizer points each card; clearing every member of the cycle pays a 20%
-// bonus (awarded in AppV2.handleComplete). Distinct from follow_ups (a
+// auto-sizer sizes each card; clearing every member of the cycle completes it
+// (one completed_history stamp, in AppV2.handleComplete; no bonus since
+// points were removed, BOOM-33). Distinct from follow_ups (a
 // dependent chain) — members are independent and spawn together.
 function spawnStackMembers(routine, dueYMD) {
   const snooze = triggerSnooze(dueYMD, routine.trigger_time)
@@ -88,6 +89,10 @@ export function useRoutines() {
       routine.spawn_mode = 'habit'
       routine.target_count = targetCount
       routine.target_period = targetPeriod
+    } else if (spawnMode === 'autopilot') {
+      // BOOM-35: never spawns or asks. Dropping it here saved every new
+      // autopilot loop as a plain reminder.
+      routine.spawn_mode = 'autopilot'
     }
     setRoutines(prev => [routine, ...prev])
     return routine
@@ -104,15 +109,23 @@ export function useRoutines() {
   }, [])
 
   const completeRoutine = useCallback((id) => {
-    setRoutines(prev => prev.map(r =>
-      r.id === id ? {
+    setRoutines(prev => prev.map(r => {
+      if (r.id !== id) return r
+      const hist = Array.isArray(r.completed_history) ? r.completed_history : []
+      // A cadence loop's day is done once. Marking the day on the loop's page
+      // and then ticking the last checklist item (or the task) used to stamp
+      // it twice, so one calendar tap could no longer clear it. Practice logs
+      // keep stacking: "2 today" is real.
+      const today = localYMD()
+      const already = r.spawn_mode !== 'habit' && hist.some(ts => localYMD(new Date(ts)) === today)
+      return {
         ...r,
-        completed_history: [...r.completed_history, new Date().toISOString()],
+        completed_history: already ? hist : [...hist, new Date().toISOString()],
         // Doing the thing retires any "push it out" floor. Leaving it would
         // hold the loop back long after the reason for pushing it had passed.
         resume_at: null,
-      } : r
-    ))
+      }
+    }))
   }, [])
 
   // Backdate-completion follow-through. When the user edits a routine-spawned

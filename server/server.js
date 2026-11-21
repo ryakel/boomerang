@@ -1,4 +1,5 @@
 import express from 'express'
+import { mergeNotNow, normalizeNotNow, sameNotNow } from './notNowMerge.js'
 import { registerAlarmRuleRoutes } from './alarmRuleRoutes.js'
 import { getAlarmRuleState, setAlarmRuleState } from './db.js'
 import cors from 'cors'
@@ -13,7 +14,7 @@ import { initDb, getAllData, setAllData, setData, getVersion, bumpVersion, flush
   markNotificationTapped, getNotificationAnalytics,
   listNotifLog, clearNotifLog as clearServerNotifLog,
   markNotifEntriesRead, markAllNotifsRead,
-  getChildTasks, computeProjectBudget, computeSessionPoints, logProjectSession,
+  getChildTasks, logProjectSession,
   findActiveSpawnTwin, dedupeSpawnedTasks, findImportTwin, dedupeImportedTasks,
   listActivity, appendActivity, clearActivity,
   logAiUsage, getAiUsageSummary,
@@ -800,9 +801,7 @@ app.post('/api/data/restore', (req, res) => {
 
 // --- Analytics ---
 app.get('/api/analytics', (req, res) => {
-  // Read settings from app_data for streak/vacation logic
-  const settings = getData('settings') || {}
-  res.json(getAnalytics(settings))
+  res.json(getAnalytics())
 })
 
 app.get('/api/analytics/history', (req, res) => {
@@ -1191,21 +1190,15 @@ app.get('/api/intents/lists', (req, res) => {
 
 // --- Project endpoints ---
 // Pinning, session logging, child listing. All mutations bump the version
-// so connected clients refetch and see the change. Session points are
-// surfaced to the client via the response so the toast can show what was
-// awarded without recomputing.
+// so connected clients refetch and see the change.
 
 app.get('/api/projects/:id/children', (req, res) => {
   const project = getTask(req.params.id)
   if (!project) return res.status(404).json({ error: 'Project not found' })
   const children = getChildTasks(req.params.id)
-  const budget = computeProjectBudget(project)
-  const sessionPoints = computeSessionPoints(project)
   res.json({
     project,
     children,
-    budget,
-    session_points: sessionPoints,
     session_count: project.session_count || 0,
     session_cap: PROJECT_CONSTANTS.SESSION_CAP,
   })
@@ -1231,7 +1224,6 @@ app.post('/api/projects/:id/log-session', (req, res) => {
     broadcast(newVersion, clientId)
     res.json({
       task: getTask(req.params.id),
-      points: result.points,
       session_count: result.sessionCount,
       session_cap: result.sessionCap,
       timestamp: result.timestamp,
@@ -4028,6 +4020,23 @@ app.post('/api/vacation/repair', (req, res) => {
   res.json({ moved: plan.length, target: plan[0]?.to || null })
 })
 
+// "Not now" on Worth doing next, shared across devices (BOOM-43). Its own
+// app_data key, never the settings blob (whole-blob last-writer-wins would drop
+// one device's dismissals). POST merges and returns the result; no broadcast —
+// a cosmetic dismissal doesn't justify waking every client, and the other
+// device reads it on its next open or return to the app.
+app.get('/api/today/not-now', (req, res) => {
+  res.json({ state: normalizeNotNow(getData('today_not_now')) })
+})
+app.post('/api/today/not-now', (req, res) => {
+  const incoming = normalizeNotNow(req.body && req.body.state)
+  if (!incoming) return res.status(400).json({ error: 'state must be { date: YYYY-MM-DD, entries }' })
+  const stored = getData('today_not_now')
+  const merged = mergeNotNow(stored, incoming)
+  if (!sameNotNow(stored, merged)) setData('today_not_now', merged)
+  res.json({ state: merged })
+})
+
 app.post('/api/pushover/link-mode', (req, res) => {
   const openNative = !!(req.body && req.body.open_native)
   setData('pushover_link_mode', { open_native: openNative, updated_at: new Date().toISOString() })
@@ -5111,6 +5120,7 @@ Ground rules:
 - Search/list first; never guess or invent IDs. Staged create responses include the real \`id\` the record will have after commit — chain from that.
 - Emit independent tool calls in parallel in a single turn. Bulk operations (20 task updates) go out as one batch, not 20 serial turns — the user's mobile connection may drop during a long serial loop.
 - WHERE THINGS GO. Five surfaces hold what the user tells you and they are NOT interchangeable. A **task** is something to DO — it lands on Today and can nag. A **note** is a quick local jot. A **list** is a shared checklist (groceries, packing). A **growth area** is how the user wants to BE rather than something to do — a standing quality of behavior with no completion, via \`create_growth_area\` (see below). A **knowledge item** is durable reference the user will look UP later — where something is kept, how something is done, a decision, a person, a recipe or procedure — and lives in the Notion knowledge base via \`create_knowledge\`. "Make a KB", "add this to my knowledge base", "remember that…", "here's how I do X" = \`create_knowledge\`. None of that is an action item, so none of it is \`create_task\`. When the surface is genuinely ambiguous, ask — don't pick.
+- LOOPS (routines) come back in one of four ways, set by \`spawn_mode\` on \`create_routine\`/\`update_routine\`: **Reminder** (\`auto\`, a task shows up when due), **Checklist** (\`auto\` plus \`members\`, one task per item each cycle), **Practice** (\`habit\` with \`target_count\`/\`target_period\`: no task, the user logs it, e.g. "stretch 3× a week"), and **Autopilot** (\`autopilot\`: something the user already does reliably — no task, no reminder, nothing counted as missed). "Put X on autopilot" / "stop reminding me about X, I do it anyway" → \`update_routine\` spawn_mode "autopilot", never pausing or deleting it. Nothing in the app keeps score: there are no points, streaks or rallies anywhere (removed on purpose), so never mention or compute them, even if an old field holds one. On a loop that also means no counts and no "you missed".
 - GROWTH AREAS vs TASKS. The test is whether it can ever be DONE. "Be more patient with my kid", "stop interrupting on calls", "I want to be kinder in the mornings" describe a standing way of being — there is no finished state, so they are \`create_growth_area\`, never \`create_task\`. "Apologize to my kid" is a single act with a done state, so it is a task. A growth area is picked up once each morning and evening, reworded fresh, and shown on Today; it never nags, never scores, and cannot be completed. If the user asks for a recurring PRACTICE with an action to tick off ("meditate daily"), that is a routine, not a growth area. Ask when you genuinely can't tell.
 - Only create a growth area when the user asks for one. Never propose them, never turn a frustration they vented into a self-improvement plan, and never coach unprompted — a person describing a hard day is not requesting a standing reminder about themselves.
 - NEVER substitute a different surface for the one the user named. If the knowledge base isn't set up, or Notion isn't connected, say exactly that and stage NOTHING — do not capture it as a task or a note "so it isn't lost". Filing to the wrong surface looks like success and isn't: the user walks away believing it's in their knowledge base while it's actually sitting on their to-do list, where it will nag them and eventually get deleted.

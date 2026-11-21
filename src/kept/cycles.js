@@ -32,8 +32,10 @@ function windowOf(start, end, today, stamps) {
 // finished task for a day you were on holiday. Hence "a bunch of loops broke
 // because of my vacation and I seem to have no way to fix them."
 //
-// `awayDays` is the same stamped `settings.away_days` list the streak and the
-// device alarms read, so all four surfaces agree by construction.
+// `awayDays` is the same stamped `settings.away_days` list the notification
+// gate and the device alarms read, so every surface agrees by construction.
+// (The streak and loop rallies that this protected were removed with points,
+// BOOM-33, 2026-11-15; the stamped days remain.)
 //
 // PAUSED means the cycle's DUE DAY was an away day. One cycle, one day, checked
 // straight against the away list — "it should match the days away, full stop."
@@ -164,7 +166,7 @@ export function cycleWindows(routine, count = 12) {
 }
 
 // Habit-mode windows: target_period ('week' | 'month') buckets, hits from
-// completed_history. weekStartsOn matches computeHabitStreak's default.
+// completed_history. weekStartsOn defaults to Monday.
 export function habitWindows(routine, count = 12, weekStartsOn = 1) {
   const stamps = (routine.completed_history || [])
     .map(ts => new Date(ts))
@@ -227,7 +229,9 @@ function ymdDayLabel(ymd) {
 }
 
 export function loopGaps(routine, tasks = [], count = 12, awayDays = null) {
-  if (!routine || routine.spawn_mode === 'habit') return { unrecorded: [], missed: [], away: [] }
+  // Habit loops have no cadence to miss; autopilot loops never count a miss
+  // (BOOM-35: "Boomerang never asks"), so neither reports gaps.
+  if (!routine || routine.spawn_mode === 'habit' || routine.spawn_mode === 'autopilot') return { unrecorded: [], missed: [], away: [] }
   const away = toDaySet(awayDays)
   const skipped = new Set(Array.isArray(routine.skipped_days) ? routine.skipped_days : [])
   const histDays = new Set((routine.completed_history || []).map(ts => localYMD(new Date(ts))))
@@ -290,8 +294,7 @@ export function loopGaps(routine, tasks = [], count = 12, awayDays = null) {
       // A cycle you were away for was never yours to MISS — but it isn't
       // nothing either. It goes in its own bucket so the loop can offer to
       // reschedule ("push it out") rather than silently swallowing the gap.
-      // It stays out of `missed`, so the rally protection and the "N to fix"
-      // badge are unaffected.
+      // It stays out of `missed`, so the "N to fix" badge is unaffected.
       if (isWindowPaused(w, away)) {
         away_.push({ key: w.key, day: w.key, iso: `${w.key}T12:00:00.000Z`, label: gapLabel(routine, w) })
         continue
@@ -321,36 +324,10 @@ export function cycleUnitLabel(routine, singular = false) {
   return plural('cycle')
 }
 
-// Consecutive-cycle rally + best, from a window series (oldest -> newest).
-// The CURRENT window only extends the rally when already caught — an
-// in-flight cycle you haven't hit yet doesn't break anything.
-export function cycleRally(windows, target = 1, awayDays = null) {
-  const away = toDaySet(awayDays)
-  // A cycle spent away neither breaks the rally nor extends it — step over it,
-  // exactly as the streak walk steps over an away day.
-  const paused = (w) => w.hits < target && isWindowPaused(w, away)
-  const closed = windows.filter(w => !w.current)
-  const cur = windows[windows.length - 1]
-  let rally = cur && cur.current && cur.hits >= target ? 1 : 0
-  for (let i = closed.length - 1; i >= 0; i--) {
-    if (closed[i].hits >= target) rally++
-    else if (paused(closed[i])) continue
-    else break
-  }
-  let best = 0, run = 0
-  for (const w of closed) {
-    if (w.hits >= target) { run++; best = Math.max(best, run) }
-    else if (paused(w)) continue
-    else run = 0
-  }
-  if (cur && cur.current && cur.hits >= target) best = Math.max(best, rally)
-  return { rally, best }
-}
-
 // --- Retroactive day logging -------------------------------------------
 //
-// completed_history IS the loop's record of work — rally, trail, cadence and
-// the gap list are all derived from it — so every "this got done on <day>"
+// completed_history IS the loop's record of work — trail, cadence and the
+// gap list are all derived from it — so every "this got done on <day>"
 // entry point ends here: the gap list's Mark done, the loop-detail calendar,
 // and the date field beside it. Pure so the rules can be pinned in
 // scripts/cycles.test.mjs; the hook only owns the setState.

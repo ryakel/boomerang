@@ -7,6 +7,7 @@ import Logo from '../components/Logo'
 import { useSyncBounce } from '../hooks/useSyncBounce'
 import TodayView from './TodayView'
 import TodayKept2 from './TodayKept2'
+import { classicTodayOn } from './classicToday'
 import { loadSettings } from '../store'
 import TasksViewKept from './TasksViewKept'
 import LoopsView from './LoopsView'
@@ -20,15 +21,15 @@ import './desktop.css'
 // are the K5 continuation; Kanban remains available via the standard themes.
 export default function KeptDesktop({
   tasks = [], routines = [], labels = [], weatherByDate = null,
-  dailyStats = {}, pointsGoal = 15, streak = 0,
+  dailyStats = {},
   onCompleteTask, onOpenTask, onToggleHabit, onRescheduleTask, onDeleteTask,
   onLogSession, onGmailKeep, onGmailDismiss, onReconcileYesterday, onReconcileKeep, onWhatNow, onToggleItem, onUnsnooze,
   onCycleImpact,
-  onThrow, onThrowNote, onOpenFullAdd, onScanSchedule, onEditLoop, onAddLoop, onSpawnNow, onSkipCycle, onMarkLoopDay, onUnmarkLoopDay, onSkipLoopDay, onPushLoopOut,
+  onThrow, onThrowNote, onOpenFullAdd, onScanSchedule, onEditLoop, onAddLoop, onSpawnNow, onSkipCycle, onMarkLoopDay, onUnmarkLoopDay, onSkipLoopDay, onPushLoopOut, onSetLoopAutopilot, onToggleLoopPause, onDeleteLoop,
   onOpenQuokka, onOpenSettings, onOpenPackages, onOpenAnalytics,
   onOpenProjects, onOpenSuggestions,
   onOpenNotes, onOpenLists, pinnedNotes = [], onUnpinNote,
-  onOpenNotifications, onStatusChange,
+  onOpenNotifications, onStatusChange, onRestoreStatus,
   syncStatus = 'synced', queueLength = 0,
 }) {
   const [tab, setTab] = useState('today')
@@ -73,17 +74,17 @@ export default function KeptDesktop({
         onToggleComplete={onCompleteTask} onToggleItem={onToggleItem} onOpenTask={onOpenTask}
         onDelete={onDeleteTask} onReschedule={onRescheduleTask} onUnsnooze={onUnsnooze}
         onCycleImpact={onCycleImpact}
-        boardable onStatusChange={onStatusChange}
+        boardable onStatusChange={onStatusChange} onRestoreStatus={onRestoreStatus}
       />
     )
   } else if (tab === 'loops') {
-    surface = <LoopsView routines={routines} tasks={tasks} onEditLoop={onEditLoop} onAddLoop={onAddLoop} onSpawnNow={onSpawnNow} onSkipCycle={onSkipCycle} onMarkLoopDay={onMarkLoopDay} onUnmarkLoopDay={onUnmarkLoopDay} onSkipLoopDay={onSkipLoopDay} onPushLoopOut={onPushLoopOut} onOpenSuggestions={onOpenSuggestions} />
+    surface = <LoopsView routines={routines} tasks={tasks} onEditLoop={onEditLoop} onAddLoop={onAddLoop} onSpawnNow={onSpawnNow} onSkipCycle={onSkipCycle} onMarkLoopDay={onMarkLoopDay} onUnmarkLoopDay={onUnmarkLoopDay} onSkipLoopDay={onSkipLoopDay} onPushLoopOut={onPushLoopOut} onOpenSuggestions={onOpenSuggestions} onSetAutopilot={onSetLoopAutopilot} onTogglePause={onToggleLoopPause} onDeleteLoop={onDeleteLoop} onCompleteTask={onCompleteTask} onOpenTask={onOpenTask} onToggleHabit={onToggleHabit} />
   } else {
-    const Today = loadSettings().today_classic ? TodayView : TodayKept2
+    const Today = classicTodayOn(loadSettings()) ? TodayView : TodayKept2
     surface = (
       <Today
         tasks={tasks} routines={routines} labels={labels} weatherByDate={weatherByDate}
-        dailyStats={dailyStats} pointsGoal={pointsGoal} streak={streak}
+        dailyStats={dailyStats}
         onCompleteTask={onCompleteTask} onOpenTask={onOpenTask} onToggleHabit={onToggleHabit}
         onDeleteTask={onDeleteTask} onEditLoop={onEditLoop}
         onLogSession={onLogSession} onGmailKeep={onGmailKeep} onGmailDismiss={onGmailDismiss}
@@ -143,7 +144,7 @@ export default function KeptDesktop({
       {tab !== 'today' && (
         <TodayRail
           tasks={tasks} routines={routines}
-          dailyStats={dailyStats} pointsGoal={pointsGoal} streak={streak}
+          dailyStats={dailyStats}
           onCompleteTask={onCompleteTask} onOpenTask={onOpenTask} onWhatNow={onWhatNow}
         />
       )}

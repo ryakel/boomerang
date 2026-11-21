@@ -28,19 +28,17 @@ class BoomerangViewController: CAPBridgeViewController {
         bridge?.registerPluginInstance(BoomerangAlarmProbe())
         bridge?.registerPluginInstance(BoomerangAlarmRules())
         #if BOOMERANG_ALARM_PROBE
-        // The updater can retain a server bundle from an earlier installation.
-        // capacitorDidLoad runs after plugin initialization, before loadWebView:
-        // use the shipped UI first, so its probe-only OTA policy can execute.
-        // This changes asset routing only; no task/auth/storage data is cleared.
-        if let resources = Bundle.main.resourceURL {
-            bridge?.setServerBasePath(resources.appendingPathComponent("public").path)
-        }
+        // Marks this as the Dev build that carries the alarm features
+        // (src/alarmRules.js and the alarm panels gate on it). It no longer
+        // pins the packaged UI: the dev server's web bundle carries the alarm
+        // code since #1031, so this build takes over-the-air web updates like
+        // any other and only native changes need a rebuild (BOOM-38).
         let probeBuild = WKUserScript(
             source: "window.__BOOMERANG_ALARM_PROBE_BUILD__ = true;",
             injectionTime: .atDocumentStart,
             forMainFrameOnly: true)
         webView?.configuration.userContentController.addUserScript(probeBuild)
-        print("⚡️ [Boomerang] alarm experiment: loading bundled UI; server OTA is paused")
+        print("⚡️ [Boomerang] alarm features enabled; web updates follow the server")
         #endif
     }
 

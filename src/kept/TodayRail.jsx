@@ -1,21 +1,23 @@
 import { useMemo } from 'react'
 import { Check, Compass } from 'lucide-react'
-import DayArc from './DayArc'
 import { localYMD } from '../dates'
-import { isSnoozed } from '../store'
+import { isSnoozed, isCrisisTask, loadSettings } from '../store'
 import './shell.css'
 import './desktop.css'
 
 const ACTIVE = ['not_started', 'doing', 'waiting', 'in_progress']
 
 // Today rail (K5) — the ambient "what matters right now" column on the
-// desktop command center, visible while you work in Tasks or Loops. Day Arc
-// + stats + today's catchable list; catches ride the canonical handlers.
+// desktop command center, visible while you work in Tasks or Loops. The day's
+// catch count + today's catchable list; catches ride the canonical handlers.
+// The points arc and rally chip left with points/rally (BOOM-33); the rail
+// itself is due a rethink with the rest of desktop.
 export default function TodayRail({
-  tasks = [], routines = [], dailyStats = {}, pointsGoal = 15, streak = 0,
+  tasks = [], routines = [],
   onCompleteTask, onOpenTask, onWhatNow,
 }) {
   const todayKey = localYMD()
+  const settings = loadSettings()
   const stackIds = useMemo(() => new Set(
     routines.filter(r => Array.isArray(r.members) && r.members.length > 0).map(r => r.id),
   ), [routines])
@@ -25,8 +27,17 @@ export default function TodayRail({
     if (t.routine_id && stackIds.has(t.routine_id)) return false
     if (!ACTIVE.includes(t.status)) return false
     if (isSnoozed(t)) return false
-    return t.due_date ? String(t.due_date).slice(0, 10) <= todayKey : false
-  }).slice(0, 12), [tasks, todayKey, stackIds])
+    // Kept 2.0 rule (BOOM-44): due today means due TODAY. A task past its date
+    // has slipped and lives quietly in the Tasks list's Slipped card; listing it
+    // here under "Due today" contradicted that card sitting right beside the
+    // rail. A loop's open instance is the current cycle however late, and a
+    // critical task always shows, as on Today.
+    const due = t.due_date ? String(t.due_date).slice(0, 10) : null
+    if (isCrisisTask(t, settings)) return true
+    if (t.committed_on === todayKey) return true
+    if (!due) return false
+    return due === todayKey || (!!t.routine_id && due < todayKey)
+  }).slice(0, 12), [tasks, todayKey, stackIds, settings])
 
   // Undated active tasks — mirrors TodayView.jsx's "Anytime" section. Without
   // this, an undated task is fully notifiable (isNotifiable() in db.js has no
@@ -43,18 +54,11 @@ export default function TodayRail({
   const anytimeShown = anytimeTasks.slice(0, ANYTIME_CAP)
   const anytimeOverflow = anytimeTasks.length - anytimeShown.length
 
-  const catches = dailyStats.tasksToday ?? 0
 
   return (
     <aside className="bm-rail">
       <div className="bm-rail-date">
         {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
-        {streak > 0 && <span className="bm-rally-chip">↻ {streak}</span>}
-      </div>
-      <DayArc value={dailyStats.pointsToday ?? 0} goal={pointsGoal} />
-      <div className="bm-hero-meta" style={{ paddingTop: 4 }}>
-        <span><b>{catches}</b> {catches === 1 ? 'catch' : 'catches'}</span>
-        <span><b>{Math.max(0, pointsGoal - (dailyStats.pointsToday ?? 0))}</b> pts left</span>
       </div>
       <button className="bm-btn bm-btn-tonal bm-whatnow" style={{ margin: '10px 0 14px' }} onClick={onWhatNow}>
         <Compass size={14} strokeWidth={2.1} /> What now?

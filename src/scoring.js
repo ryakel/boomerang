@@ -1,174 +1,44 @@
-// Centralized point-scoring logic.
-// Single source of truth for how task points are calculated.
+// Completion counting, plus the impact ranker (impactRank, below).
 //
-// Formula: SIZE_POINTS[size] × ENERGY_MULTIPLIER[energyLevel] × speedMultiplier
-//
-// speedMultiplier rewards fast completion:
-//   same day = 2x, within 2 days = 1.5x, otherwise = 1x
-//
-// energyMultiplier rewards tackling hard tasks:
-//   level 1 = 1.0x, level 2 = 1.5x, level 3 = 2.0x
+// Points were removed from the product on 2026-11-15 (BOOM-33): no task,
+// session, escalation attempt, stack clear or easter-egg win is worth a
+// score any more, and rally (the day streak) went with them. What survives is
+// the count of tasks finished, which Analytics uses. The daily task goal went
+// too (BOOM-46). Old rows may still carry legacy point fields (`stack_bonus`,
+// `session_log[].points`, `escalation_attempt_log[].points`); nothing reads
+// them and nothing deletes them.
 
-const SIZE_POINTS = { XS: 1, S: 2, M: 5, L: 10, XL: 20 }
-const ENERGY_MULTIPLIER = { 1: 1.0, 2: 1.5, 3: 2.0 }
-
-// Calculate points for a single task.
-// Uses completed_at if available, otherwise assumes "now" (for previewing points).
-//
-// Assigned tasks (task.assignee set — e.g. a kid's chore the user supervises
-// rather than their own task, migration 038) score a flat 1 point instead of
-// the size x energy x speed formula: it's a simple did-it-or-didn't chore,
-// not graded ADHD-effort. Still counts toward the user's own daily total —
-// only the per-task amount changes.
-export function calculateTaskPoints(task) {
-  if (task.assignee) return 1
-  const base = SIZE_POINTS[task.size] || 1
-  const energyMult = ENERGY_MULTIPLIER[task.energyLevel] || 1.0
-  const completedAt = task.completed_at ? new Date(task.completed_at) : new Date()
-  const daysOnList = Math.max(0, Math.floor((completedAt.getTime() - new Date(task.created_at).getTime()) / 86400000))
-  const speedMultiplier = daysOnList === 0 ? 2 : daysOnList <= 2 ? 1.5 : 1
-  return Math.round(base * energyMult * speedMultiplier)
-}
-
-// Sum project session points logged today across the entire task list.
-// Each project's `session_log` is an array of { timestamp, points }; we
-// only count entries whose timestamp lands on today's calendar date.
-// Each logged session also counts as a "task" for the daily-task ring so
-// chipping at a project shows up in both gauges.
-export function computeSessionStatsToday(tasks) {
-  const todayStr = new Date().toDateString()
-  let count = 0
-  let points = 0
-  for (const t of tasks) {
-    if (t.status !== 'project') continue
-    const log = Array.isArray(t.session_log) ? t.session_log : []
-    for (const entry of log) {
-      if (!entry?.timestamp) continue
-      if (new Date(entry.timestamp).toDateString() !== todayStr) continue
-      count += 1
-      points += entry.points || 0
-    }
-  }
-  return { count, points }
-}
-
-// Sum escalation-ladder attempt points logged today, across every task
-// (active ladder or not — a resolved/closed ladder's history still counts
-// for the day the attempt actually happened). Each logged attempt is worth
-// 1 point, same "waiting = progress" principle as elsewhere — sent the
-// email, made the call is real effort even without resolution.
-export function computeEscalationStatsToday(tasks) {
-  const todayStr = new Date().toDateString()
-  let count = 0
-  let points = 0
-  for (const t of tasks) {
-    const log = Array.isArray(t.escalation_attempt_log) ? t.escalation_attempt_log : []
-    for (const entry of log) {
-      if (!entry?.at) continue
-      if (new Date(entry.at).toDateString() !== todayStr) continue
-      count += 1
-      points += entry.points || 0
-    }
-  }
-  return { count, points }
-}
-
-// Compute today's task count and total points. Optional `settings` arg
-// applies the Easter-egg bonus: winning the hidden tic-tac-toe game
-// (triggered by 7-tapping the EditTaskModal title) stamps
-// `easter_egg_wins[today] = true` and contributes +1 task + +1 point
-// once per day. Tap, fight, win, and you've already done "something
-// today" before lifting a finger on the actual list.
-//
-// Project session logs also contribute — each logged session is +1 task
-// and its awarded points roll into the day's total. Lets the daily-progress
-// rings reflect "I worked on the basement today" the same as completing
-// a one-shot task.
+// How many tasks were finished today. The same one definition Analytics uses
+// everywhere (best day, 7/30/365 days, lifetime). There is no daily goal: it
+// and the wider "things done" count that fed it (project sessions, moves to
+// waiting, escalation attempts, the hidden-game win) were a game and were
+// removed (BOOM-46, 2026-11-17). `settings` is accepted and ignored so old
+// call sites keep working.
+// eslint-disable-next-line no-unused-vars
 export function computeDailyStats(tasks, settings = null) {
-  const now = new Date()
-  const todayStr = now.toDateString()
-  // Local YMD — UTC variant would flip to "tomorrow" at night Central
-  // time and miss easter-egg wins / mismatch other systems that key by
-  // local calendar date.
-  const todayIso = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
-  const todayTasks = tasks.filter(t => t.status === 'done' && t.completed_at && new Date(t.completed_at).toDateString() === todayStr)
-
-  let points = 0
-  for (const t of todayTasks) {
-    points += calculateTaskPoints(t)
-    // Stack-clear bonus rides on the task that closed a routine stack cycle.
-    // It's stored once, on a task that's done-today, so it counts exactly once.
-    points += t.stack_bonus || 0
-  }
-
-  const waitingToday = tasks.filter(t => t.status === 'waiting' && t.waiting_at && new Date(t.waiting_at).toDateString() === todayStr)
-
-  const sessions = computeSessionStatsToday(tasks)
-  const escalations = computeEscalationStatsToday(tasks)
-  const eggBonus = settings?.easter_egg_wins?.[todayIso] ? 1 : 0
-
+  const todayStr = new Date().toDateString()
   return {
-    tasksToday: todayTasks.length + waitingToday.length + sessions.count + escalations.count + eggBonus,
-    pointsToday: points + waitingToday.length + sessions.points + escalations.points + eggBonus,
+    tasksToday: tasks.filter(t => t.status === 'done' && t.completed_at && new Date(t.completed_at).toDateString() === todayStr).length,
   }
 }
 
-// Compute all-time records: best day (tasks & points), longest streak.
+// Best day ever, by number of tasks completed.
 export function computeRecords(tasks) {
   const byDay = {}
   for (const t of tasks) {
     if (t.status === 'done' && t.completed_at) {
       const dayStr = new Date(t.completed_at).toDateString()
-      if (!byDay[dayStr]) byDay[dayStr] = { tasks: 0, points: 0 }
-      byDay[dayStr].tasks++
-      byDay[dayStr].points += calculateTaskPoints(t) + (t.stack_bonus || 0)
+      byDay[dayStr] = (byDay[dayStr] || 0) + 1
     }
   }
-
-  let bestTasks = 0, bestPoints = 0, longestStreak = 0
-  for (const day of Object.values(byDay)) {
-    if (day.tasks > bestTasks) bestTasks = day.tasks
-    if (day.points > bestPoints) bestPoints = day.points
-  }
-
-  // Longest streak from sorted dates
-  const dates = Object.keys(byDay).map(d => new Date(d)).sort((a, b) => a - b)
-  let current = 1
-  for (let i = 1; i < dates.length; i++) {
-    const diff = (dates[i] - dates[i - 1]) / 86400000
-    if (Math.round(diff) === 1) { current++; if (current > longestStreak) longestStreak = current }
-    else { current = 1 }
-  }
-  if (current > longestStreak) longestStreak = current
-
-  return { bestTasks, bestPoints, longestStreak }
+  let bestTasks = 0
+  for (const n of Object.values(byDay)) if (n > bestTasks) bestTasks = n
+  return { bestTasks }
 }
 
-// Project session model — kept in sync with server-side db.js constants.
-// Per-session credit = budget × SESSION_PCT, capped at SESSION_CAP sessions.
-// Budget = max(project's own base, sum of children's base, DEFAULT).
-export const PROJECT_SESSION_PCT = 0.10
+// A project accepts at most this many logged sessions. Kept in sync with the
+// server-side constant in db.js, which enforces it.
 export const PROJECT_SESSION_CAP = 10
-const DEFAULT_PROJECT_BUDGET = 20
-
-function baseTaskPoints(task) {
-  const size = SIZE_POINTS[task?.size] || SIZE_POINTS.M
-  const energy = ENERGY_MULTIPLIER[task?.energyLevel ?? task?.energy_level] || 1.0
-  return size * energy
-}
-
-export function computeProjectBudget(project, allTasks = []) {
-  if (!project) return DEFAULT_PROJECT_BUDGET
-  const own = baseTaskPoints(project)
-  const children = allTasks.filter(t => t.parent_id === project.id)
-  const childSum = children.reduce((sum, c) => sum + baseTaskPoints(c), 0)
-  return Math.max(own, childSum, DEFAULT_PROJECT_BUDGET)
-}
-
-export function computeProjectSessionPoints(project, allTasks = []) {
-  const budget = computeProjectBudget(project, allTasks)
-  return Math.max(1, Math.round(budget * PROJECT_SESSION_PCT))
-}
 
 // --- Impact ranking (see wiki/Crisis-Tag-And-Impact-Ranking.md) ---
 //
@@ -247,4 +117,3 @@ function daysBetweenYmd(a, b) {
   return Math.round((Date.UTC(by, bm - 1, bd) - Date.UTC(ay, am - 1, ad)) / 86400000)
 }
 
-export { SIZE_POINTS, ENERGY_MULTIPLIER }

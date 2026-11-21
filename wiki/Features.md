@@ -8,7 +8,7 @@ Every task always comes back. Dismissal is never free — every "not now" requir
 |---|---|---|
 | ![Kept mobile Today view](images/kept-mobile-today.png) | ![Kept mobile Tasks view](images/kept-mobile-tasks.png) | ![Kept mobile Loops view](images/kept-mobile-loops.png) |
 
-*The Kept mobile IA: Today (Day Arc hero + dated tasks), Tasks (grouped hairline rows), and Loops (cycle-chip trails with rally streaks).*
+*The Kept mobile IA: Today, Tasks and Loops. (Screenshots predate Kept 2.0; Loops is now grouped by mode, see Routines.)*
 
 ## Themes
 
@@ -17,7 +17,7 @@ Two families, each with a Light/Dark/System mode, picked in Settings → General
 | Family | Look |
 |---|---|
 | **Standard** | The calm hairline UI — heritage v2 look: single accent, generous whitespace, hairline-separated lists over stacked cards |
-| **Kept** | Boomerang's own design language (see `wiki/Kept-Design-Language.md`) — warm Smoke/Linen canvases, ember-orange hero accent + gold rally/feather accents, arcs-not-grids data viz (Flight Trail, Month Dots, Day Arc), Fraunces display serif. **The default for new installs**, on both mobile and desktop. |
+| **Kept** | Boomerang's own design language (see `wiki/Kept-Design-Language.md`) — warm Smoke/Linen canvases, ember-orange hero accent + gold feather accents, arcs-not-grids data viz (Flight Trail, Month Dots, Day Arc), Fraunces display serif. **The default for new installs**, on both mobile and desktop. |
 
 Mode is a separate Light/Dark/System segmented control — System tracks the OS `prefers-color-scheme` live (an automatic sunset dark-mode switch repaints the app without a reload) rather than freezing to whatever the OS said at first launch.
 
@@ -30,12 +30,13 @@ The Terminal theme (GitHub-style monospace, `> command` modal titles, ASCII flou
 The Kept Today screen answers three questions in one screen: what genuinely needs you, what's worth doing next, and what's coming up. Each section appears only when it has something to say.
 
 - **Needs attention** is small on purpose: critical tasks, things due today or picked for today, a reminder that just went off, or something due yesterday that you'd marked as mattering. Overdue alone doesn't qualify, and neither does a snooze ending.
-- **Worth doing next**: one pick, only with a reason about time (picked for today, or due in the next few days) and only if it fits before your next busy calendar event. Importance alone isn't a reason. **Open task** opens it and changes nothing; **Not now** sets it aside for the day on that device. Never shown in the evening.
+- **Worth doing next**: one pick, only with a reason about time (picked for today, or due in the next few days) and only if it fits before your next busy calendar event. Importance alone isn't a reason. **Open task** opens it and changes nothing; **Not now** sets it aside for the day, on every device (it syncs). Never shown in the evening.
+- **Your calendar** (2026-11-17): Today reads every Google calendar the connection can see, except the ones you untick in Settings → Integrations → Google Calendar → **Show on Today** (a calendar added later shows up on its own). Timed events sit in Coming up with their calendar's name; all-day events, multi-day ones included, are a quiet line under the date. Nothing on the calendar becomes a task here. Events look a week ahead, so Later this week has them too.
 - **Coming up** in the day; in the evening (by 8 PM, earlier with an evening checklist or early quiet hours) the screen reorders to **Tonight** and **Tomorrow**, with evening checklists and unfinished loops near the top. When nothing nearer is on screen, **Later this week** shows the next few dated things (tasks, reminders, calendar events, all-day ones included).
 - **To look over**: everything that slipped past its date, and anything you've been waiting on for a week, sits behind one quiet row. Not late, just undecided.
 - **Last night** and Gmail/Notion **suggestions** are single compact rows. No task ever shows in two places.
 
-Points, the Day Arc, rally, catches and loop trails left Today, but not the app: Analytics still has them. **Settings → General → Home screen → Classic Today screen** brings back the previous Today. Design notes, the rules and what the data can't yet tell: `wiki/Today-Kept2.md`.
+The Day Arc, catches and loop trails left Today. Points and rally later left the whole app (2026-11-15). The classic Today screen is switched off for now. Design notes, the rules and what the data can't yet tell: `wiki/Today-Kept2.md`.
 
 ## Settings
 
@@ -52,7 +53,7 @@ Reached from More → Settings. It opens on an **index of six categories, each s
 - **Quick add** — type and hit Enter from the bottom bar to instantly create a task
 - **Full add modal** — title, notes, due date, labels, T-shirt size, and Notion link
 - **Edit tasks** — full edit modal with all fields, including the ability to convert a one-off task into a routine
-- **Backdate completion** — "Completed on" date picker appears in the edit modal whenever a task is marked done. Did the task yesterday but forgot to tick it off? Open the task, hit Done, pick the date you actually finished. Daily streak and points re-bucket to the right calendar day, and routine-spawned tasks also sync the parent routine's `completed_history` so cadence stays aligned.
+- **Backdate completion** — "Completed on" date picker appears in the edit modal whenever a task is marked done. Did the task yesterday but forgot to tick it off? Open the task, hit Done, pick the date you actually finished. The completion counts on the right calendar day, and routine-spawned tasks also sync the parent routine's `completed_history` so cadence stays aligned.
 - **Swipe gestures** — iMessage-style swipe actions on task cards. Swipe right-to-left to reveal Edit and Done buttons. Swipe left-to-right to delete. Clean SVG icons (pencil, checkmark, trash) instead of text labels.
 - **Delete tasks** — delete any task via swipe gesture or from the expanded card actions
 - **Expanded actions** — tap a task to expand it and reveal Done, Snooze, Extend, Edit, Backlog, and Delete buttons
@@ -65,16 +66,31 @@ Reached from More → Settings. It opens on an **index of six categories, each s
 - **Labels** — custom labels with a 10-color picker, drag-to-reorder in Settings. On mobile, labels appear as a compact dropdown selector; on desktop, they show as a horizontal pill bar. In task modals, labels use a dropdown picker with colored removable pills showing selected labels.
 - **T-shirt sizing** — XS, S, M, L, XL effort estimates. Set manually or auto-inferred by AI during polish. Displayed as a pill on each task card.
 
-## Task Sections
+## Tasks (Kept)
 
-Tasks are organized into sections on the main screen:
+The **Tasks** tab's **Upcoming** list, in its default due-date order, follows the same rules as Today (2026-11-15):
+
+- **Worth doing next** at the top: the same pick as Today's card, with **Open task** / **Not now**. Not now on either screen hides it on both, on every device, and the picked task doesn't repeat further down.
+- **Today**: due today, picked for today, and open loop instances.
+- **This week**: due in the next 7 days, with the weekday on the left.
+- **Slipped past their dates**: anything past its date, quietly, with no red and no "Nd overdue". It reads "was due Sat, Nov 7", with one-tap **Tomorrow**, **Next week** or **Let it go** (cancels it; an **Undo** stays on the card). Tap the task for any other date. Three show; the rest sit behind "Show N more".
+- **Later**: due more than a week out.
+- **Started**: things you've marked as doing that have no date.
+- **Anytime**: everything undated. Five show; the rest sit behind "Show N more".
+- **Waiting on someone**: how long, and "maybe check in" after a week.
+
+Only tasks tagged critical get red, in their own card at the top. Rows show at most two tags and no impact dots. The other sort orders (impact, newest, oldest, A–Z) and the Snoozed, Backlog and Done tabs keep their plain list.
+
+## Task Sections (classic light/dark layout)
+
+In the classic light/dark layout, tasks are organized into sections on the main screen:
 
 - **Stale** — tasks untouched for longer than the staleness threshold (default: 2 days)
 - **Up Next** — active tasks (not started + doing) that are not stale or snoozed
 - **Waiting** — tasks marked as blocked/waiting on someone
 - **Snoozed** — tasks with a future snooze date, showing when they'll return
 - **Backlog** — someday/maybe tasks in a collapsible section at the bottom. Move tasks to backlog to keep them out of your active list without losing them.
-- **Pinned projects** — projects you've pinned to today appear at the top of the main list as expanded cards with progress meta and a Log Session button. Sessions count toward your daily points and streak. Pin from the Projects modal or the project's edit modal.
+- **Pinned projects** — projects you've pinned to today appear at the top of the main list as expanded cards with progress meta and a Log Session button. Each session counts toward the day's total. Pin from the Projects modal or the project's edit modal.
 - **Projects** — long-term work lives here. Accessible via the Spaces tab in the bottom bar (mobile) or its v2 sheet (desktop). Silent by default — no nagging, no stale/overdue pressure. Pin a project to today to surface it on the main list. Add child tasks under a project so completions also count toward project progress. Opt projects into nagging per-project (`Allow nags without a due date`) or just set a due date and the normal escalation rules apply.
 
 ## Task Count Display
@@ -129,7 +145,6 @@ AI-inferred energy tagging on every task — no manual fields to fill in.
 
 - **Auto-inferred** — `inferSize()` returns size, energy type, energy level, impact, and matching tags in a single API call. New tasks are automatically tagged with any of your existing labels that clearly apply (it won't invent new labels, won't touch the quiet-hours `wake-me` label or the `critical` label, and never removes a tag you set by hand)
 - **Tap-to-cycle** — on task cards, tap the type emoji to cycle types, tap the bolts to cycle intensity
-- **Points multiplier** — `SIZE_POINTS[size] × ENERGY_MULTIPLIER[level] × speedMultiplier`. An XL⚡⚡⚡ task can earn up to 80 points
 - **Nagging boost** — confrontation/errand tasks get nagged ~30-56% more frequently via `applyAvoidanceBoost()`
 - **What Now filter** — capacity step asks "What can you do right now?" with energy type options
 
@@ -154,7 +169,7 @@ Live boosts stack on top at ranking time:
 - **Impact dates** — Settings → Tasks lets you list events (Christmas, a visit, a trip) with a date, lead time, and a label; tasks sharing the label climb as the date approaches. Quokka can manage the list.
 - **Due proximity** and a mild stale decay.
 
-Where it shows up: Today/Anytime ordering, an "Impact" sort in Tasks, What Now preferences ("who it matters for" appears in the reason), the Next-up suggestion, a "🎯 Big rock today" line in the morning digest, a "That one mattered." completion toast for impact-3 catches, and a "By impact" breakdown in Analytics. Points are deliberately unaffected — effort and impact stay separate axes.
+Where it shows up: Today/Anytime ordering, an "Impact" sort in Tasks, What Now preferences ("who it matters for" appears in the reason), the Next-up suggestion, a "🎯 Big rock today" line in the morning digest, a "That one mattered." completion toast for impact-3 catches, and a "By impact" breakdown in Analytics.
 
 ## DIY-or-Hire Reality Check
 
@@ -237,37 +252,48 @@ Lists have **no task semantics** — no due date, energy, impact, size or rollov
 
 `status: 'project'` tasks. Silent by default — no notifications, no stale pressure. Pin a project to today to surface it on the main list with a dedicated card.
 
-- **Log session** — tap to record "I worked on this for a chunk." Awards points (roughly 10% of the project's effort budget per session, scaled by children's complexity), bumps the streak, and writes an activity-log entry. Capped at 10 sessions per project before you have to complete a child task or the project itself to keep earning credit.
-- **Add child step** — break a project into smaller tasks. Children show up under the pinned project on the main list (or stay backstage if you toggle "Show in main list" off). Completing a child task awards its own normal points.
+- **Log session** — tap to record "I worked on this for a chunk." Counts toward the day's total and writes an activity-log entry. Capped at 10 sessions per project before you have to complete a child task or the project itself to log more.
+- **Add child step** — break a project into smaller tasks. Children show up under the pinned project on the main list (or stay backstage if you toggle "Show in main list" off).
 - **Allow nags without a due date** — off by default. Turn on for gentle stale/nudge notifications. Set a `due_date` and full escalation runs regardless.
 - **Drill-down** — the Projects modal lets you tap into any project to see its children (active + done + backlog).
 
 ## Routines (Recurring Tasks)
+
+**The Loops screen (Kept 2.0, 2026-11-16).** Loops are grouped by what they ask of you today, and nothing keeps score: no trails, no "caught N of M", no lifetime counts, no red badges.
+
+- **Due today**: reminder loops whose task is on Today; tick it here or there. A loop done today stays, ticked.
+- **Checklists**: stacks, with their items as chips and today's progress ("1 of 3 done").
+- **Practice**: habit loops, with their target ("aiming for 3 a week · 1 so far") and **+ Log today**.
+- **Coming up**: the next reminder loops, soonest first.
+- **On autopilot**: things you already do. Boomerang won't ask, remind or count misses.
+- Two quiet rows at the bottom: **N days not recorded** (loops with days to look at) and **N resting** (paused or ended), each opening to the loops behind it.
+
+**How it comes back.** Each loop's page shows its mode: **Reminder** (a task shows up when due; a slipped cycle just waits), **Checklist** (a set of items at a time of day), **Practice** (no task; log it when you do it) or **Autopilot**. The first three follow from how the loop is built; Autopilot is a switch on the page for a plain loop. The loop editor uses the same words (Reminder, or Checklist once a loop has stack items / Practice / Autopilot), so a loop can also be made or unmade Autopilot there; Autopilot isn't offered while a loop has stack items. At the bottom, **Delete loop** (asks first; tasks it already made stay). Under the mode: Schedule, Last done, Next, the away offer, a collapsed list of days not recorded, the editable calendar ("Tap a day to fix the record. Nothing here counts against you."), Pause/Resume and Mark done today. **Marking a day done closes that cycle's open task too** (every item, for a checklist), so Today and Tasks agree with the loop, and taking the day back off reopens it rather than letting a duplicate appear. Switching a loop to Autopilot turns off its phone alarm and cancels its open task (cancelled, not deleted). A practice loop counts days marked on its calendar as well as days logged with + Log today.
 
 Recurring tasks with configurable cadence:
 
 - **Frequencies**: daily, weekly, monthly, quarterly, annually, or custom (every N days)
 - **Trigger time**: optional "At time" clock time on a routine (e.g. 8:00 PM). Spawned tasks stay hidden — and stay silent (no nags) — until that time of day, then surface. Set it for chores that only make sense at a certain hour ("start dishwasher" after 8pm). Leave blank for any time. Shown on the card next to the cadence (`daily · 8pm`).
 - **Follow-up steps at clock times**: each follow-up step in a sequence can be set to fire at an absolute clock time ("At time") instead of a relative delay — including "next day" for tomorrow-morning steps. Example: start dishwasher at 8pm → pour kiddo milk at 9pm → empty dishwasher at 6am the next morning.
-- **Stacks (one routine, several tasks)**: add 2+ **items** to a routine and each cycle it drops them as separate, independent task cards — an "Evening" stack at 8pm spawns *start dishwasher*, *take out trash*, and *refill milk* all at once. Tick them off in any order; each earns its own points. Clear the **whole** set in a cycle and you get a **20% bonus** on top — the "I finished the whole evening" reward. The day's cards appear grouped under the stack's name with a progress count (e.g. `2/3`) and the pending bonus. (This is different from follow-ups, which are a dependent chain where one step unlocks the next.) Add items in the routine's edit screen, or ask Quokka ("make an evening stack at 8pm with start dishwasher, trash, and milk").
+- **Stacks (one routine, several tasks)**: add 2+ **items** to a routine and each cycle it drops them as separate, independent task cards — an "Evening" stack at 8pm spawns *start dishwasher*, *take out trash*, and *refill milk* all at once. Tick them off in any order; clearing the **whole** set completes that cycle. The day's cards appear grouped under the stack's name with a progress count (e.g. `2/3`). (This is different from follow-ups, which are a dependent chain where one step unlocks the next.) Add items in the routine's edit screen, or ask Quokka ("make an evening stack at 8pm with start dishwasher, trash, and milk").
 - **End date**: optional end date to auto-stop a routine (e.g., "study daily until exam day"). After the end date, no new tasks are spawned. Displayed on routine cards as "ends Mon DD".
 - **Management**: routines live in their own screen, accessible from the tag bar. Active and paused routines are shown separately.
 - **Auto-spawning**: when a routine is due, a task instance is automatically created in the main task list. Completing the instance logs the completion on the routine and schedules the next occurrence.
-- **Push a loop out**: "Skip cycle" on a loop moves its next due date on by one cycle and leaves your history alone — it no longer counts as having done it, so your rally and totals stay honest. Tap it twice and it moves two cycles. Actually doing the loop clears the deferral.
-- **A trip is a choice, not a backlog**: cycles that fell while you were away appear on the loop's page under **While you were away** — already protected, with the rally intact — offering to *push the loop out* a cycle or *pick it up as normal*, plus a per-day "Did it" for anything you actually managed before leaving. The trail draws a connector straight through the break to your next completion instead of a run of empty squares, and the "caught N of last M" count leaves the trip out entirely.
-- **A trip doesn't break them**: a cycle whose due day fell on a day you were away is paused, not missed — it doesn't show up as something to fix and it doesn't reset the loop's rally, exactly like the streak. It matches the away days one for one: a weekly loop that came due mid-trip is excused even though its week ran on past your return, and a monthly loop isn't written off just because you were away for a few days somewhere in the month.
-- **Closes when you finish its task**: completing a loop's task — from the loop's own check OR from the main task list — crosses out the loop card and ticks the "Loops `done/total`" count on Today. Loops that won't close (a task got finished but the loop never recorded it) or cycles you missed are flagged with an "N to fix" chip on the loop card. Tap into the loop to see a **Needs attention** list of the exact days — each labeled "finished, not recorded" or "missed" — and fix them one at a time: **Mark done** credits the cycle, **Skip** acknowledges it and moves on without crediting. Prefer to fix everything in one shot? **Skip all N missed** clears a loop's missed days at once, and the Loops list itself offers **Skip N missed cycles across M loops** when they're scattered — both ask first, and both are missed-only (crediting a day you didn't do stays a deliberate, per-day act). For loops that won't close because a finished task was never recorded, ask Quokka ("close the loops that won't clear") — it previews exactly which loops + days it'll stamp before applying.
-- **Log a day the app never recorded, however far back**: the loop's month calendar is editable — step back as many months as you like and **tap a day to log it**, tap a logged day to take it off again; a date field under the calendar does the same thing if you'd rather type it. This is the way in when the "Needs attention" list has nothing to offer you: a stack whose cycle only half-ticked, a habit loop (which has no single cycle to close), or simply a day older than the dozen cycles that list looks back over — "we did the bedtime routine on Friday, it's Monday and I can't get back to fix it". Days before the loop existed and days in the future aren't loggable, and marking a day done clears any earlier Skip of it.
-- **Quick actions on the Loops page**: swipe a loop card left to reveal **Spawn** (run it now without waiting for the schedule) and **Skip** (skip this cycle). The same two actions sit as buttons on a loop's detail page. Spawn greys to "On list" when an instance is already waiting for you.
+- **Push a loop out**: "Skip cycle" on a loop moves its next due date on by one cycle and leaves your history alone — it no longer counts as having done it, so your totals stay honest. Tap it twice and it moves two cycles. Actually doing the loop clears the deferral.
+- **A trip is a choice, not a backlog**: cycles that fell while you were away appear on the loop's page under **While you were away** — already protected — offering to *push the loop out* a cycle or *pick it up as normal*, plus a per-day "Did it" for anything you actually managed before leaving.
+- **A trip doesn't break them**: a cycle whose due day fell on a day you were away is paused, not missed — it doesn't show up as something to fix. It matches the away days one for one: a weekly loop that came due mid-trip is excused even though its week ran on past your return, and a monthly loop isn't written off just because you were away for a few days somewhere in the month.
+- **Closes when you finish its task**: completing a loop's task — from the loop's own check OR from the main task list — marks the loop done for that day. Loops with days the app never recorded (a task got finished but the loop never recorded it, or a cycle with no record) are listed under the quiet **N days not recorded** row on Loops. On the loop's page, open **N days not recorded** to see the exact days — each labeled "finished, not recorded" or "no record" — and fix them one at a time: **Mark done** credits the cycle, **Skip** acknowledges it and moves on without crediting. **Skip all N with no record** clears them at once — it asks first, and it never marks anything done (crediting a day you didn't do stays a deliberate, per-day act). For loops that won't close because a finished task was never recorded, ask Quokka ("close the loops that won't clear") — it previews exactly which loops + days it'll stamp before applying.
+- **Log a day the app never recorded, however far back**: the loop's month calendar is editable — step back as many months as you like and **tap a day to log it**, tap a logged day to take it off again; a date field under the calendar does the same thing if you'd rather type it. This is the way in when the "not recorded" list has nothing to offer you: a stack whose cycle only half-ticked, a habit loop (which has no single cycle to close), or simply a day older than the dozen cycles that list looks back over — "we did the bedtime routine on Friday, it's Monday and I can't get back to fix it". Days before the loop existed and days in the future aren't loggable, and marking a day done clears any earlier Skip of it.
+- **Quick actions on a loop's page**: **Add a task now** (run it now without waiting for the schedule) and **Skip this cycle**, for reminder and checklist loops. Add a task now reads "Already on your list" when an instance is already waiting for you.
 - **Fixed schedule (no drift)**: due dates follow a fixed grid — completing early or late never shifts the series. "Every Monday" stays Monday, "the 18th" stays the 18th, no matter when you actually check it off. A missed cycle shows up as a single overdue task, not a pile.
-- **Editable "Last done" date**: in a routine's edit screen you can set when it was last completed. This drives the next due date — handy for fixing a routine that keeps nagging because its history is wrong or missing. (Quokka can do it too: "mark the furnace filter as last done March 29.")
+- **Editable "Last done" date**: in a routine's edit screen you can set when it was last completed. This drives the next due date — handy for fixing a loop that keeps coming back because its history is wrong or missing. (Quokka can do it too: "mark the furnace filter as last done March 29.")
 - **Intelligent schedule anchor**: the "On" picker adapts to the cadence. Weekly → pick a weekday. Monthly / quarterly / annually → pick **a day of the month** ("the 18th"), **an ordinal weekday** ("1st Monday", "2nd Tuesday", "last Friday"), or leave it on the day the routine was created. The chosen anchor — not the creation date — drives the schedule.
 - **Pause/resume**: routines can be paused without deleting them
-- **Skip this cycle**: fast-forward button on the expanded routine card advances the schedule without spawning a task. For when you're on vacation, sick, or the lawn doesn't need mowing this week.
+- **Skip this cycle**: on the loop's page, advances the schedule without spawning a task. For when you're on vacation, sick, or the lawn doesn't need mowing this week.
 - **Convert from task**: any one-off task can be converted to a routine via the Edit modal. The original task stays active and is linked to the new routine as its first instance — completing it later logs the completion on the routine, and future instances are spawned by cadence.
 - **Notion integration**: find or create a Notion page from the routine add/edit form. Linked pages appear on routine cards and are inherited by spawned task instances.
 - **Auto-roll** *(shipped — spec in `wiki/Activity-Prompts.md`)*: flag a routine `auto_roll` so missed days bump the existing task's due date instead of stacking duplicates. Use case: medication you can't double up on. When the cadence fires and a non-terminal instance already exists, its `due_date` is set to today (and any past `snoozed_until` is cleared) instead of spawning a new task. Toggle lives at the bottom of the routine form.
-- **Habit mode** *(shipped — spec in `wiki/Activity-Prompts.md`)*: set `spawn_mode: 'habit'` on a routine and it switches from cadence-driven spawning to target-frequency tracking — e.g., `2× / week` or `5× / month`. No automatic task creation; instead the routine card shows period progress (`1/2 this week`) plus a streak chip, with a "+ Log it" button that creates and completes a task in one tap. Behind-pace push notifications fire mid-period (past the 30% elapsed mark) with inline Log it / Not today action buttons — push priority-0 only, never Pushover, because habits are encouragement, not alarms.
+- **Habit mode** *(shipped — spec in `wiki/Activity-Prompts.md`)*: set `spawn_mode: 'habit'` on a routine and it switches from cadence-driven spawning to target-frequency tracking — e.g., `2× / week` or `5× / month`. No automatic task creation; instead the routine card shows period progress (`1/2 this week`), with a "+ Log it" button that creates and completes a task in one tap. Behind-pace push notifications fire mid-period (past the 30% elapsed mark) with inline Log it / Not today action buttons — push priority-0 only, never Pushover, because habits are encouragement, not alarms.
 - **Historic suggestions** *(shipped — spec in `wiki/Activity-Prompts.md`)*: a weekly server scan (Sunday 3am local) over 12 months of completed-task history detects recurring patterns (daily / weekly / monthly / quarterly / annually) and surfaces them in a Suggestions inbox accessible from the SystemMenu (⚙ icon in the header). Each suggestion can be accepted (creates a routine with cadence-aware defaults — daily/weekly → auto-roll, longer → plain auto), snoozed for 14 days, or permanently dismissed. Optional AI clustering pass merges near-duplicates ("mow lawn" / "mow the grass") when an Anthropic key is configured. A weekly `routine_suggestion` push / email summarizes pending suggestions; Quokka can list / dismiss / snooze via natural language.
 - **Tag suggestions** *(2026-06-13)*: a weekly scan (Sunday 4am local) reads your recent task titles and proposes **new tags** for recurring themes you don't already have a label for — durable life-areas like "finances", "home", or "health" rather than one-off task names. They appear at the top of the same Suggestions inbox: each shows the proposed tag, why, and a couple of example tasks. **Add tag** creates the label; from then on new tasks auto-tag with it. **Dismiss** hides it. You can also trigger the scan manually with "Run scan now".
 
@@ -671,10 +697,10 @@ On touch devices, pull down on the task list to refresh data from the server.
 - **Backfill on load** — pre-existing tasks without messages get them generated in the background on first load (staggered 1s apart).
 - **Static fallback** — if AI messages aren't available, funny static messages are used ("Archaeologists found this task", "The sequel nobody asked for", etc.)
 - **Undo button** — each completion toast includes an Undo button with a 4-second window to reverse the completion
-- **Did it yesterday** — tick something before noon that was already on your list yesterday and the toast also offers *Did it yesterday* (the banner stays up 8 seconds instead of 4). Tap it and the completion moves to yesterday evening: today's count drops it, the streak credits yesterday, and a loop's check moves to yesterday so tonight's instance still shows up instead of the loop slipping a day. If it was one of yesterday's committed picks, the "came back around" count from last night's rollover is undone too. Ignoring the button keeps today, exactly as before. The banner then reads *Counted for yesterday*, and the activity log records it.
+- **Did it yesterday** — tick something before noon that was already on your list yesterday and the toast also offers *Did it yesterday* (the banner stays up 8 seconds instead of 4). Tap it and the completion moves to yesterday evening: today's count drops it, yesterday's count gains it, and a loop's check moves to yesterday so tonight's instance still shows up instead of the loop slipping a day. If it was one of yesterday's committed picks, the "came back around" count from last night's rollover is undone too. Ignoring the button keeps today, exactly as before. The banner then reads *Counted for yesterday*, and the activity log records it.
 - **Last night list** — the top of Today lists what was on yesterday's plate and either got ticked this morning or is still open. *Yesterday* credits it to last night (or completes it as of last night); the ✕ keeps it on today or leaves it open, and that answer holds on every device for the rest of the day. *Not now* hides the list for today on that device. It catches what the banner can't: ticks from the watch, and things you did last night and never ticked at all.
 - **Loop card tick, the morning after** — ticking a loop's circle on Today while last night's instance is still open now completes that instance (and offers *Did it yesterday*) instead of checking today off beside it and leaving last night's task open.
-- **Points display** — shows days on list and points earned as a subtitle suffix
+- **No points** — the subtitle shows days on the list and how many you've done today; points were removed in 2026-11
 
 ## Done List
 
@@ -690,45 +716,32 @@ On touch devices, pull down on the task list to refresh data from the server.
 - **Import**: upload a previously exported JSON file to restore data (triggers a page reload)
 - Available in Settings under the "Data" section
 
-## Activity Rings and Points
+## Daily progress (no points, no streaks)
 
-Apple Fitness-inspired activity rings track your daily progress:
+Boomerang counts what got done; it doesn't score it. Points and rally (the
+day streak and per-loop streaks) were removed on 2026-11-15 (BOOM-33): no
+"+N pts" on a completion, no points goal, no streak to protect.
 
-- **Tasks ring (green)** — progress toward your daily task completion goal
-- **Points ring (orange)** — progress toward your daily points goal
-- **Streak ring (blue)** — current streak of consecutive days meeting your goals
-
-### Points System
-
-Each completed task earns points based on its T-shirt size:
-- XS = 1 point, S = 2, M = 5, L = 10, XL = 20
-
-Speed bonuses reward fast turnaround:
-- Completed same day as created: **2x** points
-- Completed within 2 days: **1.5x** points
-
-### Ring Display
-
-- **Mini rings** appear in the header for at-a-glance progress
-- **Full rings** are shown on the Analytics screen with detailed breakdowns
+There is no daily goal either (BOOM-46, 2026-11-17): no "N of 3" target, no
+progress ring, no catch counter, no achievements. A day's count is simply the
+tasks finished that day, the same number Analytics uses everywhere.
 
 ## Analytics
 
-Accessible two ways: the SystemMenu (⚙ icon, top-right) or by tapping the BOOMERANG wordmark and choosing "Open Analytics" in the brand popover. The Analytics screen shows:
+Open it from the header's ↗ button (Kept) or the SystemMenu. Everything here
+counts tasks completed:
 
-- **Activity rings** — full-size daily progress rings (tasks, points, streak)
-- **Stat cards** — current streak, longest streak, best daily points, best daily tasks
-- **Daily completion chart** — bar chart showing tasks or points per day, with time range picker (7d, 30d, 90d, all time). Toggle between tasks and points view. All-time groups by week.
-- **Day-of-week patterns** — 7-bar chart showing which days you're most productive, with "best day" insight. Current day highlighted.
-- **Tag breakdown** — horizontal bars showing completions per label, using label colors
-- **Energy type breakdown** — completions by energy type (desk, errand, people, etc.) with energy icons
-- **Size breakdown** — completions by T-shirt size (XS through XL) with point totals
-- **Activity heat map** — GitHub-style contribution graph showing 52 weeks of daily activity. Toggle between tasks (green) and points (orange). Color intensity scales with volume. Scrollable on mobile.
-- **Achievements** — a grid of earnable badges, computed live from your data with durable earned state (deleting tasks never un-earns one). Cards are tinted by **tier** — Bronze, Silver, Gold by prestige — explained by a legend in the header. Earned cards show the date; in-progress cards show a progress bar. **Tap any badge** for a detail popup: earned date or progress with "N to go", and for badges that track a set of things (like Balanced Diet — every energy type in one week) a checklist of exactly what's done vs still outstanding. Hidden badges stay mysteries until earned.
-- **Completed task search** — collapsible section; search completed tasks with filters for energy type, size, and tag
-- **Vacation mode** — freezes your streak so time away doesn't reset it. Choose a duration (3 days, 5 days, 7 days, or custom) and it auto-expires when the end date passes. End early if you're back sooner.
-- **Free day** — one-tap button to pause your streak for a single day without entering vacation mode. Togglable on/off for today.
-- **Reset streaks** — clears all streak data, with double confirmation to prevent accidents
+- **Counts** — today, last 7 / 30 / 365 days, lifetime, and best day ever, all counting tasks finished
+- **Daily completion chart** — tasks per day for the selected range (7d, 30d, 90d, 1y, all time; all time groups by week)
+- **Day-of-week patterns** — which days you get the most done, current day highlighted
+- **Balance radar, tag, energy, size and impact breakdowns** — completions by label, energy type, T-shirt size and impact
+- **52-week pattern** — GitHub-style graph of daily completions; scrollable on mobile, opens scrolled to today
+- **Loops tab** — when each loop was last done, most recent first. No per-loop totals: a count per loop is a score
+- **No achievements** — the badge grid was removed with the daily goal (BOOM-46); badges already earned stay stored, unshown
+- **AI tab** — AI usage and estimated cost for the range
+- **Caught** — jump to the list of completed tasks
+
+**Away** (Settings) holds due dates and nags while you're away, and loops don't count those days as missed.
 
 ## Find Related (Notion)
 

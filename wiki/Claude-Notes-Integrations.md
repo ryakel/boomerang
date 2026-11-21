@@ -565,7 +565,7 @@ The dev reseed clears the fire ledger (explicitly in `seed.js`, never inside `cl
 - Pull sync only looks 30 days ahead
 - Rules fire when an event enters the 30-day window, which can be weeks before the event; the derived task's due date is what governs when it surfaces. A per-rule "only fire within N days of the event" lead time is a follow-up.
 - A triggering event that is cancelled or moved after its task exists leaves that task alone — open question, deliberately not a silent delete
-- Recurring event support: routine-spawned tasks create recurring events with RRULE (#10 — DONE)
+- Recurring event support: routine-spawned tasks create recurring events with RRULE (#10 — DONE). **The LOOP owns the series (BOOM-45, 2026-11-17):** `routine.gcal_recurring_event_id` (column since migration 014, but `routineToRow`/`rowToRoutine` never mapped it and the client wrote it to localStorage `boom_routines` instead of the store's `boom_routines_v1`, so it never persisted and every spawn could add a series). The first spawned task that needs an event creates the series and stores its id on the routine via `onUpdateRoutine`; no spawned task ever takes the series id as `gcal_event_id` (that would make completing or rescheduling one task delete or move every occurrence); later instances log "on the calendar through its loop's recurring event" and create nothing. A replayed queued create now links what it made (`routineId` for a series, the task otherwise) after re-checking, so an offline retry can't duplicate. Existing series are left alone; pausing, deleting or putting a loop on Autopilot does not remove its series (owner call).
 - AI time inference requires Anthropic API key; falls back to defaults without it
 
 ### Package Tracking (17track API)

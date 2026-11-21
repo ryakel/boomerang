@@ -1,5 +1,12 @@
 # Today, Kept 2.0
 
+> **2026-11-15: the Tasks list follows these rules too (BOOM-37).** The Upcoming
+> tab shows the same Worth doing next pick (it calls `buildTodayModel`, with the
+> same events and Not now state), then cards from `src/tasksModel.js`: Today,
+> This week, a quiet Slipped card with Tomorrow / Next week / Let it go, Later,
+> Started, Anytime, Waiting. Shared pieces moved to `src/kept/today2Hooks.js`
+> and `today2Parts.jsx`.
+>
 > **Status (2026-11-11): selection model corrected after the first dev test.**
 > Ticket BOOM-32. The first build (§3, as shipped to dev on 2026-11-10) put the
 > old task-manager behaviour under new names: at 9:39 PM it opened on seven
@@ -177,7 +184,7 @@ evolution of Kept, not a new design system. Priorities in order:
 8. **All clear is a legitimate outcome:** "Nothing needs you right now."
 9. **The recommendation must not become another chore.**
 10. **Durations come only from a task's own size; free time only from real
-    calendar events.** No invented buffers or estimates.
+    calendar events.** No invented buffers or estimates. Since BOOM-36 (2026-11-17) the events come from every calendar the Google connection can see minus `settings.gcal_today_hidden`, a week ahead (`useCalendarEvents`, falling back to primary + the push calendar if the calendar list can't be read). All-day events covering today (an all-day `end.date` is exclusive) are `allDayToday`, rendered as a line under the date; they take no time and never shorten the window.
 11. **Don't rewrite** persistence, notifications, calendar sync, the scoring
     engine or routine accounting. Don't redesign Tasks, Loops or other screens.
 
@@ -189,7 +196,7 @@ evolution of Kept, not a new design system. Priorities in order:
 | `scripts/todayModel.test.mjs` | 34 tests pinning those rules (in `npm test`). Pass in UTC and America/Chicago. |
 | `src/kept/TodayKept2.jsx` | Renders the model, wires existing handlers. |
 | `src/kept/today2.css` | Styles scoped to `.bm-t2`; nothing outside Today changes. |
-| `src/kept/KeptShell.jsx`, `KeptDesktop.jsx` | Pick `TodayKept2` or the classic `TodayView` from `settings.today_classic`. Same props. |
+| `src/kept/KeptShell.jsx`, `KeptDesktop.jsx` | Pick `TodayKept2` or the classic `TodayView` via `classicTodayOn()` (src/kept/classicToday.js). Classic is gated off since 2026-11-15 (BOOM-33). Same props. |
 | `src/store.js` | `today_classic: false` default. |
 | `src/components/SettingsModal.jsx` | Settings → General → Home screen → **Classic Today screen** toggle. |
 | `server/server.js` | The GCal events mapping gained `transparency` (busy vs free). Nothing else server-side. |
@@ -278,10 +285,13 @@ twice. All-day events are ignored for now.
 
 ## 4. Visual spec (Kept dark; light derives the same proportions)
 
-Fonts are `'Fraunces Variable'` and `'DM Sans Variable'` from Fontsource, a
-different family name from the Google-loaded `Fraunces`/`DM Sans` the rest of
-the app uses, so only Today changes. The wordmark, header and nav keep the
-production fonts.
+Fonts are `'Fraunces Variable'` and `'DM Sans Variable'` from Fontsource.
+When this page was written only Today used them; since 2026-11-15 (BOOM-34)
+every Kept surface does, through `src/kept/type.css`: `Kept Serif` (Fraunces,
+weight capped at 540, SOFT 100) and `Kept Sans` (DM Sans opsz, capped at 600)
+behind `--v2-font-display`/`--v2-font-body`, plus the `bm-row-title` task row
+at 500 to match Today. The wordmark keeps Fraunces 700 with no SOFT. Today's
+own `.bm-t2` tokens are unchanged.
 
 | Role | Current production | Kept 2.0 Today |
 |---|---|---|
@@ -395,7 +405,7 @@ Kept here so the plans aren't lost:
 - Commit convention and a `wiki/Version-History.md` entry for every commit.
 - The model is the spec. Any behaviour change: test in
   `scripts/todayModel.test.mjs` first.
-- Keep `today_classic` working until he says the classic screen can go.
+- The classic screen is gated off, not deleted (BOOM-33, 2026-11-15): `CLASSIC_TODAY_ENABLED` is false, so the Settings switch is hidden and a stored `today_classic: true` is ignored. Don't delete `TodayView.jsx` until he says the classic screen can go; flipping the flag brings it back (points arc and rally chip are gone from it either way).
 - The user asked: no new focus timer, no AI recommendation engine, no new
   notification behaviour, no scoring or routine-engine rewrites, no redesign
   of Tasks or Loops, no more mockup cycles. Stop after each version and let him

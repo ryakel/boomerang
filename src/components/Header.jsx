@@ -55,13 +55,13 @@ export default function Header({
 
       {popoverOpen && (
         <div ref={popoverRef} className="v2-header-popover" role="dialog" aria-label="Status">
-          {miniRingsData && miniRingsData.length > 0 && (
+          {onOpenAnalytics && (
             <button
               type="button"
               className="v2-header-popover-row v2-header-popover-rings"
               onClick={() => { setPopoverOpen(false); onOpenAnalytics?.() }}
             >
-              <MiniRings rings={miniRingsData} />
+              {miniRingsData && miniRingsData.length > 0 && <MiniRings rings={miniRingsData} />}
               <span>Open Analytics</span>
             </button>
           )}

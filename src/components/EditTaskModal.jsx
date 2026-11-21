@@ -166,7 +166,7 @@ export default function EditTaskModal({
     setLoggingSession(true)
     try {
       const result = await onLogSession(task.id)
-      setSessionFeedback({ ok: true, text: `+${result.points} pts logged · ${result.sessionCount}/${result.sessionCap} sessions` })
+      setSessionFeedback({ ok: true, text: `Session logged · ${result.sessionCount}/${result.sessionCap}` })
     } catch (err) {
       if (err.code === 'SESSION_CAP_REACHED') {
         setSessionFeedback({ ok: false, text: `Cap reached — complete a sub or the project to log more.` })
@@ -254,7 +254,7 @@ export default function EditTaskModal({
     try {
       const result = await onLogEscalationAttempt(task.id)
       setEscalationTask(result.task)
-      flashEscalationFeedback(true, `+1 pt logged · attempt ${result.attemptsAtRung}`)
+      flashEscalationFeedback(true, `Attempt ${result.attemptsAtRung} logged`)
     } catch {
       flashEscalationFeedback(false, 'Failed to log attempt.')
     } finally {
@@ -624,7 +624,7 @@ export default function EditTaskModal({
         <div className="v2-form-section">
           <label className="v2-form-label">Completed on</label>
           <div className="v2-settings-row-hint" style={{ marginTop: -4, marginBottom: 4 }}>
-            Backdate if you finished this earlier — fixes streak and points credit.
+            Backdate if you finished this earlier, so it counts on the right day.
           </div>
           <DateField
             value={completedAtIso ? localYMD(new Date(completedAtIso)) : ''}
@@ -1577,7 +1577,7 @@ export default function EditTaskModal({
           <div className="v2-edit-project-sessions">
             <div className="v2-edit-project-sessions-meta">
               {(task.session_count || 0) > 0
-                ? `🔥 ${task.session_count} session${task.session_count === 1 ? '' : 's'} logged${task.last_session_at ? ` · last ${new Date(task.last_session_at).toLocaleDateString()}` : ''}`
+                ? `${task.session_count} session${task.session_count === 1 ? '' : 's'} logged${task.last_session_at ? ` · last ${new Date(task.last_session_at).toLocaleDateString()}` : ''}`
                 : 'No sessions logged yet. Tap below when you chip away at this.'}
             </div>
             <div className="v2-edit-project-actions">
@@ -1586,7 +1586,7 @@ export default function EditTaskModal({
                 className="v2-edit-action v2-edit-action-primary"
                 disabled={loggingSession || (task.session_count || 0) >= 10}
                 onClick={handleLogSessionClick}
-                title={(task.session_count || 0) >= 10 ? 'Session cap reached' : 'Log a session — gives points + bumps the streak'}
+                title={(task.session_count || 0) >= 10 ? 'Session cap reached' : 'Log a session: you worked on this today'}
               >
                 {loggingSession ? 'Logging…' : ((task.session_count || 0) >= 10 ? 'Cap reached' : '+ Log session')}
               </button>

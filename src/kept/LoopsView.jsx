@@ -1,31 +1,49 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Repeat2, Pencil, Sparkle } from 'lucide-react'
-import MonthDots from './MonthDots'
-import DensityRibbon from './DensityRibbon'
-import CycleChips from './CycleChips'
+import { Sun, Moon, Sprout, CalendarDays, RefreshCw, Pause, History, ChevronRight, ChevronDown, Sparkle, Check, Plus } from 'lucide-react'
 import LoopDetail from './LoopDetail'
-import LoopSwipe from './LoopSwipe'
-import { cycleWindows, habitWindows, cycleUnitLabel, cycleRally, loopGaps } from './cycles'
-import { historyByDay } from './heatmapUtils'
-import { isRoutineEnded, loadSettings } from '../store'
+import { Ring, Head } from './today2Parts'
+import { useNow } from './today2Hooks'
+import { loopGaps } from './cycles'
 import { routineFeathers } from './feathers'
+import { groupLoops, cadenceWord, clockLabel, lastDoneWord } from '../loopModes'
+import { getNextDueDate, computeHabitStats, loadSettings } from '../store'
+import { localYMD } from '../dates'
 import './shell.css'
+import './today2.css'
+import './loops2.css'
 
-const RANGES = [
-  { id: 'trail', label: 'Trail' },
-  { id: 'month', label: 'Month' },
-  { id: 'year', label: 'Year' },
-]
+// Kept 2.0 Loops (BOOM-35, 2026-11-15). Loops are grouped by what they ask of
+// you today, not scored: no trails, no "caught N of M", no lifetime counts, no
+// red badges. Which group a loop lands in lives in src/loopModes.js (pure);
+// the repair tools (calendar, not-recorded days, away offer) live on the
+// loop's own page, LoopDetail.
 
-// Kept "Loops" — one card per loop carrying its Flight Trail / Month Dots /
-// Density Ribbon (spec §6). Edit routes to the existing routine editor.
-export default function LoopsView({ routines = [], tasks = [], onEditLoop, onAddLoop, onSpawnNow, onSkipCycle, onMarkLoopDay, onUnmarkLoopDay, onSkipLoopDay, onPushLoopOut, onOpenSuggestions }) {
-  const [range, setRange] = useState('trail')
-  // Tapping a card opens the loop DETAIL (K4) — stats + month calendar —
-  // not the editor. Edit is a deliberate button on the detail page.
+const weekday = (key) => new Date(`${key}T12:00:00`).toLocaleDateString('en-US', { weekday: 'short' })
+const shortDate = (key) => new Date(`${key}T12:00:00`).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+const timeOf = (iso) => new Date(iso).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
+const names = (list) => {
+  const t = list.map(x => x.routine.title)
+  return t.length > 3 ? `${t.slice(0, 3).join(', ')} and ${t.length - 3} more` : t.join(', ')
+}
+
+function StatusRing({ done = false, dashed = false, color }) {
+  return (
+    <span className={`lp-ring${done ? ' is-done' : ''}${dashed ? ' is-dashed' : ''}`} style={color ? { '--ring': color } : undefined} aria-hidden="true">
+      {done && <Check size={13} strokeWidth={3} />}
+    </span>
+  )
+}
+
+export default function LoopsView({
+  routines = [], tasks = [], onEditLoop, onAddLoop, onSpawnNow, onSkipCycle, onMarkLoopDay, onUnmarkLoopDay,
+  onSkipLoopDay, onPushLoopOut, onOpenSuggestions, onSetAutopilot, onTogglePause, onCompleteTask, onToggleHabit, onDeleteLoop,
+}) {
+  const now = useNow()
+  const todayKey = localYMD(now)
   const [detailId, setDetailId] = useState(null)
-  // Pending pattern-scan suggestions — drives the dot badge on the
-  // Suggestions button so a passive Sunday-scan find still waves at you.
+  const [restingOpen, setRestingOpen] = useState(false)
+  const [slippedOpen, setSlippedOpen] = useState(false)
+  // Pending pattern-scan suggestions: a dot on the Suggestions button.
   const [suggestionCount, setSuggestionCount] = useState(0)
   useEffect(() => {
     let alive = true
@@ -35,228 +53,217 @@ export default function LoopsView({ routines = [], tasks = [], onEditLoop, onAdd
       .catch(() => {})
     return () => { alive = false }
   }, [])
-  // Paused + ended loops used to be invisible here (paused) or mixed into
-  // the active list forever (ended) — the user's "archive" ask: keep the
-  // stats visible, out of the way, with a road back.
-  const resting = useMemo(() => {
-    const feathers = routineFeathers(routines)
-    return routines.filter(r => r.paused || isRoutineEnded(r)).map(r => ({
-      r,
-      color: feathers[r.id],
-      total: r.completed_history?.length || 0,
-      why: r.paused ? 'paused' : `ended ${r.end_date}`,
-    }))
-  }, [routines])
 
-  // Days the away window covered. The same stamped `settings.away_days` the
-  // streak and the device alarms read — a cycle you were away for must not
-  // read as missed or break the rally (2026-08-11).
+  // Days the away window covered (the stamped settings.away_days the alarms
+  // read): a cycle you were away for is never "not recorded".
   const awayDays = useMemo(() => new Set(loadSettings()?.away_days || []), [])
+  const feathers = useMemo(() => routineFeathers(routines), [routines])
+  const weekStartsOn = loadSettings()?.week_starts_on === 0 ? 0 : 1
 
-  const loops = useMemo(() => {
-    const feathers = routineFeathers(routines)
-    return routines.filter(r => !r.paused && !isRoutineEnded(r)).map(r => {
-      const byDay = historyByDay(r.completed_history)
-      const isHabit = r.spawn_mode === 'habit' && r.target_count
-      const wins = isHabit ? habitWindows(r, 60) : cycleWindows(r, 60)
-      // Rally in the loop's own cycles (consecutive weeks/months/etc caught),
-      // not calendar days — day-streaks read as 1 forever on non-dailies.
-      const { rally } = cycleRally(wins, isHabit ? r.target_count : 1, awayDays)
-      // Spawn is blocked while an instance is still active on the list (mirrors
-      // the spawn guard in AppV2.handleSpawnLoop) — greys the swipe action.
-      const hasActive = tasks.some(t =>
-        t.routine_id === r.id && !['done', 'completed', 'cancelled'].includes(t.status),
-      )
-      // Days needing attention (unrecorded completions + missed cycles) drive
-      // the card's "N to fix" badge; the breakdown lives on the detail page.
-      const gaps = loopGaps(r, tasks, 12, awayDays)
-      const gapCount = gaps.unrecorded.length + gaps.missed.length
-      return { r, color: feathers[r.id], byDay, rally, hasActive, gaps, gapCount, total: r.completed_history?.length || 0 }
-    })
-  }, [routines, tasks, awayDays])
+  const g = useMemo(() => groupLoops({
+    routines, tasks, now,
+    nextDue: getNextDueDate,
+    habitStats: (r, ts) => computeHabitStats(r, ts, weekStartsOn),
+    missedCount: (r) => { const x = loopGaps(r, tasks, 12, awayDays); return x.unrecorded.length + x.missed.length },
+  }), [routines, tasks, now, awayDays, weekStartsOn])
 
-  // Missed cycles pooled across every loop — drives the one-tap cleanup above.
-  const missedLoops = useMemo(() => loops.filter(l => l.gaps?.missed?.length > 0), [loops])
-  const totalMissed = useMemo(() => missedLoops.reduce((n, l) => n + l.gaps.missed.length, 0), [missedLoops])
-
-  if (detailId) {
-    const sel = loops.find(l => l.r.id === detailId)
-      || (() => { const x = resting.find(l => l.r.id === detailId); return x ? { ...x, hasActive: false } : null })()
-    if (sel) {
-      return (
-        <LoopDetail
-          routine={sel.r}
-          color={sel.color}
-          spawnBlocked={sel.hasActive}
-          tasks={tasks}
-          awayDays={awayDays}
-          onBack={() => setDetailId(null)}
-          onEdit={(r) => { setDetailId(null); onEditLoop?.(r) }}
-          onSpawnNow={onSpawnNow}
-          onSkipCycle={onSkipCycle}
-          onMarkLoopDay={onMarkLoopDay}
-          onUnmarkLoopDay={onUnmarkLoopDay}
-          onSkipLoopDay={onSkipLoopDay}
-          onPushLoopOut={onPushLoopOut}
-        />
-      )
-    }
+  const selected = detailId ? routines.find(r => r.id === detailId) : null
+  if (selected) {
+    // Same rule as AppV2's handleSpawnLoop, so the button never offers a spawn
+    // the handler will refuse (a task parked in Backlog still counts).
+    const spawnBlocked = tasks.some(t => t.routine_id === selected.id && !['done', 'completed', 'cancelled'].includes(t.status))
+    return (
+      <LoopDetail
+        routine={selected}
+        color={feathers[selected.id]}
+        spawnBlocked={spawnBlocked}
+        tasks={tasks}
+        awayDays={awayDays}
+        onBack={() => setDetailId(null)}
+        onEdit={(r, mode) => { setDetailId(null); onEditLoop?.(r, mode) }}
+        onSpawnNow={onSpawnNow}
+        onSkipCycle={onSkipCycle}
+        onMarkLoopDay={onMarkLoopDay}
+        onUnmarkLoopDay={onUnmarkLoopDay}
+        onSkipLoopDay={onSkipLoopDay}
+        onPushLoopOut={onPushLoopOut}
+        onSetAutopilot={onSetAutopilot}
+        onTogglePause={onTogglePause}
+        onToggleHabit={onToggleHabit}
+        onDelete={onDeleteLoop ? (id) => { setDetailId(null); onDeleteLoop(id) } : null}
+      />
+    )
   }
+
+  const open = (r) => setDetailId(r.id)
+  const meta = (parts) => <span className="t2-row-meta">{parts.filter(Boolean).join(' · ')}</span>
+  const hasAny = routines.length > 0
+  const slippedTotal = g.slipped.reduce((n, x) => n + x.count, 0)
 
   return (
     <div className="bm-surface">
-      <div className="bm-title-row">
+      <div className="bm-title-row lp-title-row">
         <h1 className="bm-h1">Loops</h1>
-        <button className="bm-btn bm-suggest-btn" onClick={onOpenSuggestions}>
-          <Sparkle size={14} strokeWidth={2.1} /> Suggestions
-          {suggestionCount > 0 && <span className="bm-suggest-dot" aria-label={`${suggestionCount} pending`} />}
+        <button className="bm-back lp-suggest" style={{ marginLeft: 'auto' }} onClick={onOpenSuggestions} aria-label={suggestionCount > 0 ? `Suggestions, ${suggestionCount} pending` : 'Suggestions'}>
+          <Sparkle size={15} strokeWidth={2} />
+          {suggestionCount > 0 && <span className="bm-suggest-dot" />}
         </button>
-        <button className="bm-btn bm-btn-tonal" style={{ padding: '9px 14px' }} onClick={onAddLoop}>New loop</button>
+        <button className="lp-new" onClick={onAddLoop}><Plus size={14} strokeWidth={2.4} /> New loop</button>
       </div>
-      <div className="bm-seg" role="tablist" aria-label="History range">
-        {RANGES.map(m => (
-          <button key={m.id} role="tab" aria-selected={range === m.id}
-            className={`bm-seg-btn${range === m.id ? ' is-active' : ''}`}
-            onClick={() => setRange(m.id)}>{m.label}</button>
-        ))}
-      </div>
-      {/* Cross-loop bulk skip. A trip or a rough fortnight leaves missed cycles
-          scattered over MANY loops, and clearing them one loop at a time (then
-          one day at a time inside it) is how "I have no way to fix these"
-          happens. Missed only — bulk-crediting days you didn't do would be a
-          lie, and those stay per-day on the loop's own page. */}
-      {totalMissed > 1 && (
-        <button
-          className="bm-btn bm-loops-fixall"
-          onClick={() => {
-            const n = totalMissed
-            if (!window.confirm(`Skip ${n} missed cycles across ${missedLoops.length} loop${missedLoops.length === 1 ? '' : 's'}? They'll stop asking; nothing gets credited.`)) return
-            for (const l of missedLoops) {
-              for (const g of l.gaps.missed) onSkipLoopDay?.(l.r.id, g.day)
-            }
-          }}
-        >Skip {totalMissed} missed cycles across {missedLoops.length} loops</button>
-      )}
-      {loops.length === 0 && <p className="bm-empty">No loops yet — things that come back around live here.</p>}
-      {loops.map(({ r, color, byDay, rally, total, hasActive, gapCount }) => {
-        const isHabit = r.spawn_mode === 'habit' && r.target_count
-        const card = (
-        <div className="bm-card" style={{ '--loop': color }}>
-          <div className="bm-card-title">
-            <span className="bm-loop-ring" style={{ width: 28, height: 28 }}><Repeat2 size={13} strokeWidth={2.2} /></span>
-            <button
-              style={{ flex: '1 1 auto', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', background: 'none', border: 'none', padding: 0, font: 'inherit', color: 'inherit', textAlign: 'left', cursor: 'pointer' }}
-              onClick={() => setDetailId(r.id)}
-            >{r.title}</button>
-            {r.assignee && (
-              <span style={{ fontSize: 10.5, fontWeight: 600, color: 'var(--bm-text-meta)', border: '1px solid var(--bm-hairline)', borderRadius: 999, padding: '2px 7px', flex: '0 0 auto' }}>
-                {r.assignee}
-              </span>
-            )}
-            {gapCount > 0 && (
-              <button className="bm-loop-fix-chip" onClick={() => setDetailId(r.id)} aria-label={`${gapCount} day${gapCount === 1 ? '' : 's'} to fix`}>
-                {gapCount} to fix
-              </button>
-            )}
-            {rally > 0 && <span className="bm-loop-rally" style={{ fontSize: 11.5 }}>↻ {rally}</span>}
-            <span style={{ fontSize: 11.5, fontWeight: 700, color: 'var(--bm-text-meta)' }}>{total}×</span>
-            <button className="bm-back" style={{ width: 28, height: 28 }} onClick={() => onEditLoop?.(r)} aria-label="Edit loop">
-              <Pencil size={13} strokeWidth={2} />
-            </button>
-          </div>
-          {/* The trail/calendar is the thing that shows the misses — make it a
-              tap target straight into the loop detail (where the per-day
-              "Needs attention" breakdown lives). */}
-          <div
-            className="bm-loop-card-viz"
-            role="button"
-            tabIndex={0}
-            onClick={() => setDetailId(r.id)}
-            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setDetailId(r.id) } }}
-            aria-label={`Open ${r.title} — see caught and missed cycles`}
-          >
-          {range === 'trail' && (() => {
-            // Cadence-fit visuals (§13a): ONE language for every card —
-            // cycle chips. Dailies get one chip per day, habit loops get
-            // target-aware chips, everything else one chip per cadence
-            // window. (The daily mini-trail exception made the page speak
-            // two visual languages at once — prod report 2026-06-11.)
-            if (r.spawn_mode === 'habit' && r.target_count) {
-              const wins = habitWindows(r, 12)
-              const cur = wins[wins.length - 1]
-              const past = wins.filter(w => !w.current)
-              const met = past.filter(w => w.hits >= r.target_count).length
-              const periodWord = r.target_period === 'month' ? 'month' : 'week'
+      <p className="lp-lede">Things that come back around. Nothing here keeps score.</p>
+
+      <div className="bm-t2 t2-tasks lp">
+        {!hasAny && <p className="bm-empty">No loops yet. Things that come back around live here.</p>}
+
+        {g.dueToday.length > 0 && (
+          <section className="t2-card">
+            <Head icon={Sun} color="var(--bm-ember)" title="Due today" count={g.dueToday.length} />
+            {g.dueToday.map(({ routine: r, task, doneTask }, i) => {
+              const due = task?.due_date ? String(task.due_date).slice(0, 10) : null
               return (
-                <CycleChips
-                  awayDays={awayDays}
-                  windows={wins}
-                  target={r.target_count}
-                  caption={`this ${periodWord} ${cur?.hits ?? 0}/${r.target_count} · target met ${met} of last ${past.length} ${periodWord}${past.length === 1 ? '' : 's'}`}
-                />
+                <div key={r.id} className={`t2-row${i === 0 ? ' is-first' : ''}`}>
+                  {task
+                    ? <Ring color="var(--bm-ember)" onClick={() => onCompleteTask?.(task)} label={`Done: ${r.title}`} />
+                    : <button className="lp-ring-btn" onClick={() => onCompleteTask?.(doneTask)} aria-label={`Undo: ${r.title}`}><StatusRing done /></button>}
+                  <button className="t2-row-body" onClick={() => open(r)}>
+                    <span className="t2-row-title">{r.title}</span>
+                    {meta(['Reminder', cadenceWord(r),
+                      task ? (due && due < todayKey ? `since ${weekday(due)}` : null) : `done at ${timeOf(doneTask.completed_at)}`,
+                      r.assignee ? `for ${r.assignee}` : null])}
+                  </button>
+                </div>
               )
-            }
-            const wins = cycleWindows(r, 12)
-            // Cycles spent away are out of the denominator: with the trail now
-            // bridging a trip, "caught 9 of last 15" beside an unbroken line
-            // would be the words calling a holiday six failures.
-            const past = wins.filter(w => !w.current && !(w.hits === 0 && awayDays.has(w.key)))
-            const caught = past.filter(w => w.caught).length
-            const cur = wins[wins.length - 1]
-            const unit = cycleUnitLabel(r, past.length === 1)
-            const nowWord = r.cadence === 'daily' ? 'today' : 'this one'
-            return (
-              <CycleChips
-                awayDays={awayDays}
-                windows={wins}
-                caption={past.length > 0
-                  ? `caught ${caught} of last ${past.length} ${unit}${cur?.caught ? ` · ${nowWord} ✓` : ''}`
-                  : 'first cycle in flight'}
-              />
-            )
-          })()}
-          {range === 'month' && <MonthDots valueByDay={byDay} color={color} />}
-          {range === 'year' && <DensityRibbon valueByDay={byDay} color={color} />}
-          </div>
-        </div>
-        )
-        // Cadence loops get swipe-to-Spawn/Skip (plan item 1). Habit loops are
-        // logged, not spawned/skipped (parity with the modal), so they render
-        // as a plain card.
-        return isHabit ? (
-          <div key={r.id}>{card}</div>
-        ) : (
-          <LoopSwipe
-            key={r.id}
-            blocked={hasActive}
-            onSpawn={() => onSpawnNow?.(r.id)}
-            onSkip={() => onSkipCycle?.(r.id)}
-          >{card}</LoopSwipe>
-        )
-      })}
-      {resting.length > 0 && (
-        <>
-          <div style={{ margin: '18px 2px 8px', fontSize: 11, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--bm-text-faint)' }}>
-            Resting
-          </div>
-          {resting.map(({ r, color, total, why }) => (
-            <div key={r.id} className="bm-card" style={{ '--loop': color, opacity: 0.62 }}>
-              <div className="bm-card-title">
-                <span className="bm-loop-ring" style={{ width: 28, height: 28 }}><Repeat2 size={13} strokeWidth={2.2} /></span>
-                <button
-                  style={{ flex: '1 1 auto', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', background: 'none', border: 'none', padding: 0, font: 'inherit', color: 'inherit', textAlign: 'left', cursor: 'pointer' }}
-                  onClick={() => setDetailId(r.id)}
-                >{r.title}</button>
-                <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--bm-text-meta)', border: '1px solid var(--bm-hairline)', borderRadius: 999, padding: '2px 8px', flex: '0 0 auto' }}>{why}</span>
-                <span style={{ fontSize: 11.5, fontWeight: 700, color: 'var(--bm-text-meta)' }}>{total}×</span>
-                <button className="bm-back" style={{ width: 28, height: 28 }} onClick={() => onEditLoop?.(r)} aria-label="Edit loop">
-                  <Pencil size={13} strokeWidth={2} />
+            })}
+          </section>
+        )}
+
+        {g.checklists.length > 0 && (
+          <section className="t2-card">
+            <Head icon={Moon} color="var(--bm-ember)" title="Checklists" count={g.checklists.length} />
+            {g.checklists.map(({ routine: r, items, doneToday, spawnedToday, dueToday, next }, i) => {
+              const at = clockLabel(r.trigger_time)
+              const when = dueToday
+                ? (at ? (Number(r.trigger_time.slice(0, 2)) >= 17 ? `tonight at ${at}` : `today at ${at}`) : 'today')
+                : next
+                  ? `next ${(new Date(`${next}T12:00:00`) - new Date(`${todayKey}T12:00:00`)) / 86400000 < 7 ? weekday(next) : shortDate(next)}${at ? ` at ${at}` : ''}`
+                  : cadenceWord(r)
+              const allDone = spawnedToday > 0 && doneToday >= spawnedToday
+              return (
+                <div key={r.id} className={`t2-row${i === 0 ? ' is-first' : ''}`}>
+                  <StatusRing done={allDone} />
+                  <div className="t2-row-body" style={{ cursor: 'default' }}>
+                    <button className="t2-row-body" onClick={() => open(r)}>
+                      <span className="t2-row-title">{r.title}</span>
+                      {meta(['Checklist', when,
+                        spawnedToday > 0 ? `${doneToday} of ${spawnedToday} done` : `${items} item${items === 1 ? '' : 's'}`])}
+                    </button>
+                    <div className="lp-items">
+                      {r.members.map(m => <span key={m.id || m.title}>{m.title}</span>)}
+                    </div>
+                  </div>
+                </div>
+              )
+            })}
+          </section>
+        )}
+
+        {g.practice.length > 0 && (
+          <section className="t2-card">
+            <Head icon={Sprout} color="var(--bm-ember)" title="Practice" count={g.practice.length} />
+            {g.practice.map(({ routine: r, done, target, loggedToday }, i) => {
+              const period = r.target_period === 'month' ? 'month' : 'week'
+              return (
+                <div key={r.id} className={`t2-row t2-row-actions${i === 0 ? ' is-first' : ''}`}>
+                  <StatusRing done={loggedToday} />
+                  <button className="t2-row-body" onClick={() => open(r)}>
+                    <span className="t2-row-title">{r.title}</span>
+                    {meta(['Practice', target ? `aiming for ${target} a ${period}` : 'log it when you do it', target ? `${done} so far this ${period}` : null])}
+                  </button>
+                  <button className={`t2-chip${loggedToday ? ' lp-chip-done' : ''}`} onClick={() => onToggleHabit?.(r, todayKey)}>
+                    {loggedToday ? <><Check size={13} strokeWidth={2.6} /> Logged</> : <><Plus size={13} strokeWidth={2.6} /> Log today</>}
+                  </button>
+                </div>
+              )
+            })}
+          </section>
+        )}
+
+        {g.comingUp.length > 0 && (
+          <section className="t2-card">
+            <Head icon={CalendarDays} color="var(--bm-ember)" title="Coming up" count={g.comingUp.length} />
+            {g.comingUp.map(({ routine: r, due }, i) => {
+              const inWeek = due && (new Date(`${due}T12:00:00`) - new Date(`${todayKey}T12:00:00`)) / 86400000 < 7
+              const last = lastDoneWord(r, now)
+              return (
+                <button key={r.id} className={`t2-clock${i === 0 ? ' is-first' : ''}`} onClick={() => open(r)}>
+                  <span className="t2-clock-time">{due ? (inWeek ? weekday(due) : shortDate(due)) : '—'}</span>
+                  <span className="t2-clock-bar" />
+                  <span className="t2-clock-body">
+                    <span className="t2-clock-title">{r.title}</span>
+                    <span className="t2-row-meta t2-clock-meta">{['Reminder', cadenceWord(r), last ? `last done ${last}` : null, r.assignee ? `for ${r.assignee}` : null].filter(Boolean).join(' · ')}</span>
+                  </span>
+                </button>
+              )
+            })}
+          </section>
+        )}
+
+        {g.autopilot.length > 0 && (
+          <section className="t2-card">
+            <Head icon={RefreshCw} color="var(--t2-meta)" title="On autopilot" count={g.autopilot.length} />
+            {g.autopilot.map(({ routine: r, doneToday }, i) => (
+              <div key={r.id} className={`t2-row${i === 0 ? ' is-first' : ''}`}>
+                <StatusRing dashed={!doneToday} done={doneToday} />
+                <button className="t2-row-body" onClick={() => open(r)}>
+                  <span className="t2-row-title">{r.title}</span>
+                  {meta([cadenceWord(r).replace(/^./, c => c.toUpperCase()), doneToday ? 'logged today' : null, 'Boomerang won’t ask or count misses'])}
                 </button>
               </div>
-            </div>
-          ))}
-        </>
-      )}
+            ))}
+          </section>
+        )}
+
+        {(g.slipped.length > 0 || g.resting.length > 0) && (
+          <div className="t2-quiet lp-quiet">
+            {g.slipped.length > 0 && (
+              <div className="t2-quiet-group">
+                <button className="t2-qrow" onClick={() => setSlippedOpen(o => !o)} aria-expanded={slippedOpen}>
+                  <History size={16} strokeWidth={1.9} />
+                  <span className="t2-qrow-text"><b>{slippedTotal} day{slippedTotal === 1 ? '' : 's'} not recorded</b> · {names(g.slipped)}</span>
+                  {slippedOpen ? <ChevronDown size={16} strokeWidth={1.9} /> : <ChevronRight size={16} strokeWidth={1.9} />}
+                </button>
+                {slippedOpen && (
+                  <div className="lp-qlist">
+                    {g.slipped.map(({ routine: r, count }) => (
+                      <button key={r.id} className="lp-qitem" onClick={() => open(r)}>
+                        <span>{r.title}</span><span className="t2-faint">{count} to look at</span><ChevronRight size={14} strokeWidth={1.9} />
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+            {g.resting.length > 0 && (
+              <div className="t2-quiet-group">
+                <button className="t2-qrow" onClick={() => setRestingOpen(o => !o)} aria-expanded={restingOpen}>
+                  <Pause size={16} strokeWidth={1.9} />
+                  <span className="t2-qrow-text"><b>{g.resting.length} resting</b> · {names(g.resting)}</span>
+                  {restingOpen ? <ChevronDown size={16} strokeWidth={1.9} /> : <ChevronRight size={16} strokeWidth={1.9} />}
+                </button>
+                {restingOpen && (
+                  <div className="lp-qlist">
+                    {g.resting.map(({ routine: r }) => (
+                      <button key={r.id} className="lp-qitem" onClick={() => open(r)}>
+                        <span>{r.title}</span><span className="t2-faint">{r.paused ? 'paused' : `ended ${shortDate(r.end_date)}`}</span><ChevronRight size={14} strokeWidth={1.9} />
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
     </div>
   )
 }

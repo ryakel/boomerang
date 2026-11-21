@@ -15,9 +15,9 @@ function fmtTime(t) {
 // Routine "stacks": one routine that fans out into several INDEPENDENT task
 // cards each cycle (vs follow_ups, a dependent chain). Each surfaced cycle —
 // keyed by (routine_id, due_date) — renders under its own header with a
-// progress pip (done/total) and the pending clear bonus. Members are regular
-// TaskCards; completing the LAST one pays a 20% bonus (handled in
-// AppV2.handleComplete). Mobile-only — desktop Kanban shows members in their
+// progress pip (done/total). Members are regular TaskCards; completing the
+// LAST one advances the stack's cadence (handled in AppV2.handleComplete).
+// The 20% clear bonus went with points (BOOM-33). Mobile-only — desktop Kanban shows members in their
 // natural status columns, mirroring ProjectPinnedSection.
 function StackSection({
   groups,
@@ -45,9 +45,6 @@ function StackSection({
               <span className="v2-stack-title">{g.routine?.title}</span>
               {time && <span className="v2-stack-time">{time}</span>}
               <span className="v2-stack-progress">{g.doneCount}/{g.total}</span>
-              {g.bonusPreview > 0 && (
-                <span className="v2-stack-bonus">+{g.bonusPreview} on clear</span>
-              )}
             </div>
             <div className="v2-stack-members">
               {g.surfaced.map(t => (

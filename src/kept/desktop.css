@@ -95,8 +95,7 @@
   color: var(--bm-text);
   margin-bottom: 10px;
 }
-.bm-rail-date .bm-rally-chip { margin-left: auto; }
-.bm-rail-sec {
+.bm-rail-date .bm-rail-sec {
   font-size: 10.5px; font-weight: 700;
   letter-spacing: 0.1em; text-transform: uppercase;
   color: var(--bm-text-meta);
