@@ -362,3 +362,17 @@ below predate those decisions and are historical recommendations, not authority.
   - Still to settle before building: how the place is saved (for example "I'm here now"), the window's width, and what happens without Always permission.
 - Merge authority: D017 (standing, `dev` only). Production is unchanged.
 
+## D021 — Production release v2.65.0: Keep on Today
+
+- Date/status: 2026-11-21, **approved and deployed**.
+- Source: owner, "Good. Get that into prod."
+- Contents:
+  - Keep on Today (BOOM-52).
+  - The alarm interface code (BOOM-51). It stays off in production: the route returns 403 off dev, and only the Dev native build shows it, so D015 holds.
+  - Deploys on Ubuntu 26 with `tailscale/github-action@v4.4.0` (BOOM-50).
+- Evidence:
+  - Release [#1056](https://github.com/ryakel/boomerang/pull/1056).
+  - [Production workflow 44926587179](https://github.com/ryakel/boomerang/actions/runs/44926587179) confirmed appVersion v2.65.0 on the first check. It was the first production deploy on Ubuntu 26 / Tailscale 1.104, and connected without the retry.
+  - Content-neutral [#1057](https://github.com/ryakel/boomerang/pull/1057) restored main ancestry in dev.
+- This approval is used up by the release.
+

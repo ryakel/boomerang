@@ -6,6 +6,9 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-11-21
 
+- docs(wiki): record the v2.65.0 production release [XS]
+  - Work Status and Decision Log (D021): release #1056 deployed v2.65.0, confirmed by the health check. It was the first production deploy on Ubuntu 26 with Tailscale action v4. #1057 relinked `dev` with `main`.
+
 - style(kept): make quick add's keep on today a pin icon in the header [XS]
   - Owner: "I really dislike that button. It is huge… just use the pin icon and put it up at the top next to the task reminder note stuff… on the left… just the pin and not the text" (BOOM-52).
   - The labelled chip in the day-chip row is gone. An icon-only pin, the mode chips' height, now sits left of Task / Reminder / Note, labelled "Keep on Today" for screen readers. It shows in Task mode only and is dimmed when Today is the chosen day.
