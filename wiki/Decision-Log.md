@@ -348,3 +348,17 @@ below predate those decisions and are historical recommendations, not authority.
     ancestry in dev.
 - Both production approvals are used up by these releases. The next promotion
   needs a new one.
+
+## D020 — Keep on Today, and arriving at a place as done
+
+- Date/status: 2026-11-21. Keep on Today is **accepted and built** (BOOM-52). The location trigger is **accepted direction, not yet built**.
+- **Keep on Today.**
+  - Source: "I want a capability that allows me to put a task that is not due today on the today screen… a conscious choice on my part… from a quick add or from the edit menu", and "it should stay there until it's done or until I uncheck the box or the due date is due or overdue."
+  - Decision: it's sticky, not daily. It reuses `pinned_to_today`, already the sticky pin for projects. `committed_on`, the watch/Siri pick that clears nightly, is unchanged.
+- **Location as completion.**
+  - Source: "can you use geolocation to complete the task for that day. If I am at the school, I made it and we are done", then "Stop alarms + mark done", and "Today pick first".
+  - Decision: arriving at a saved place, within a window around that day's alarm, cancels the day's remaining alarms and marks that day's loop done. Building it means native region monitoring, an "Always" location permission and an iOS rebuild.
+  - This reverses D014's "no location inference" for this one, owner-requested use. The place stays on the phone; only the arrival time is recorded.
+  - Still to settle before building: how the place is saved (for example "I'm here now"), the window's width, and what happens without Always permission.
+- Merge authority: D017 (standing, `dev` only). Production is unchanged.
+

@@ -35,6 +35,8 @@ export default function TodayRail({
     const due = t.due_date ? String(t.due_date).slice(0, 10) : null
     if (isCrisisTask(t, settings)) return true
     if (t.committed_on === todayKey) return true
+    // Kept on Today: holds until done, unticked, or its date arrives.
+    if (t.pinned_to_today && t.status !== 'project' && (!due || due >= todayKey)) return true
     if (!due) return false
     return due === todayKey || (!!t.routine_id && due < todayKey)
   }).slice(0, 12), [tasks, todayKey, stackIds, settings])

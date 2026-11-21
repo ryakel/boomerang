@@ -6,6 +6,23 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-11-21
 
+- feat(kept): keep a task on Today without making it due today [M]
+  - Owner: they wanted a task that isn't due today on Today, as a conscious choice from quick add or the edit menu, and it "should stay there until it's done or until I uncheck the box or the due date is due or overdue" (BOOM-52).
+  - **Field:** reuses `pinned_to_today`, already the sticky project pin in the database, sync and Quokka, so there's no migration. `committed_on` (the watch/Siri daily pick, cleared nightly) is untouched.
+  - **Where it shows:** Today puts a kept task under Needs attention as "On Today until done" while it's undated or due later. Due today, it reads as due; past its date, it has slipped. The Tasks list groups it under Today until its date, as does the desktop rail.
+  - **Where you set it:**
+    - quick add: a **Keep on Today** toggle beside the day chips. It hides when Today is the chosen day and carries through More options into the Add form's checkbox.
+    - the quick editor (what a tap opens on the phone): a one-tap chip.
+    - the full editor: a checkbox.
+    - the Tasks row sheet: Keep on Today / Take off Today.
+  - **Quokka:** `create_task` no longer drops the flag for ordinary tasks, and the system prompt names it.
+  - **Checked:**
+    - New rule tests (`todayModel.test.mjs`, `tasksModel.test.mjs`) cover staying day after day, unticked or done, due, slipped, and projects excluded.
+    - `npm test` 701/701; Quokka suite 20/20; execution suite 92/92.
+    - Playwright at phone size drove every entry point against the real server: quick add saves a weekend-due kept task, Today shows it, the quick editor chip reads and changes it, the full editor unticks it off Today, the row sheet keeps it and takes it off, and More options carries it. No page errors.
+  - Also records D020: arriving at a saved place as done for the day, built after this.
+  - Web-only.
+
 - feat(kept): set and arm alarms from the loop page, with today's alarm on Today [L]
   - Owner, after the mockup: "Ok. Let's try it in dev." They'd confirmed the sound test rang with the phone locked (BOOM-51).
   - **Loop page:** an **Alarm** card shows when it rings (a time per weekday), first warning, snooze, the done button's text, one-off changes, and a preview of the next three, with Arm / Re-arm / Turn off. **When it rings** is a sheet: day chips, a time per day, and one-off skips or extra days. Saving never arms.

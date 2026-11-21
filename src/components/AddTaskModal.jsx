@@ -64,6 +64,7 @@ export default function AddTaskModal({ open, onAdd, onClose, parentProject = nul
     }
   }, [open])
 
+  const [keepToday, setKeepToday] = useState(!!initialDraft?.pinnedToToday)
   const labels = loadLabels()
   const today = localYMD()
 
@@ -78,6 +79,7 @@ export default function AddTaskModal({ open, onAdd, onClose, parentProject = nul
     ]
     onAdd({
       ...form.getFormData(),
+      pinnedToToday: keepToday,
       checklists: items.length > 0
         ? [{ id: uuid(), name: 'Checklist', items, hideCompleted: false }]
         : [],
@@ -208,6 +210,16 @@ export default function AddTaskModal({ open, onAdd, onClose, parentProject = nul
           </button>
         </div>
       </div>
+
+      {/* Keep on Today: holds until done, unticked or due. Carried over from
+          the Throw sheet's toggle when "More options" opened this form. */}
+      <label className="v2-edit-toggle-row v2-edit-toggle-row-compact" style={{ marginBottom: 14 }}>
+        <input type="checkbox" checked={keepToday} onChange={e => setKeepToday(e.target.checked)} />
+        <span className="v2-edit-toggle-label">
+          Keep on Today
+          <span className="v2-edit-toggle-meta">Stays on Today until it’s done or you untick it, even if it’s due later.</span>
+        </span>
+      </label>
 
       {/* A reminder is a MOMENT ("interrupt me at 3pm"); Due above is a DAY.
           Optional here — most tasks want a day and nothing more — but a task

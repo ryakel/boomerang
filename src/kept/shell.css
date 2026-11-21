@@ -307,6 +307,8 @@
   cursor: pointer;
 }
 .bm-pick.is-on { border-color: var(--bm-ember); background: var(--bm-ember-soft); color: var(--bm-ember); }
+/* Keep on Today in the Throw sheet: a toggle beside the day chips, not one of them. */
+.bm-pick-keep { display: inline-flex; align-items: center; gap: 6px; }
 .bm-throw-input {
   width: 100%;
   box-sizing: border-box;

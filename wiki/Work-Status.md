@@ -1,6 +1,9 @@
 # Work status and authorization
 
-## Alarm interface in dev (BOOM-51, 2026-11-21)
+## Keep on Today in dev (BOOM-52), location trigger next (2026-11-21)
+
+Keep on Today is built: quick add, both editors, the quick editor chip, the Tasks row sheet, and Quokka. The location trigger is the next build (D020). It needs native code and an iOS rebuild, and the owner chose to do Keep on Today first.
+
 
 The owner approved the mockup ("Ok. Let's try it in dev").
 - A loop's page gets an Alarm card. Today gets "Alarm today". Settings → Alarms becomes an overview, and the raw form is gone.

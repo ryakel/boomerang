@@ -1654,6 +1654,7 @@ export default function AppV2() {
           tasks={tasks}
           onStatusChange={handleStatusChange}
           onRestoreStatus={restoreLetGo}
+          onSetKeepToday={(t, on) => setProjectPinned(t.id, on)}
           routines={routines}
           labels={labels}
           weatherByDate={weather.enabled ? weather.byDate : null}
@@ -1681,7 +1682,7 @@ export default function AppV2() {
           onToggleHabit={toggleHabitDay}
           onRescheduleTask={(task, ymd) => updateTask(task.id, { due_date: ymd })}
           onDeleteTask={(task) => handleDelete(task.id)}
-          onThrow={({ title, dueDate, remindAt }) => scrollTaskIntoView(handleAddTask({ title, dueDate, remindAt }))}
+          onThrow={({ title, dueDate, remindAt, pinnedToToday }) => scrollTaskIntoView(handleAddTask({ title, dueDate, remindAt, pinnedToToday }))}
           onOpenFullAdd={(draft) => openAddModal(draft)}
           onScanSchedule={() => setShowScanSchedule(true)}
           onEditLoop={(r, mode = null) => { setEditRoutineId(r.id); setEditRoutineMode(mode); setShowRoutines(true) }}
@@ -1747,7 +1748,7 @@ export default function AppV2() {
           onToggleHabit={toggleHabitDay}
           onRescheduleTask={(task, ymd) => updateTask(task.id, { due_date: ymd })}
           onDeleteTask={(task) => handleDelete(task.id)}
-          onThrow={({ title, dueDate, remindAt }) => scrollTaskIntoView(handleAddTask({ title, dueDate, remindAt }))}
+          onThrow={({ title, dueDate, remindAt, pinnedToToday }) => scrollTaskIntoView(handleAddTask({ title, dueDate, remindAt, pinnedToToday }))}
           onOpenFullAdd={(draft) => openAddModal(draft)}
           onScanSchedule={() => setShowScanSchedule(true)}
           onEditLoop={(r, mode = null) => { setEditRoutineId(r.id); setEditRoutineMode(mode); setShowRoutines(true) }}
@@ -1770,6 +1771,7 @@ export default function AppV2() {
           onOpenNotifications={() => setShowNotifications(true)}
           onStatusChange={handleStatusChange}
           onRestoreStatus={restoreLetGo}
+          onSetKeepToday={(t, on) => setProjectPinned(t.id, on)}
           onOpenSuggestions={() => setShowSuggestions(true)}
           onOpenNotes={() => setShowNotes(true)}
           onOpenLists={() => setShowLists(true)}

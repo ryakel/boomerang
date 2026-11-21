@@ -18,7 +18,9 @@
 // actionable right now, so this is a conservative first pass that only treats
 // EXPLICIT signals as "needs you":
 //
-//   needs you now   critical; due today; picked for today (committed_on);
+//   needs you now   critical; due today; kept on Today (pinned_to_today, a
+//                   sticky choice that holds until it's done, unpinned or
+//                   comes due); picked for today (committed_on);
 //                   a reminder you set that went off today; due yesterday AND
 //                   you marked it as mattering (high priority, nag allowed, a
 //                   reminder, an escalation). A snooze ending is NOT a reason:
@@ -67,7 +69,13 @@ export const LEAVING_SOON_MIN = 20    // a commitment this close quiets checklis
 const ACTIVE = ['not_started', 'doing', 'waiting', 'in_progress']
 const PICKABLE = ['not_started', 'doing', 'in_progress']
 
-const ATTENTION_ORDER = { critical: 0, reminder: 1, due: 2, committed: 3, recent: 4 }
+const ATTENTION_ORDER = { critical: 0, reminder: 1, due: 2, pinned: 3, committed: 3, recent: 4 }
+
+// Kept on Today (owner, 2026-11-21): a deliberate choice for a task that isn't
+// due today. It holds until the task is done, you untick it, or its date
+// arrives: due today it shows as due; past its date it has slipped, like any
+// other task. Projects use the same flag for the pinned-project arcs.
+export const keptOnToday = (t, due, todayKey) => !!t?.pinned_to_today && t.status !== 'project' && (!due || due > todayKey)
 
 // ── small date helpers (local time) ────────────────────────────────────────
 const ms = (v) => (v == null ? NaN : new Date(v).getTime())
@@ -269,6 +277,7 @@ export function buildTodayModel({
     if (isCrisis(t)) reason = { key: 'critical' }
     else if (remindMs != null && remindMs <= nowMs && remindMs >= startOfToday) reason = { key: 'reminder', at: remindMs }
     else if (due === todayKey) reason = { key: 'due' }
+    else if (keptOnToday(t, due, todayKey)) reason = { key: 'pinned' }
     else if (t.committed_on === todayKey && !due) reason = { key: 'committed' }
     else if (due === yesterdayKey && markedAsMattering(t)) reason = { key: 'recent' }
     if (reason) { attentionAll.push({ task: t, reason, rank: rank(t) }); continue }

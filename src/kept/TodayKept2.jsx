@@ -33,6 +33,7 @@ function attentionLabel(reason) {
     case 'critical': return 'Critical'
     case 'reminder': return `Reminder ${clock(reason.at)}`
     case 'due': return 'Due today'
+    case 'pinned': return 'On Today until done'
     case 'committed': return 'Picked for today'
     case 'recent': return 'Was due yesterday'
     case 'back': return 'Back today'

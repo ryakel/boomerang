@@ -26,7 +26,7 @@ export default function KeptDesktop({
   onCompleteTask, onOpenTask, onToggleHabit, onRescheduleTask, onDeleteTask,
   onLogSession, onGmailKeep, onGmailDismiss, onReconcileYesterday, onReconcileKeep, onWhatNow, onToggleItem, onUnsnooze,
   onCycleImpact,
-  onThrow, onThrowNote, onOpenFullAdd, onScanSchedule, onEditLoop, onAddLoop, onSpawnNow, onSkipCycle, onMarkLoopDay, onUnmarkLoopDay, onSkipLoopDay, onPushLoopOut, onSetLoopAutopilot, onToggleLoopPause, onDeleteLoop, onTurnOffLoopReminder,
+  onThrow, onThrowNote, onOpenFullAdd, onScanSchedule, onEditLoop, onAddLoop, onSpawnNow, onSkipCycle, onMarkLoopDay, onUnmarkLoopDay, onSkipLoopDay, onPushLoopOut, onSetLoopAutopilot, onToggleLoopPause, onDeleteLoop, onTurnOffLoopReminder, onSetKeepToday,
   onOpenQuokka, onOpenSettings, onOpenPackages, onOpenAnalytics,
   onOpenProjects, onOpenSuggestions,
   onOpenNotes, onOpenLists, pinnedNotes = [], onUnpinNote,
@@ -76,7 +76,7 @@ export default function KeptDesktop({
         onToggleComplete={onCompleteTask} onToggleItem={onToggleItem} onOpenTask={onOpenTask}
         onDelete={onDeleteTask} onReschedule={onRescheduleTask} onUnsnooze={onUnsnooze}
         onCycleImpact={onCycleImpact}
-        boardable onStatusChange={onStatusChange} onRestoreStatus={onRestoreStatus}
+        boardable onStatusChange={onStatusChange} onRestoreStatus={onRestoreStatus} onSetKeepToday={onSetKeepToday}
       />
     )
   } else if (tab === 'loops') {

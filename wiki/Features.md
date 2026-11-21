@@ -30,6 +30,14 @@ The Terminal theme (GitHub-style monospace, `> command` modal titles, ASCII flou
 The Kept Today screen answers three questions in one screen: what genuinely needs you, what's worth doing next, and what's coming up. Each section appears only when it has something to say.
 
 - **Needs attention** is small on purpose: critical tasks, things due today or picked for today, a reminder that just went off, or something due yesterday that you'd marked as mattering. Overdue alone doesn't qualify, and neither does a snooze ending.
+- **Keep on Today** puts a task on Today that isn't due today, as a deliberate choice. It shows under Needs attention as "On Today until done" and stays there day after day until you finish it, untick it, or its due date arrives. Once it's due it shows as due, and past its date it has slipped like any other task.
+  - **Where to set it:**
+    - quick add: the **Keep on Today** toggle beside the day chips, which survives **More options**;
+    - the quick editor: a **Keep on Today** chip;
+    - the full editor and Add form: a checkbox;
+    - the Tasks list's row sheet: **Keep on Today** / **Take off Today**.
+  - Quokka can set it too.
+  - It's the same flag projects use for their pinned arcs.
 - **Worth doing next**: one pick, only with a reason about time (picked for today, or due in the next few days) and only if it fits before your next busy calendar event. Importance alone isn't a reason. **Open task** opens it and changes nothing; **Not now** sets it aside for the day, on every device (it syncs). Never shown in the evening.
 - **Your calendar** (2026-11-17): Today reads every Google calendar the connection can see, except the ones you untick in Settings → Integrations → Google Calendar → **Show on Today** (a calendar added later shows up on its own). Timed events sit in Coming up with their calendar's name; all-day events, multi-day ones included, are a quiet line under the date. Nothing on the calendar becomes a task here. Events look a week ahead, so Later this week has them too.
 - **Coming up** in the day; in the evening (by 8 PM, earlier with an evening checklist or early quiet hours) the screen reorders to **Tonight** and **Tomorrow**, with evening checklists and unfinished loops near the top. When nothing nearer is on screen, **Later this week** shows the next few dated things (tasks, reminders, calendar events, all-day ones included).
@@ -71,7 +79,7 @@ Reached from More → Settings. It opens on an **index of six categories, each s
 The **Tasks** tab's **Upcoming** list, in its default due-date order, follows the same rules as Today (2026-11-15):
 
 - **Worth doing next** at the top: the same pick as Today's card, with **Open task** / **Not now**. Not now on either screen hides it on both, on every device, and the picked task doesn't repeat further down.
-- **Today**: due today, picked for today, and open loop instances.
+- **Today**: due today, picked for today, kept on Today (until its date arrives), and open loop instances.
 - **This week**: due in the next 7 days, with the weekday on the left.
 - **Slipped past their dates**: anything past its date, quietly, with no red and no "Nd overdue". It reads "was due Sat, Nov 7", with one-tap **Tomorrow**, **Next week** or **Let it go** (cancels it; an **Undo** stays on the card). Tap the task for any other date. Three show; the rest sit behind "Show N more".
 - **Later**: due more than a week out.

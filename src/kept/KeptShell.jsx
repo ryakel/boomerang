@@ -23,7 +23,7 @@ export default function KeptShell({
   onCompleteTask, onOpenTask, onToggleHabit, onRescheduleTask, onDeleteTask,
   onLogSession, onGmailKeep, onGmailDismiss, onReconcileYesterday, onReconcileKeep, onWhatNow, onToggleItem, onUnsnooze,
   onCycleImpact, onStatusChange, onRestoreStatus,
-  onThrow, onThrowNote, onOpenFullAdd, onScanSchedule, onEditLoop, onAddLoop, onSpawnNow, onSkipCycle, onMarkLoopDay, onUnmarkLoopDay, onSkipLoopDay, onPushLoopOut, onSetLoopAutopilot, onToggleLoopPause, onDeleteLoop, onTurnOffLoopReminder,
+  onThrow, onThrowNote, onOpenFullAdd, onScanSchedule, onEditLoop, onAddLoop, onSpawnNow, onSkipCycle, onMarkLoopDay, onUnmarkLoopDay, onSkipLoopDay, onPushLoopOut, onSetLoopAutopilot, onToggleLoopPause, onDeleteLoop, onTurnOffLoopReminder, onSetKeepToday,
   onOpenQuokka, onOpenSettings, onOpenPackages, onOpenAnalytics,
   onOpenProjects, onOpenActivity, onOpenSuggestions, onOpenNotifications,
   onOpenNotes,
@@ -48,7 +48,7 @@ export default function KeptShell({
         routines={routines} weatherByDate={weatherByDate}
         onToggleComplete={onCompleteTask} onToggleItem={onToggleItem} onOpenTask={onOpenTask}
         onDelete={onDeleteTask} onReschedule={onRescheduleTask} onUnsnooze={onUnsnooze}
-        onCycleImpact={onCycleImpact} onStatusChange={onStatusChange} onRestoreStatus={onRestoreStatus}
+        onCycleImpact={onCycleImpact} onStatusChange={onStatusChange} onRestoreStatus={onRestoreStatus} onSetKeepToday={onSetKeepToday}
       />
     )
   } else if (tab === 'more') {
