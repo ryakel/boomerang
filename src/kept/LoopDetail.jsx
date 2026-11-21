@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import { ArrowLeft, Pencil, ChevronLeft, ChevronRight, ChevronDown, Check, Plane, Undo2, History } from 'lucide-react'
 import MonthDots from './MonthDots'
+import AlarmCard from './AlarmCard'
 import { cycleUnitLabel, loopGaps } from './cycles'
 import { historyByDay } from './heatmapUtils'
 import { formatScheduleAnchor, getNextDueDate, computeHabitStats, loadSettings } from '../store'
@@ -31,7 +32,7 @@ const fullDate = (d) => d.toLocaleDateString('en-US', { weekday: 'short', month:
 export default function LoopDetail({
   routine, color, spawnBlocked = false, tasks = [], awayDays = null,
   onBack, onEdit, onSpawnNow, onSkipCycle, onMarkLoopDay, onUnmarkLoopDay, onSkipLoopDay, onPushLoopOut,
-  onSetAutopilot, onTogglePause, onToggleHabit, onDelete = null,
+  onSetAutopilot, onTogglePause, onToggleHabit, onDelete = null, onTurnOffReminder = null,
 }) {
   const [monthRef, setMonthRef] = useState(() => new Date())
   const [logDay, setLogDay] = useState(() => localYMD(new Date()))
@@ -171,6 +172,11 @@ export default function LoopDetail({
           <p className="lp-help">{help}</p>
           {rows.map(([k, v]) => <div key={k} className="lp-kv"><span>{k}</span><b>{v}</b></div>)}
         </section>
+
+        {/* A real alarm for this loop (BOOM-51). Dev native build only; the
+            card renders nothing elsewhere. */}
+        <AlarmCard kind="routine" sourceId={routine.id} reminderOn={!!routine.remind}
+          onTurnOffReminder={onTurnOffReminder ? () => onTurnOffReminder(routine.id) : null} />
 
         {cyclic && awayItems.length > 0 && (
           <section className="t2-card">

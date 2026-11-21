@@ -1,8 +1,19 @@
 import { registerPlugin } from '@capacitor/core'
 import { isNativeShell, readJson } from './apiConfig'
 import { sourceHeldDates } from '../server/alarmSchedule.js'
+import { armWindow, ruleFields } from './alarmRuleModel'
+import { safeSetItem } from './store'
 const Native = registerPlugin('BoomerangAlarmRules')
 const enabled=()=>isNativeShell() && window.__BOOMERANG_ALARM_PROBE_BUILD__===true
+// The alarm interface renders only where arming can work: the Dev native build.
+export const alarmRulesAvailable=enabled
+// Which revision of each rule this phone last armed. The phone's readback has
+// no lead/snooze, so this is how a settings-only edit shows as "changes
+// waiting". A UI hint only: losing it just falls back to comparing times.
+const ARMED_KEY='boom_alarm_armed_revisions'
+export function armedRevisions() {
+  try { return JSON.parse(localStorage.getItem(ARMED_KEY) || '{}') } catch { return {} }
+}
 let refreshTail=Promise.resolve()
 async function api(path='',body,method='POST') {
   const res=await fetch(`/api/alarm-rules${path}`,body ? {method,headers:{'Content-Type':'application/json'},body:JSON.stringify(body)} : {})
@@ -10,7 +21,7 @@ async function api(path='',body,method='POST') {
 }
 export const alarmRuleApi={
   load:()=>api(),
-  save:(id,rule,revision,deviceId)=>api(`/${id}`,{rule,revision,deviceId},'PUT'),
+  save:(id,rule,revision,deviceId)=>api(`/${id}`,{rule:ruleFields(rule),revision,deviceId},'PUT'),
 }
 export async function alarmRuleStatus() {
   if(!enabled()) return {available:false,cues:[],receipts:[]}
@@ -20,9 +31,13 @@ export async function applyAlarmRulePlan(state,status) {
   if(!enabled()) throw Error('Use the updated Boomerang Dev app.')
   const latest=await alarmRuleApi.load()
   if(JSON.stringify(latest)!==JSON.stringify(state)) throw Error('The schedule or source changed. Refresh and review before arming.')
-  const rules=state.rules.filter(x=>x.deviceId===status.deviceId)
-  const items=state.plans.filter(x=>rules.some(r=>r.id===x.ruleId)).flatMap(x=>x.occurrences).map(e=>({...e,target:Date.parse(e.target)/1000,early:Date.parse(e.early)/1000}))
-  return Native.applyPlan({deviceId:status.deviceId,items})
+  // The phone holds at most 16 occurrences and cancels anything a plan leaves
+  // out, so one arming is the next 16 across every rule this phone owns.
+  const items=armWindow(state,status.deviceId).items.map(e=>({...e,target:Date.parse(e.target)/1000,early:Date.parse(e.early)/1000}))
+  const result=await Native.applyPlan({deviceId:status.deviceId,items})
+  const revisions=Object.fromEntries(state.rules.filter(x=>x.deviceId===status.deviceId).map(x=>[x.id,x.revision]))
+  safeSetItem(ARMED_KEY,JSON.stringify(revisions))
+  return result
 }
 export async function acknowledgeAlarmRule(key) {
   // Native persists the declaration and cancels both owned cues even offline.

@@ -30,6 +30,14 @@ The Terminal theme (GitHub-style monospace, `> command` modal titles, ASCII flou
 The Kept Today screen answers three questions in one screen: what genuinely needs you, what's worth doing next, and what's coming up. Each section appears only when it has something to say.
 
 - **Needs attention** is small on purpose: critical tasks, things due today or picked for today, a reminder that just went off, or something due yesterday that you'd marked as mattering. Overdue alone doesn't qualify, and neither does a snooze ending.
+- **Keep on Today** puts a task on Today that isn't due today, as a deliberate choice. It shows under Needs attention as "On Today until done" and stays there day after day until you finish it, untick it, or its due date arrives. Once it's due it shows as due, and past its date it has slipped like any other task.
+  - **Where to set it:**
+    - quick add: the **pin** at the top, left of Task / Reminder / Note (Task mode only, and dimmed when the day is already Today). It survives **More options**;
+    - the quick editor: a **Keep on Today** chip;
+    - the full editor and Add form: a checkbox;
+    - the Tasks list's row sheet: **Keep on Today** / **Take off Today**.
+  - Quokka can set it too.
+  - It's the same flag projects use for their pinned arcs.
 - **Worth doing next**: one pick, only with a reason about time (picked for today, or due in the next few days) and only if it fits before your next busy calendar event. Importance alone isn't a reason. **Open task** opens it and changes nothing; **Not now** sets it aside for the day, on every device (it syncs). Never shown in the evening.
 - **Your calendar** (2026-11-17): Today reads every Google calendar the connection can see, except the ones you untick in Settings → Integrations → Google Calendar → **Show on Today** (a calendar added later shows up on its own). Timed events sit in Coming up with their calendar's name; all-day events, multi-day ones included, are a quiet line under the date. Nothing on the calendar becomes a task here. Events look a week ahead, so Later this week has them too.
 - **Coming up** in the day; in the evening (by 8 PM, earlier with an evening checklist or early quiet hours) the screen reorders to **Tonight** and **Tomorrow**, with evening checklists and unfinished loops near the top. When nothing nearer is on screen, **Later this week** shows the next few dated things (tasks, reminders, calendar events, all-day ones included).
@@ -71,7 +79,7 @@ Reached from More → Settings. It opens on an **index of six categories, each s
 The **Tasks** tab's **Upcoming** list, in its default due-date order, follows the same rules as Today (2026-11-15):
 
 - **Worth doing next** at the top: the same pick as Today's card, with **Open task** / **Not now**. Not now on either screen hides it on both, on every device, and the picked task doesn't repeat further down.
-- **Today**: due today, picked for today, and open loop instances.
+- **Today**: due today, picked for today, kept on Today (until its date arrives), and open loop instances.
 - **This week**: due in the next 7 days, with the weekday on the left.
 - **Slipped past their dates**: anything past its date, quietly, with no red and no "Nd overdue". It reads "was due Sat, Nov 7", with one-tap **Tomorrow**, **Next week** or **Let it go** (cancels it; an **Undo** stays on the card). Tap the task for any other date. Three show; the rest sit behind "Show N more".
 - **Later**: due more than a week out.
@@ -798,10 +806,28 @@ offline queue — a capture made with no connectivity (car, dead zones) is
 stored in the App Group and replayed on the next capture or app open, so a
 thought is never lost to a network blip. See `wiki/iOS-Native-App.md`.
 
-### Configurable task/routine alarms — Dev native trial
+### Alarms on a loop — Dev native trial
 
-[Alarm rules](Alarm-Rules.md) attach editable weekly/on-demand clocks, timezone,
-early cues, snooze and acknowledgment to an existing source. Saved rules require
-explicit preview/arming on one Dev phone. Native Stop is not task completion;
-acknowledgment cancels that date's remaining cues. Owner-led physical delivery
-checks remain pending; no live configuration is seeded by the feature.
+A loop's page has an **Alarm** card (Dev phone app only). It shows:
+- **Rings:** the days and a time per day, for example "Mon · Tue · Thu · Fri 2:00 PM / Wed 1:30 PM".
+- **First warning:** how many minutes before the alarm.
+- **Snooze:** its length.
+- **Done button says:** for example "Leaving now".
+- **One-off changes:** skipped days and extra days.
+- **Next up:** the next three alarms.
+
+Tap a row to change it. **When it rings** is a sheet with day chips, a time per day, and one-off dates or skips.
+
+Saving never reaches the phone. **Arm on this phone** does that. The badge reads Not armed yet, Armed on this phone, Changes waiting, Off, or On hold.
+
+**On hold** means one of two things:
+- the loop's own phone reminder is on, and the card offers **Turn off the reminder** so you don't get both;
+- the loop is paused, ended or on Autopilot.
+
+The phone holds 16 alarms at a time. One arming covers the next 16, and the card says how far that reaches ("Armed through Dec 14"). Nothing re-arms by itself: within five days of the end, the card and Today say so and offer **Re-arm to keep going**.
+
+**Today** shows an **Alarm today** card with the time, the first warning and the done button. Tapping it stops that day's remaining alarms and records the tap. It doesn't mark the loop done. The card then reads "Leaving now at 1:52 PM".
+
+**Settings → Notifications → Alarms** lists what this phone holds and has **Cancel all alarms on this phone**. Permission and the one-minute sound test stay in **Test channels**. Stop on the alarm only silences it.
+
+Details and limits: [Alarm Rules](Alarm-Rules.md).

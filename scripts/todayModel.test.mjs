@@ -672,3 +672,32 @@ test('all-day events take no time: they never block Worth doing next', () => {
   const without = model({ tasks: [t], now: at(10), events: [] })
   assert.equal(withEv.next?.task.id, without.next?.task.id)
 })
+
+// Kept on Today (owner, 2026-11-21): "it should stay there until it's done or
+// until I uncheck the box or the due date is due or overdue". A task due in a
+// week must not vanish from Today overnight and only come back when it's due.
+test('kept on Today: a task due next week stays on Today, day after day, until done or unticked', () => {
+  const kept = task({ pinned_to_today: true, due_date: '2026-11-17' })
+  const undated = task({ pinned_to_today: true })
+  for (const day of [10, 11, 12]) {
+    const m = model({ tasks: [kept, undated], now: at(9, 0, day) })
+    assert.deepEqual(appearances(m, kept.id), ['attention'], `Nov ${day}`)
+    assert.deepEqual(appearances(m, undated.id), ['attention'], `Nov ${day}`)
+    assert.equal(m.attention.items.find(a => a.task.id === kept.id).reason.key, 'pinned')
+  }
+  assert.deepEqual(appearances(model({ tasks: [{ ...kept, pinned_to_today: false }] }), kept.id).filter(w => w === 'attention'), [], 'unticked: off the main path')
+  assert.deepEqual(appearances(model({ tasks: [{ ...kept, status: 'done', completed_at: iso(8) }] }), kept.id), [], 'done: gone')
+})
+
+test('kept on Today: once its date arrives it is simply due, and past it, slipped like any other task', () => {
+  const kept = task({ pinned_to_today: true, due_date: TODAY })
+  assert.equal(model({ tasks: [kept] }).attention.items[0].reason.key, 'due')
+  // (Due yesterday is the morning's Last night question; three days back has plainly slipped.)
+  const late = task({ pinned_to_today: true, due_date: daysAgo(3) })
+  assert.deepEqual(appearances(model({ tasks: [late] }), late.id), ['review'])
+})
+
+test('kept on Today never turns a pinned project into a task row (projects keep their arcs)', () => {
+  const project = task({ status: 'project', pinned_to_today: true })
+  assert.deepEqual(appearances(model({ tasks: [project] }), project.id), [])
+})

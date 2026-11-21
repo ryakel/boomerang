@@ -6,6 +6,51 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-11-21
 
+- style(kept): make quick add's keep on today a pin icon in the header [XS]
+  - Owner: "I really dislike that button. It is huge… just use the pin icon and put it up at the top next to the task reminder note stuff… on the left… just the pin and not the text" (BOOM-52).
+  - The labelled chip in the day-chip row is gone. An icon-only pin, the mode chips' height, now sits left of Task / Reminder / Note, labelled "Keep on Today" for screen readers. It shows in Task mode only and is dimmed when Today is the chosen day.
+  - With the pin there, the mode chips tighten slightly (gap 5px, padding 9px) so the row still shares a line with the heading at 375px and up, every current iPhone width. At 320px it already wrapped; at 360px (Android only) it now wraps too.
+  - Checked: the Keep on Today Playwright run passes (pin on, dimmed on Today, saved with a weekend date, shown on Today, and every other entry point unchanged), and header wrapping was measured at 320/360/375/390/430px.
+  - Web-only.
+
+- feat(kept): keep a task on Today without making it due today [M]
+  - Owner: they wanted a task that isn't due today on Today, as a conscious choice from quick add or the edit menu, and it "should stay there until it's done or until I uncheck the box or the due date is due or overdue" (BOOM-52).
+  - **Field:** reuses `pinned_to_today`, already the sticky project pin in the database, sync and Quokka, so there's no migration. `committed_on` (the watch/Siri daily pick, cleared nightly) is untouched.
+  - **Where it shows:** Today puts a kept task under Needs attention as "On Today until done" while it's undated or due later. Due today, it reads as due; past its date, it has slipped. The Tasks list groups it under Today until its date, as does the desktop rail.
+  - **Where you set it:**
+    - quick add: a **Keep on Today** toggle beside the day chips. It hides when Today is the chosen day and carries through More options into the Add form's checkbox.
+    - the quick editor (what a tap opens on the phone): a one-tap chip.
+    - the full editor: a checkbox.
+    - the Tasks row sheet: Keep on Today / Take off Today.
+  - **Quokka:** `create_task` no longer drops the flag for ordinary tasks, and the system prompt names it.
+  - **Checked:**
+    - New rule tests (`todayModel.test.mjs`, `tasksModel.test.mjs`) cover staying day after day, unticked or done, due, slipped, and projects excluded.
+    - `npm test` 701/701; Quokka suite 20/20; execution suite 92/92.
+    - Playwright at phone size drove every entry point against the real server: quick add saves a weekend-due kept task, Today shows it, the quick editor chip reads and changes it, the full editor unticks it off Today, the row sheet keeps it and takes it off, and More options carries it. No page errors.
+  - Also records D020: arriving at a saved place as done for the day, built after this.
+  - Web-only.
+
+- feat(kept): set and arm alarms from the loop page, with today's alarm on Today [L]
+  - Owner, after the mockup: "Ok. Let's try it in dev." They'd confirmed the sound test rang with the phone locked (BOOM-51).
+  - **Loop page:** an **Alarm** card shows when it rings (a time per weekday), first warning, snooze, the done button's text, one-off changes, and a preview of the next three, with Arm / Re-arm / Turn off. **When it rings** is a sheet: day chips, a time per day, and one-off skips or extra days. Saving never arms.
+  - **Badge:** Not armed yet, Armed on this phone, Changes waiting, Off, or On hold. On hold means the loop's own phone reminder is on (the card offers **Turn off the reminder**), or the loop is paused, ended or on Autopilot.
+  - **Today:** an **Alarm today** card has the done button ("Leaving now"). The tap stops that day's remaining alarms and records it, without completing the loop, and the card then reads "Leaving now at 1:52 PM".
+  - **Settings → Notifications → Alarms:** now an overview with Cancel all. The raw rule form is removed. Permission and the sound test stay in Test channels.
+  - **Fix: arming is capped at 16.** It used to send the whole 28-day plan, which the phone refuses past 16 occurrences, so a five-day-a-week alarm (20) could never be armed. `applyAlarmRulePlan` now sends the next 16 across every rule this phone owns (`armWindow`). The card says how far that reaches and asks for a re-arm within five days of the end. It never re-arms on its own.
+  - **Rules:** the pure model is `src/alarmRuleModel.js`: card state, the arming window, renewal, summaries and Today's alarms, all clock-free. "Changes waiting" compares armed targets up to the last armed date, so a window sliding forward is a renewal, not a change. It also compares the revision this phone last armed, because the phone's readback has no lead or snooze. Alarm views re-read each other after any action (`boom-alarms-changed`).
+  - **Checked:**
+    - `scripts/alarmRuleModel.test.mjs` (10 cases) is new and added to `npm test`: 697/697 pass.
+    - `scripts/alarmRulesBrowser.test.mjs` is rewritten for the card, Today and the overview at 320 and 960px, against the real routes. It covers: saving never arms; arming sends exactly 16 for an every-day rule; a stale plan is refused; the done button syncs and then reads "done at"; Turn off cancels without arming; a paused loop's alarms are cancelled; the held-reminder state offers the fix; and a reload arms nothing. Its fake phone now keeps cancelled cues in the readback, like the Swift code.
+    - The two alarm browser tests now run one after the other; in parallel the longer one starved the other.
+    - The alarm unit suite passes 30/30. Lint is unchanged at 13 warnings. The loop page and Today render without errors in the real app, with the card hidden off the Dev build.
+    - No alarm armed from the new card has been tested on a phone yet.
+  - Web-only.
+
+- fix(ci): run deploys on ubuntu 26 with tailscale action v4 [XS]
+  - Undoes this morning's `ubuntu-24.04` pin (BOOM-50). The cause was confirmed by a throwaway probe on `ubuntu-latest`, now Ubuntu 26.04.1 (image 20261116.202.1), where `sudo` is sudo-rs 0.2.13. It prints "preserving the entire environment is not supported, '-E' is ignored". `tailscale/github-action@v2` runs Tailscale 1.42 and turns on OAuth keys through `TS_EXPERIMENT_OAUTH_AUTHKEY`, carried only by `sudo -E`. The probe's v2 control failed exactly as production had ("oauth authkeys are in experimental status", 27 ms).
+  - v4.4.0 runs Tailscale 1.104.4 and passes the key as a `tailscale up` argument, so the dropped environment doesn't matter. In the probe it connected on the first try and the Portainer host resolved over the tailnet in about 2 s, on both Ubuntu 26 and 24.04. The same OAuth client and `tag:ci` work unchanged.
+  - Both build workflows now use `tailscale/github-action@v4.4.0` (connect and retry) on `ubuntu-latest`. The probe never called the webhook and its branch was never merged.
+
 - fix(kept): keep today's sheets above the nav and pin the loop page header [S]
   - Owner, from iPhone screenshots on prod v2.64.2: the "To look over" and "Suggestions to review" sheets sat under the bottom nav and Throw button. The first rows were unreadable, the header wasn't dimmed, and dragging the sheet scrolled the page behind it. Separately, leaving a loop's page meant scrolling back to the top for Back (BOOM-48).
   - Cause: those sheets and the Tasks row sheet rendered inside the scrolling surface. iOS WebKit trapped their fixed backdrop in the scroller's layer, so the header and nav painted over it. Chromium draws it correctly, which is why browser checks missed it. The Throw sheet renders beside the surface and never had the problem.

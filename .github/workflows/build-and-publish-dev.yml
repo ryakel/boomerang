@@ -39,14 +39,15 @@ env:
 jobs:
   docker:
     name: Build and Publish (Dev)
-    # Pinned (2026-11-21): ubuntu-latest moved to the Ubuntu 26 image, whose
-    # sudo ignores -E. tailscale/github-action@v2 relies on `sudo -E` to pass
-    # TS_EXPERIMENT_OAUTH_AUTHKEY to `tailscale up`; without it the OAuth key
-    # is refused ("oauth authkeys are in experimental status", exit 1 in
-    # ~30ms), the runner never joins the tailnet, and Portainer never gets the
-    # webhook. Every successful deploy ran on 24.04. Unpin only together with
-    # a Tailscale action that works without sudo -E.
-    runs-on: ubuntu-24.04
+    # Ubuntu 26 (2026-11-21, BOOM-50): its sudo is sudo-rs, which ignores
+    # `sudo -E` ("preserving the entire environment is not supported").
+    # tailscale/github-action@v2 (Tailscale 1.42) enabled OAuth keys through
+    # TS_EXPERIMENT_OAUTH_AUTHKEY and needed `sudo -E` to carry it, so on 26
+    # `tailscale up` refused the key and nothing deployed. v4 (Tailscale 1.104)
+    # passes the key as an argument and needs no environment, so it works on
+    # 26. Proven by a probe run on ubuntu-latest, 26.04.1 with sudo-rs 0.2.13.
+    # Don't go back to v2/v3 on this image.
+    runs-on: ubuntu-latest
     steps:
 
       - name: Checkout
@@ -140,7 +141,7 @@ jobs:
         if: github.event_name != 'pull_request'
         continue-on-error: true
         id: tailscale
-        uses: tailscale/github-action@v2
+        uses: tailscale/github-action@v4.4.0
         with:
           oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID }}
           oauth-secret: ${{ secrets.TS_OAUTH_SECRET }}
@@ -151,7 +152,7 @@ jobs:
         if: github.event_name != 'pull_request' && steps.tailscale.outcome != 'success'
         continue-on-error: true
         id: tailscale_retry
-        uses: tailscale/github-action@v2
+        uses: tailscale/github-action@v4.4.0
         with:
           oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID }}
           oauth-secret: ${{ secrets.TS_OAUTH_SECRET }}

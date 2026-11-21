@@ -21,11 +21,29 @@ armed or compiled into application policy. They can be entered in the editor.
 
 ## Configuration and review
 
-Settings → Notifications → Alarm rules is visible only in the probe-enabled Dev
-native shell. Choose an existing task or routine. Configure weekly clocks,
-dated overrides (including skip dates), IANA timezone, early-cue minutes, snooze
-minutes and acknowledgment label. Dates override weekly entries. There is no
-calendar write, new task creation, automatic message or provider call.
+**Interface (BOOM-51, 2026-11-21).** An alarm is set on the loop it belongs to, not in Settings.
+- **Loop page:** an **Alarm** card (`src/kept/AlarmCard.jsx`) has a row for each of these:
+  - when it rings (a time per weekday);
+  - the first warning;
+  - snooze;
+  - the done button's text;
+  - one-off changes.
+- **The card also shows:** a preview of the next three, and Arm / Re-arm / Turn off.
+- **When-it-rings sheet:** day chips, a time per day, and one-off dates (skip, or ring at a time).
+- **Today:** `src/kept/TodayAlarm.jsx` shows today's armed alarm with its done button, then a "done at" line. It also mentions an arming that's about to run out.
+- **Settings → Notifications → Alarms:** now an overview of what this phone holds, plus Cancel all. The raw rule form is gone.
+- **Where the rules live:** state, the arming window, renewal and summaries are pure, in `src/alarmRuleModel.js`, pinned by `scripts/alarmRuleModel.test.mjs`. `scripts/alarmRulesBrowser.test.mjs` drives the card, Today and the overview against the real routes and a fake native daemon that behaves like the Swift readback.
+- **Not covered yet:** alarms on one-off tasks. The server still supports them, but the task editor doesn't have the card yet.
+
+**One arming is the next 16 occurrences.** The phone holds at most 16, and arming sends it the whole plan, cancelling anything left out. So `applyAlarmRulePlan` sends the next 16 across every rule this phone owns, in time order, never the full 28-day plan. Before this, a five-day-a-week rule (20 in 28 days) was refused outright. The card says how far an arming reaches.
+
+**Telling "armed" from "changes waiting".** The phone's readback has keys, targets and states, but no lead or snooze. So:
+- the card compares the armed targets with the plan, only up to the last armed date, because a window that slides forward is a renewal, not a change;
+- it also compares the revision this phone last armed (`boom_alarm_armed_revisions`). That's a UI hint only; losing it just falls back to comparing times.
+
+**Renewal is offered, never done.** Within five days of the last armed date, with more of the plan left, the card and Today ask for a re-arm.
+
+**Rule fields, unchanged since the trial:** weekly clocks; dated overrides, including skip dates; IANA timezone (defaults to the phone's); early-cue minutes; snooze minutes; acknowledgment label. Dates override weekly entries. There is no calendar write, new task creation, automatic message or provider call.
 
 Saving persists configuration but never adds an alarm. Disabling a rule or
 holding an inactive/conflicting source can cancel existing owned alarms. Arming
@@ -101,3 +119,11 @@ Lint: 0 errors/13 existing warnings. Audit: 31 existing findings (2 critical,
 CLI builds and widget packaging pass. Native status-only cold launches preserve
 identity without prompting or creating cues. Physical arming/snooze/acknowledgment
 remains unrun; no new production deployment is part of this batch.
+
+### Owner device check, 2026-11-21
+
+Before BOOM-51, the owner ran the Settings sound test on the Dev phone: "The alarm went off with sound while the phone was locked."
+
+Not reported this time: Snooze re-alert, Stop, Cancel-before-fire, and Silent switch position. The 2026-11-14 probe results in [AlarmKit Probe](AlarmKit-Probe.md) still cover those.
+
+No rule alarm, meaning one armed from the new card, has been tested on the phone yet.

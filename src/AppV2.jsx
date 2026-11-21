@@ -1134,6 +1134,10 @@ export default function AppV2() {
     return true
   }, [tasks, updateTask, pushStatusToTrello])
 
+  // The alarm card's "Turn off the reminder" (BOOM-51): an alarm rule is held
+  // while the loop's own phone reminder is on, so you never get both.
+  const turnOffLoopReminder = useCallback((routineId) => updateRoutine(routineId, { remind: false }), [updateRoutine])
+
   const setLoopAutopilot = useCallback((routineId, on) => {
     const routine = routines.find(r => r.id === routineId)
     if (!routine) return
@@ -1650,6 +1654,7 @@ export default function AppV2() {
           tasks={tasks}
           onStatusChange={handleStatusChange}
           onRestoreStatus={restoreLetGo}
+          onSetKeepToday={(t, on) => setProjectPinned(t.id, on)}
           routines={routines}
           labels={labels}
           weatherByDate={weather.enabled ? weather.byDate : null}
@@ -1677,7 +1682,7 @@ export default function AppV2() {
           onToggleHabit={toggleHabitDay}
           onRescheduleTask={(task, ymd) => updateTask(task.id, { due_date: ymd })}
           onDeleteTask={(task) => handleDelete(task.id)}
-          onThrow={({ title, dueDate, remindAt }) => scrollTaskIntoView(handleAddTask({ title, dueDate, remindAt }))}
+          onThrow={({ title, dueDate, remindAt, pinnedToToday }) => scrollTaskIntoView(handleAddTask({ title, dueDate, remindAt, pinnedToToday }))}
           onOpenFullAdd={(draft) => openAddModal(draft)}
           onScanSchedule={() => setShowScanSchedule(true)}
           onEditLoop={(r, mode = null) => { setEditRoutineId(r.id); setEditRoutineMode(mode); setShowRoutines(true) }}
@@ -1688,6 +1693,7 @@ export default function AppV2() {
           onSetLoopAutopilot={setLoopAutopilot}
           onToggleLoopPause={togglePause}
           onDeleteLoop={deleteRoutine}
+          onTurnOffLoopReminder={turnOffLoopReminder}
           onUnmarkLoopDay={handleUnmarkLoopDay}
           onSkipLoopDay={skipRoutineDay}
           onPushLoopOut={pushLoopOut}
@@ -1742,7 +1748,7 @@ export default function AppV2() {
           onToggleHabit={toggleHabitDay}
           onRescheduleTask={(task, ymd) => updateTask(task.id, { due_date: ymd })}
           onDeleteTask={(task) => handleDelete(task.id)}
-          onThrow={({ title, dueDate, remindAt }) => scrollTaskIntoView(handleAddTask({ title, dueDate, remindAt }))}
+          onThrow={({ title, dueDate, remindAt, pinnedToToday }) => scrollTaskIntoView(handleAddTask({ title, dueDate, remindAt, pinnedToToday }))}
           onOpenFullAdd={(draft) => openAddModal(draft)}
           onScanSchedule={() => setShowScanSchedule(true)}
           onEditLoop={(r, mode = null) => { setEditRoutineId(r.id); setEditRoutineMode(mode); setShowRoutines(true) }}
@@ -1753,6 +1759,7 @@ export default function AppV2() {
           onSetLoopAutopilot={setLoopAutopilot}
           onToggleLoopPause={togglePause}
           onDeleteLoop={deleteRoutine}
+          onTurnOffLoopReminder={turnOffLoopReminder}
           onUnmarkLoopDay={handleUnmarkLoopDay}
           onSkipLoopDay={skipRoutineDay}
           onPushLoopOut={pushLoopOut}
@@ -1764,6 +1771,7 @@ export default function AppV2() {
           onOpenNotifications={() => setShowNotifications(true)}
           onStatusChange={handleStatusChange}
           onRestoreStatus={restoreLetGo}
+          onSetKeepToday={(t, on) => setProjectPinned(t.id, on)}
           onOpenSuggestions={() => setShowSuggestions(true)}
           onOpenNotes={() => setShowNotes(true)}
           onOpenLists={() => setShowLists(true)}

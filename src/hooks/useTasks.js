@@ -44,7 +44,7 @@ export function useTasks() {
     return () => clearInterval(interval)
   }, [])
 
-  const addTask = useCallback(({ title, tags = [], dueDate = null, notes = '', notion = null, size = null, size_inferred = false, attachments = [], highPriority = false, lowPriority = false, energy = null, energyLevel = null, remindAt = null, checklists = [] } = {}) => {
+  const addTask = useCallback(({ title, tags = [], dueDate = null, notes = '', notion = null, size = null, size_inferred = false, attachments = [], highPriority = false, lowPriority = false, energy = null, energyLevel = null, remindAt = null, checklists = [], pinnedToToday = false } = {}) => {
     remoteLog('addTask:', title)
     const task = createTask(title, tags, dueDate, notes)
     if (notion) {
@@ -67,6 +67,10 @@ export function useTasks() {
     if (Array.isArray(checklists) && checklists.length > 0) task.checklists = checklists
     if (highPriority) task.high_priority = true
     if (lowPriority) task.low_priority = true
+    // Keep on Today, chosen at capture (Throw sheet or the full add form). The
+    // same silent-drop trap as remind_at below: a key not in this signature
+    // is destructured away and the choice never reaches the task.
+    if (pinnedToToday) task.pinned_to_today = true
     // A reminder set at CREATE time. This was the missing half of the feature:
     // both editors could add one to an existing task, but every creation path
     // (Throw sheet, full add modal, Quokka) fed through here and this key was
@@ -250,8 +254,9 @@ export function useTasks() {
 
   // --- Projects (pinning, sessions, parent/child links) ---
 
-  // Quick + optimistic pin toggle. The pinned-projects section on the main
-  // list reacts immediately; server sync flushes via setTasks → saveTasks.
+  // Quick + optimistic pin toggle. For a project it's the pinned arc; for an
+  // ordinary task it's Keep on Today (holds until done, unpinned or due).
+  // Server sync flushes via setTasks → saveTasks.
   const setProjectPinned = useCallback((id, pinned) => {
     remoteLog('setProjectPinned:', `id=${id.slice(0, 8)}`, pinned)
     setTasks(prev => prev.map(t =>

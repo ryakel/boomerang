@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Check, Search, Pencil, Trash2, X, Undo2, ArrowUpDown } from 'lucide-react'
+import { Check, Search, Pencil, Trash2, X, Undo2, ArrowUpDown, Pin, PinOff } from 'lucide-react'
 import { localYMD, parseLocalDate, addDays } from '../dates'
 import { isSnoozed, formatSnoozeLabel, loadSettings, isCrisisTask } from '../store'
 import { impactRank } from '../scoring'
@@ -25,7 +25,7 @@ const TABS = [
 
 // Kept "Tasks" — grouped hairline rows, gold circle checks, dot-tags, and the
 // action sheet with reschedule chips ("throw it back") (spec §6).
-export default function TasksViewKept({ tasks = [], labels = [], routines = [], weatherByDate = null, onToggleComplete, onToggleItem, onOpenTask, onDelete, onReschedule, onUnsnooze, boardable = false, onStatusChange, onRestoreStatus, onCycleImpact }) {
+export default function TasksViewKept({ tasks = [], labels = [], routines = [], weatherByDate = null, onToggleComplete, onToggleItem, onOpenTask, onDelete, onReschedule, onUnsnooze, boardable = false, onStatusChange, onRestoreStatus, onCycleImpact, onSetKeepToday }) {
   const [tab, setTab] = useState('upcoming')
   // 'list' | 'board' — Board is the desktop view mode (K5): status columns
   // with drag-and-drop; Kanban demoted to a mode, per the spec.
@@ -279,6 +279,14 @@ export default function TasksViewKept({ tasks = [], labels = [], routines = [], 
             {sheetTask.status !== 'done' && (
               <button className="bm-sheet-row" onClick={() => { const t = sheetTask; setSheetTask(null); onToggleComplete?.(t) }}>
                 <Check size={16} strokeWidth={2.4} /> Done
+              </button>
+            )}
+            {/* Keep on Today: holds until done, unticked or due (owner, 2026-11-21). */}
+            {onSetKeepToday && sheetTask.status !== 'done' && sheetTask.status !== 'project' && (
+              <button className="bm-sheet-row" onClick={() => { const t = sheetTask; setSheetTask(null); onSetKeepToday(t, !t.pinned_to_today) }}>
+                {sheetTask.pinned_to_today
+                  ? <><PinOff size={16} strokeWidth={2} /> Take off Today</>
+                  : <><Pin size={16} strokeWidth={2} /> Keep on Today</>}
               </button>
             )}
             <button className="bm-sheet-row" onClick={() => { const t = sheetTask; setSheetTask(null); onOpenTask?.(t) }}>

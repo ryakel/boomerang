@@ -252,7 +252,7 @@ const PAGE_TITLES = {
   'Notifications/links': 'Deep links',
   'Notifications/email': 'Email deliverability',
   'Notifications/test': 'Test channels',
-  'Notifications/alarms': 'Alarm rules',
+  'Notifications/alarms': 'Alarms',
   'Notifications/history': 'History',
   // One per integration. Duplicated from IntegrationsPanel's own list rather
   // than derived, because the page title has to resolve before that component
@@ -2672,7 +2672,7 @@ function NotificationsPanel({ settings, update, page, setPage }) {
           onPress={() => setPage('Notifications/email')}
           info="Recipient, From header overrides for SPF/DKIM/DMARC, and batch mode."
         />
-        {window.__BOOMERANG_ALARM_PROBE_BUILD__ === true && <NavRow label="Alarm rules" summary="Dev trial" onPress={() => setPage('Notifications/alarms')} info="Configure alarm-backed cues for a task or routine. Saving does not arm alarms."/>}
+        {window.__BOOMERANG_ALARM_PROBE_BUILD__ === true && <NavRow label="Alarms" summary="On this phone" onPress={() => setPage('Notifications/alarms')} info="What alarms this phone holds. Set an alarm on a loop’s page."/>}
         <NavRow
           label="Test channels"
           onPress={() => setPage('Notifications/test')}

@@ -120,3 +120,13 @@ test('Tasks and Today agree on the pick for the same data', () => {
 test('slipped choices are tomorrow and a week out', () => {
   assert.deepEqual(slippedChoices(NOW).map(c => c.ymd), [day(1), day(7)])
 })
+
+test('kept on Today: the Tasks list shows it under Today until its date; past its date it has slipped', () => {
+  const future = task({ pinned_to_today: true, due_date: day(5) })
+  const undated = task({ pinned_to_today: true })
+  const late = task({ pinned_to_today: true, due_date: day(-2) })
+  const g = groupUpcoming({ tasks: [future, undated, late], now: NOW })
+  assert.deepEqual(ids(g.today).sort(), [future.id, undated.id].sort())
+  assert.deepEqual(ids(g.slipped), [late.id])
+  assert.equal(g.week.length, 0)
+})

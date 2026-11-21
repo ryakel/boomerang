@@ -1,8 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import {
-  Trash2, Plus, Check, ChevronDown, Sliders, Sparkles,
-  Monitor, Users, MapPin, Flame, Palette, Dumbbell, Zap, BookOpenText,
-} from 'lucide-react'
+import { Trash2, Plus, Check, ChevronDown, Sliders, Sparkles, Monitor, Users, MapPin, Flame, Palette, Dumbbell, Zap, BookOpenText, Pin } from 'lucide-react'
 import ModalShell from '../components/ModalShell'
 import AutosaveIndicator from '../components/AutosaveIndicator'
 import DateField from '../components/DateField'
@@ -126,6 +123,11 @@ export default function WallabyEditTask({ task, onSave, onClose, onDelete, onSta
     })
   }, [alreadyLoop, onConvertToLoop, cadence, customDays, customUnit, form.remindAt])
 
+  // Keep on Today (owner, 2026-11-21): a one-tap chip, not a picker. Holds the
+  // task on Today until it's done, unticked or due. Projects pin elsewhere.
+  const isProjectTask = task.status === 'project'
+  const [keepToday, setKeepToday] = useState(!!task.pinned_to_today)
+
   // ── autosave (mirrors EditTaskModal; subset of fields — partial merge) ──────
   const savePayload = useMemo(() => ({
     title: form.title.trim(),
@@ -140,8 +142,9 @@ export default function WallabyEditTask({ task, onSave, onClose, onDelete, onSta
     low_priority: form.lowPriority,
     size_inferred: !!form.size,
     checklists,
+    ...(isProjectTask ? {} : { pinned_to_today: keepToday }),
   }), [form.title, form.notes, form.selectedTags, form.dueDate, form.remindAt, form.size,
-    form.energy, form.energyLevel, form.highPriority, form.lowPriority, checklists])
+    form.energy, form.energyLevel, form.highPriority, form.lowPriority, checklists, keepToday, isProjectTask])
 
   const lastSavedJson = useRef(null)
   const [justSaved, setJustSaved] = useState(false)
@@ -326,6 +329,17 @@ export default function WallabyEditTask({ task, onSave, onClose, onDelete, onSta
       <div className="wb-edit-chips">
         {chip('status', 'Status', STATUSES.find(s => s.id === status)?.label || status, status === 'done' ? 'done' : null)}
         {chip('due', 'Due', form.dueDate || 'No date')}
+        {!isProjectTask && (
+          <button
+            className={`wb-edit-chip wb-edit-chip-keep${keepToday ? ' wb-edit-chip-high' : ''}`}
+            aria-pressed={keepToday}
+            onClick={() => setKeepToday(v => !v)}
+          >
+            <Pin size={13} strokeWidth={2.25} aria-hidden="true" />
+            <span className="wb-edit-chip-key">Keep on Today</span>
+            <span className="wb-edit-chip-val">{keepToday ? 'Yes' : 'No'}</span>
+          </button>
+        )}
         {chip('remind', 'Remind', remindLabel)}
         {onConvertToLoop && chip('repeats', 'Repeats', alreadyLoop ? 'Loop' : 'No')}
         {chip('priority', 'Priority', priorityLabel, form.highPriority ? 'high' : null)}

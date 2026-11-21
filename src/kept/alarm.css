@@ -1,0 +1,78 @@
+/* The alarm interface (BOOM-51): the card on a loop's page, its sheets, and
+ * Today's alarm card. Built on today2.css's cards, rows, chips and buttons;
+ * this file holds only what alarms add. Tokens only. */
+
+.al-badge {
+  margin-left: auto;
+  display: inline-flex; align-items: center;
+  font-size: 12.5px; font-weight: 600; color: var(--t2-meta);
+  background: color-mix(in srgb, var(--t2-text) 6%, transparent);
+  border-radius: 999px; padding: 3px 10px;
+}
+.al-badge.is-on { color: var(--bm-ember); background: color-mix(in srgb, var(--bm-ember) 12%, transparent); }
+
+.al-kv {
+  width: 100%;
+  display: flex; align-items: center; gap: 10px;
+  padding: 11px 0; border: 0; border-top: 1px solid var(--t2-div); background: none;
+  font: inherit; font-size: 14px; color: var(--t2-meta); text-align: left; cursor: pointer;
+}
+.al-kv:disabled { cursor: default; opacity: 1; }
+.al-kv > span { flex: 0 0 auto; }
+.al-kv b { margin-left: auto; font-weight: 500; color: var(--t2-text); text-align: right; display: flex; flex-direction: column; }
+.al-kv > svg { flex: 0 0 auto; color: var(--t2-faint); }
+.al-line { display: block; }
+
+.al-sec { margin: 14px 0 4px; font-size: 12.5px; font-weight: 600; color: var(--t2-label); }
+.al-next { margin: 0 0 12px; display: flex; flex-direction: column; gap: 3px; font-size: 13px; line-height: 1.45; color: var(--t2-meta); }
+.al-next b { color: var(--t2-text); font-weight: 500; }
+
+.al-actions { display: flex; gap: 10px; margin-top: 12px; }
+.al-actions .t2-btn { flex: 1 1 0; }
+.al-note { margin: 8px 0 2px; font-size: 12.5px; line-height: 1.45; color: var(--t2-meta); text-align: center; }
+.al-note.al-left { text-align: left; }
+.al-error { color: var(--bm-danger); }
+.al-inline { margin-left: 8px; vertical-align: middle; }
+
+/* Today */
+.al-today .t2-row-title.al-done { color: var(--t2-meta); }
+.al-check { display: grid; place-items: center; width: 30px; height: 30px; border-radius: 50%; color: var(--bm-ember); background: color-mix(in srgb, var(--bm-ember) 12%, transparent); flex: 0 0 auto; }
+
+/* Sheets */
+.bm-sheet.al-sheet { max-height: 86vh; }
+.al-days { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; margin: 6px 0 12px; }
+.al-days button {
+  height: 40px; border: 0; border-radius: 12px; cursor: pointer;
+  font: 600 13.5px/1 var(--t2-sans); color: var(--t2-label);
+  background: color-mix(in srgb, var(--t2-text) 5.5%, transparent);
+}
+.al-days button.is-on { background: var(--bm-ember); color: var(--bm-on-ember, #fff); }
+.al-time {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  padding: 10px 0; border-top: 1px solid var(--t2-div);
+  font-size: 14.5px; color: var(--t2-text);
+}
+.al-time input[type="time"], .al-add input {
+  font: 600 14.5px/1.2 var(--t2-sans); color: var(--t2-text);
+  background: color-mix(in srgb, var(--t2-text) 6%, transparent);
+  border: 0; border-radius: 9px; padding: 7px 10px;
+}
+.al-oneoff { display: inline-flex; align-items: center; gap: 6px; }
+.al-oneoff i { font-style: normal; font-weight: 600; color: var(--t2-meta); }
+.al-x { display: grid; place-items: center; width: 28px; height: 28px; border: 0; border-radius: 50%; background: none; color: var(--t2-meta); cursor: pointer; }
+.al-add { display: flex; flex-direction: column; gap: 8px; padding: 10px 0 2px; border-top: 1px solid var(--t2-div); }
+.al-add input[type="date"] { width: 100%; box-sizing: border-box; }
+.al-add-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.al-toggle { display: inline-flex; background: color-mix(in srgb, var(--t2-text) 5.5%, transparent); border-radius: 10px; padding: 3px; }
+.al-toggle button { border: 0; background: none; border-radius: 8px; padding: 6px 10px; font: 500 13px/1.2 var(--t2-sans); color: var(--t2-label); cursor: pointer; }
+.al-toggle button.is-on { background: var(--t2-card); color: var(--t2-text); font-weight: 600; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08); }
+.al-add-row .t2-chip { margin-left: auto; }
+.al-choices { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; margin: 6px 0 4px; }
+.al-choices button {
+  padding: 12px 0; border: 0; border-radius: 12px; cursor: pointer;
+  font: 500 14px/1.2 var(--t2-sans); color: var(--t2-text);
+  background: color-mix(in srgb, var(--t2-text) 5.5%, transparent);
+}
+.al-choices button.is-on { background: var(--bm-ember); color: var(--bm-on-ember, #fff); font-weight: 600; }
+.al-input { width: 100%; box-sizing: border-box; margin: 4px 0 10px; }
+.al-picks { margin-bottom: 4px; }

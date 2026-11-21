@@ -44,7 +44,7 @@ this is a **conservative first pass**: only explicit signals count.
 
 | Class | Rule (all in `src/todayModel.js`) | Where it shows |
 |---|---|---|
-| Needs you now | critical; due today; `committed_on` today; a reminder that went off **today**; due **yesterday** *and* marked as mattering. *("Back from snooze today" was removed in the second pass.)* (`high_priority`, `nag_allowed`, a reminder, an active escalation) | Needs attention, max 3 + honest overflow. Only critical is red. |
+| Needs you now | critical; due today; kept on Today (`pinned_to_today` on a non-project task, while undated or due later: sticky until done, unticked or due, 2026-11-21); `committed_on` today; a reminder that went off **today**; due **yesterday** *and* marked as mattering. *("Back from snooze today" was removed in the second pass.)* (`high_priority`, `nag_allowed`, a reminder, an active escalation) | Needs attention, max 3 + honest overflow. Only critical is red. |
 | Slipped | anything else past its date, or an old reminder that went unanswered | One quiet row ("5 slipped past their dates") → a "To look over" sheet, oldest first, neutral copy |
 | Waiting on someone | `status: waiting`. Never "needs you". After 7 days (`waiting_at`, falling back to `last_touched`) | The same sheet, as "waiting 9 days · maybe check in" |
 | Important, not now | high impact or high priority with no date | Not on the main path. Impact only breaks ties. |

@@ -949,6 +949,24 @@ export default function EditTaskModal({
         </div>
       </div>
 
+      {/* Keep on Today (owner, 2026-11-21): a conscious choice for a task that
+        * isn't due today. It stays on Today until it's done, unticked here, or
+        * its date arrives. Same pinned_to_today flag projects use for their
+        * pinned arcs (that toggle lives in the Project section below). */}
+      {!isProject && (
+        <label className="v2-edit-toggle-row v2-edit-toggle-row-compact" style={{ marginBottom: 14 }}>
+          <input
+            type="checkbox"
+            checked={pinnedToToday}
+            onChange={e => setPinnedToToday(e.target.checked)}
+          />
+          <span className="v2-edit-toggle-label">
+            Keep on Today
+            <span className="v2-edit-toggle-meta">Stays on Today until it’s done or you untick this, even if it’s due later.</span>
+          </span>
+        </label>
+      )}
+
       {/* Undated ordinary tasks are quiet by default (2026-07-11) — stale/
         * nudge/pile-up notifications skip them unless opted in here, same
         * rule projects have always had. Hidden once a due date is set (the

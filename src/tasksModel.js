@@ -77,14 +77,15 @@ export function groupUpcoming({ tasks = [], routines = [], now = new Date(), exc
     if (routine && (!due || due <= todayKey)) { g.today.push({ task: t, due, routine }); continue }
 
     if (due) {
-      if (due === todayKey || t.committed_on === todayKey) g.today.push({ task: t, due })
+      // Kept on Today holds a future-dated task here until its date arrives.
+      if (due === todayKey || t.committed_on === todayKey || (t.pinned_to_today && due > todayKey)) g.today.push({ task: t, due })
       else if (due < todayKey) g.slipped.push({ task: t, due, daysAgo: daysBetween(due, todayKey) })
       else if (daysBetween(todayKey, due) <= WEEK_DAYS) g.week.push({ task: t, due, routine })
       else g.later.push({ task: t, due, routine })
       continue
     }
 
-    if (t.committed_on === todayKey) g.today.push({ task: t, due })
+    if (t.committed_on === todayKey || t.pinned_to_today) g.today.push({ task: t, due })
     else if (STARTED_STATUSES.includes(t.status)) g.started.push({ task: t, due })
     else g.anytime.push({ task: t, due })
   }

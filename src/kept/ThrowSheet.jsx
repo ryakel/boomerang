@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { SlidersHorizontal, ScanLine } from 'lucide-react'
+import { SlidersHorizontal, ScanLine, Pin } from 'lucide-react'
 import { localYMD, addDays, localDateTimeValue, nextHalfHour } from '../dates'
 import useSheetSwipeDown from '../hooks/useSheetSwipeDown'
 import './shell.css'
@@ -41,6 +41,11 @@ export default function ThrowSheet({ open, onClose, onThrow, onThrowNote, onMore
   const [dateId, setDateId] = useState('none')
   const [mode, setMode] = useState('task')
   const [remindAt, setRemindAt] = useState('')
+  // Keep on Today: a conscious choice for a task that isn't due today. It holds
+  // until done, unticked or due, so it's separate from the day chips (a task
+  // can be due at the weekend AND kept on Today). Choosing Today already puts
+  // it there, so the toggle steps aside for that chip.
+  const [keepToday, setKeepToday] = useState(false)
   // True while the keyboard is up and the sheet is translated above it.
   const [lifted, setLifted] = useState(false)
   const inputRef = useRef(null)
@@ -115,9 +120,10 @@ export default function ThrowSheet({ open, onClose, onThrow, onThrowNote, onMore
         title: t,
         dueDate: mode === 'reminder' ? null : resolve(dateId),
         remindAt: mode === 'reminder' ? (remindAt || null) : null,
+        pinnedToToday: mode === 'task' && keepToday && dateId !== 'today',
       })
     }
-    setTitle(''); setDateId('none'); setRemindAt('')
+    setTitle(''); setDateId('none'); setRemindAt(''); setKeepToday(false)
     closeAndBlur()
   }
 
@@ -130,6 +136,7 @@ export default function ThrowSheet({ open, onClose, onThrow, onThrowNote, onMore
       title: title.trim(),
       dueDate: mode === 'reminder' ? null : resolve(dateId),
       remindAt: mode === 'reminder' ? (remindAt || null) : null,
+      pinnedToToday: mode === 'task' && keepToday && dateId !== 'today',
     })
   }
 
@@ -170,6 +177,23 @@ export default function ThrowSheet({ open, onClose, onThrow, onThrowNote, onMore
         <div className="bm-throw-mode-row">
           <h3 className="bm-sheet-title">{HEADINGS[mode]}</h3>
           <div className="bm-throw-mode">
+            {/* Keep on Today: just the pin, beside the mode chips (owner,
+                2026-11-21: the labelled chip in the date row was too big).
+                Task mode only; dimmed when Today is the chosen day, which
+                already puts it there. */}
+            {mode === 'task' && (
+              <button
+                className={`bm-pick bm-throw-pin${keepToday && dateId !== 'today' ? ' is-on' : ''}`}
+                aria-pressed={keepToday && dateId !== 'today'}
+                aria-label="Keep on Today"
+                title={dateId === 'today' ? 'Already on Today' : 'Keep on Today until it’s done'}
+                disabled={dateId === 'today'}
+                onMouseDown={keepFocus}
+                onClick={() => setKeepToday(v => !v)}
+              >
+                <Pin size={14} strokeWidth={2.2} aria-hidden="true" />
+              </button>
+            )}
             <button className={`bm-pick${mode === 'task' ? ' is-on' : ''}`} onMouseDown={keepFocus} onClick={() => pickMode('task')}>Task</button>
             <button className={`bm-pick${mode === 'reminder' ? ' is-on' : ''}`} onMouseDown={keepFocus} onClick={() => pickMode('reminder')}>Reminder</button>
             <button className={`bm-pick${mode === 'note' ? ' is-on' : ''}`} onMouseDown={keepFocus} onClick={() => pickMode('note')}>Note</button>

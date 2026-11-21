@@ -15,6 +15,7 @@ import RowSwipe from './RowSwipe'
 import { LASTNIGHT_KEY, useNotNow, clock, minutesLabel, useCalendarEvents, useNow } from './today2Hooks'
 import { Ring, Head, NextCard } from './today2Parts'
 import SheetPortal from './SheetPortal'
+import TodayAlarm from './TodayAlarm'
 import './shell.css'
 import './today2.css'
 
@@ -32,6 +33,7 @@ function attentionLabel(reason) {
     case 'critical': return 'Critical'
     case 'reminder': return `Reminder ${clock(reason.at)}`
     case 'due': return 'Due today'
+    case 'pinned': return 'On Today until done'
     case 'committed': return 'Picked for today'
     case 'recent': return 'Was due yesterday'
     case 'back': return 'Back today'
@@ -388,6 +390,10 @@ export default function TodayKept2({
           </p>
         )}
       </div>
+
+      {/* Today's alarm (BOOM-51). Renders only on the Dev native build, and
+          only when an alarm is armed for today or an arming is running out. */}
+      <TodayAlarm />
 
       {bigClear && (
         <section className="t2-clear">

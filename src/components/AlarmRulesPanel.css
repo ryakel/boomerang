@@ -1,15 +1,12 @@
-.alarm-rules { display: block; line-height: 1.5; }
-.alarm-rules > p, .alarm-rules > label, .alarm-rules > details { display: block; margin: 0 0 16px; }
-.alarm-rules h3 { margin: 24px 0 14px; font-family: var(--v2-font-display, inherit); font-size: 1.2rem; }
-.alarm-rules label { display: block; }
-.alarm-rules fieldset { min-width: 0; margin: 20px 0; padding: 12px; border: 1px solid var(--v2-border, #ddd); border-radius: 12px; }
-.alarm-rules fieldset label { margin-bottom: 10px; }
-.alarm-rules legend { padding: 0 6px; }
-.alarm-rules input, .alarm-rules select { box-sizing: border-box; max-width: 100%; font: inherit; }
-.alarm-rules input[type="checkbox"] { margin-right: 8px; accent-color: var(--v2-accent, #d65326); }
-.alarm-rules .v2-settings-btn { margin: 4px 8px 12px 0; white-space: normal; text-align: left; }
-.alarm-rule-week > div { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 42px; }
-.alarm-rule-week > div label { margin: 0; }
-.alarm-rule-week input[type="time"] { padding: 6px; border-radius: 6px; background: transparent; }
-.alarm-rules details { color: var(--v2-text-secondary, #666); }
-.alarm-rules hr { border: 0; border-top: 1px solid var(--v2-border, #ddd); margin: 20px 0; }
+/* Settings → Notifications → Alarms overview (BOOM-51). */
+.alarm-overview { display: block; line-height: 1.5; }
+.alarm-overview > p { margin: 0 0 12px; }
+.alarm-overview-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; padding: 10px 0; border-top: 1px solid var(--v2-hairline); }
+.alarm-overview-row > div { display: flex; flex-direction: column; min-width: 0; }
+.alarm-overview-row span { font-size: 13px; color: var(--v2-text-meta); }
+.alarm-overview-row em { flex: 0 0 auto; font-style: normal; font-size: 13px; font-weight: 600; color: var(--v2-text-meta); text-align: right; }
+.alarm-overview-sub { margin: 14px 0 4px; font-size: 12.5px; font-weight: 600; color: var(--v2-text-meta); }
+.alarm-overview-receipt { margin: 0 0 4px !important; font-size: 13px; color: var(--v2-text-meta); }
+.alarm-overview-actions { display: flex; flex-wrap: wrap; gap: 8px; margin: 8px 0; }
+.alarm-overview-actions .v2-settings-btn { white-space: normal; }
+.alarm-overview-danger { color: var(--bm-danger, var(--v2-accent)); }
