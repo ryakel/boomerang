@@ -96,19 +96,18 @@ test('arriving at a saved place stops the day\'s alarm, marks the loop done and 
   await dialog.getByLabel('Place name').fill('Lincoln')
   const t0=Date.now()
   await dialog.getByRole('button',{name:'Save',exact:true}).click()
-  // The place saves at once, even though the Always ask is still hanging.
-  await badge('Changes waiting')
+  // The place saves at once, even though the Always ask is still hanging, and
+  // because the alarm is already armed the phone is updated right away (BOOM-55).
+  await card.getByText('Updated on this phone.').waitFor()
+  await badge('Armed on this phone')
   assert.ok(Date.now()-t0<3000,'saving never waits for the Always prompt')
   await card.getByRole('button',{name:/Done when I arrive\s*Lincoln/}).waitFor()
   assert.deepEqual(data.rules[0].arrival,{enabled:true,latitude:41.8781,longitude:-87.6298,radius:150,label:'Lincoln'})
   assert.deepEqual(await native(()=>window.locationNative.requests),[false,true],'While Using to read the spot, then Always because arrival was switched on')
-  assert.equal(await native(()=>window.ruleNative.arms),1,'saving the place never arms')
+  assert.equal(await native(()=>window.ruleNative.arms),2,'the save re-armed the already-armed alarm')
 
-  // Re-arm: the phone gets the place, and the card settles on Armed, even
-  // after the hanging Always ask finally returns.
+  // The card stays on Armed even after the hanging Always ask finally returns.
   const rev=data.rules[0].revision
-  await card.getByRole('button',{name:'Re-arm changes'}).click()
-  await badge('Armed on this phone')
   await page.waitForTimeout(4500)
   await native(()=>document.dispatchEvent(new Event('visibilitychange')))
   await badge('Armed on this phone')
@@ -145,14 +144,15 @@ test('arriving at a saved place stops the day\'s alarm, marks the loop done and 
   await dialog.getByText('Found Lincoln Elementary, Chicago').waitFor()
   assert.equal(await dialog.getByLabel('Place name').inputValue(),'Lincoln Elementary, Chicago')
 
-  // Turning arrival off stops the phone watching the place at the next sync,
-  // without re-arming.
+  // Turning arrival off. By now the day's only alarm is done (the arrival
+  // completed it), so nothing is armed and the save doesn't re-arm; the next
+  // sync's dropPlaces still stops the phone watching the place.
   await dialog.getByRole('radio',{name:'Off'}).click()
   await dialog.getByRole('button',{name:'Save',exact:true}).click()
   await card.getByRole('button',{name:/Done when I arrive\s*Off/}).waitFor()
   await native(async()=>{const m=await import('/src/alarmRules.js');await m.refreshAlarmRuleState()})
   assert.deepEqual(await native(()=>window.ruleNative.places),[],'the place is dropped')
-  assert.equal(await native(()=>window.ruleNative.arms),2,'without arming again')
+  assert.equal(await native(()=>window.ruleNative.arms),2,'nothing armed, so no re-arm; dropPlaces did it')
   assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth),true,'no sideways scroll')
   await page.screenshot({path:'/tmp/boomerang-arrival-card.png',fullPage:true})
   assert.deepEqual(errors,[])

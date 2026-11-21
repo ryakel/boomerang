@@ -9,7 +9,8 @@ import {registerAlarmRuleRoutes} from '../server/alarmRuleRoutes.js'
 // The alarm interface (BOOM-51) driven in a real browser: the loop page's
 // Alarm card, Today's alarm card and the Settings overview, against the real
 // server routes and a fake native daemon. Guarantees carried over from the dev
-// trial's form test: saving never arms, a stale plan is refused, the done
+// trial's form test: saving never arms an alarm that isn't armed yet (once
+// armed, saving re-arms: BOOM-55), a stale plan is refused, the done
 // button syncs, a stopped source cancels its alarms, and loading never arms.
 // New here: one arming never sends the phone more than 16 occurrences, and a
 // loop whose own reminder is on holds its alarm and offers to turn it off.
@@ -100,8 +101,8 @@ test('alarm card sets up, arms and acknowledges a loop alarm; saving never arms'
     await card.getByRole('button',{name:/^Rings/}).click()
     for(const day of ['Monday','Tuesday','Thursday','Friday','Saturday','Sunday']) await dialog.getByRole('button',{name:day}).click()
     await dialog.getByRole('button',{name:'Save',exact:true}).click()
-    await badge('Changes waiting')
-    await card.getByRole('button',{name:'Re-arm changes'}).click()
+    // Already armed, so saving updates the phone right away (BOOM-55).
+    await card.getByText('Updated on this phone.').waitFor()
     await badge('Armed on this phone')
     assert.equal(await arms(page),2)
     assert.equal(await page.evaluate(()=>window.ruleNative.lastItems),16,'never more than the phone accepts')

@@ -380,3 +380,15 @@ below predate those decisions and are historical recommendations, not authority.
   - Content-neutral [#1057](https://github.com/ryakel/boomerang/pull/1057) restored main ancestry in dev.
 - This approval is used up by the release.
 
+## D022 — Armed alarms update on save
+
+- Date/status: 2026-11-21, **accepted and built** (BOOM-55).
+- Source: owner, after the first device run: re-arming "feels clunky", then chose "Auto re-arm once armed".
+- Decision: replaces D014's "saving never touches the phone" for alarms already armed.
+  - The **first** arming stays an explicit tap.
+  - Once a rule has live alarms on the phone, saving a change re-arms it at once and the card says "Updated on this phone."
+  - Turning a rule off, a held rule, or missing alarm permission never re-arms.
+  - Nothing re-arms on its own; renewal near the end of the armed window stays a prompt.
+  - If the phone refuses, the card shows why and offers Re-arm.
+- Merge authority: D017 (standing, `dev` only).
+

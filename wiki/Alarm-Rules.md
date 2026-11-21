@@ -149,3 +149,11 @@ A rule can carry an optional **arrival** place: `{ enabled, latitude, longitude,
   - `scripts/alarmArrivalBrowser.test.mjs` drives the card, arming, an arrival, the sync and switching off, against the real routes and a fake phone written to mirror the Swift.
 - **Not checked here:** the Swift has not been compiled in this environment (there's no Xcode). It needs the owner's Dev build and a real arrival.
 
+## Armed alarms update on save (BOOM-55, 2026-11-21)
+
+D022 records the decision. The first arming is a deliberate tap. After that, `AlarmCard`'s save re-arms when the rule was already armed (status armed or changes waiting), is still enabled, isn't held, and alarm permission is granted.
+
+The re-arm goes through `applyAlarmRulePlan`, so the stale-plan check, the 16-occurrence cap and the place hand-off are unchanged. The card then says "Updated on this phone."
+
+Turning a rule off never re-arms; the sync cancels it. A failed re-arm leaves the card on "Changes waiting", with the error and a Re-arm button.
+
