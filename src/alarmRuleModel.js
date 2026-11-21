@@ -14,6 +14,10 @@
 import { dateInZone } from '../server/alarmSchedule.js'
 
 export const MAX_ARMED = 16
+// Arriving as done (BOOM-53): an arrival counts from this many minutes before
+// to this many after that day's alarm (owner, 2026-11-21). The phone enforces
+// it (ArrivalMonitor.window in BoomerangAlarmRules.swift); this is for saying so.
+export const ARRIVAL_WINDOW_MINUTES = 60
 export const RENEW_WITHIN_DAYS = 5
 const LIVE = ['scheduled', 'countdown', 'paused', 'alerting']
 const WEEK = [1, 2, 3, 4, 5, 6, 0] // Monday first, the way the app's calendars read
@@ -27,14 +31,14 @@ export const STATUS_LABEL = {
 }
 
 export function blankAlarmRule(sourceKind, sourceId, timeZone) {
-  return { sourceKind, sourceId, enabled: true, timeZone, weekly: [], dates: [], leadMinutes: 5, snoozeMinutes: 5, ackLabel: 'Done' }
+  return { sourceKind, sourceId, enabled: true, timeZone, weekly: [], dates: [], leadMinutes: 5, snoozeMinutes: 5, ackLabel: 'Done', arrival: null }
 }
 
 // Only the fields the server validates; snapshot extras (title, plans, held
 // dates) never ride back on a save.
 export function ruleFields(rule) {
-  const { sourceKind, sourceId, enabled, timeZone, weekly, dates, leadMinutes, snoozeMinutes, ackLabel } = rule
-  return { sourceKind, sourceId, enabled, timeZone, weekly, dates, leadMinutes, snoozeMinutes, ackLabel }
+  const { sourceKind, sourceId, enabled, timeZone, weekly, dates, leadMinutes, snoozeMinutes, ackLabel, arrival = null } = rule
+  return { sourceKind, sourceId, enabled, timeZone, weekly, dates, leadMinutes, snoozeMinutes, ackLabel, arrival }
 }
 
 export function clock12(hhmm) {
@@ -139,28 +143,53 @@ export function alarmCardStatus({ rule, state, native, armedRevision = null, now
 // already acknowledged today (so Today can say "Leaving now at 1:52 PM").
 export function todayAlarms({ state, native, now }) {
   const receipts = new Map((native?.receipts || []).map(r => [r.key, r]))
+  // An arrival (BOOM-53) is a done-for-the-day too, and it wins the wording:
+  // "Arrived at School at 2:14" says more than "Leaving now at 1:58".
+  const arrivals = new Map((native?.arrivals || []).map(r => [r.key, r]))
   const acks = state?.acknowledgments || {}
   const plans = new Map((state?.plans || []).flatMap(p => p.occurrences).map(o => [o.key, o]))
   const seen = new Map()
+  const at = (x) => typeof x.recordedAt === 'number' ? x.recordedAt * 1000 : Date.parse(x.recordedAt)
   for (const c of native?.cues || []) {
     if (c.earlyCue || !c.timeZone || c.date !== dateInZone(now, c.timeZone)) continue
-    if (!LIVE.includes(c.state) && !receipts.has(c.key) && !acks[c.key]) continue
+    if (!LIVE.includes(c.state) && !receipts.has(c.key) && !acks[c.key] && !arrivals.has(c.key)) continue
     if (seen.has(c.key)) continue
-    const done = receipts.get(c.key) || acks[c.key]
+    const done = arrivals.get(c.key) || receipts.get(c.key) || acks[c.key]
     seen.set(c.key, {
       key: c.key, ruleId: c.ruleId, title: c.title, ackLabel: c.ackLabel, target: c.target * 1000,
       early: plans.get(c.key)?.earlyPending ? Date.parse(plans.get(c.key).early) : null,
       ringing: c.state === 'alerting' || c.state === 'countdown',
-      doneAt: done ? (typeof done.recordedAt === 'number' ? done.recordedAt * 1000 : Date.parse(done.recordedAt)) : null,
+      doneAt: done ? at(done) : null,
+      doneLabel: done ? (done.label || c.ackLabel) : null,
+      arrived: arrivals.has(c.key),
     })
   }
-  // A receipt for today whose cue has dropped out of the readback still reads
-  // as done: the tap happened, the line shouldn't vanish.
-  for (const r of native?.receipts || []) {
+  // A receipt or arrival for today whose cue has dropped out of the readback
+  // still reads as done: it happened, the line shouldn't vanish.
+  for (const r of [...(native?.arrivals || []), ...(native?.receipts || [])]) {
     if (seen.has(r.key)) continue
     const rule = (state?.rules || []).find(x => x.id === r.ruleId)
     if (!rule || r.date !== dateInZone(now, rule.timeZone)) continue
-    seen.set(r.key, { key: r.key, ruleId: r.ruleId, title: rule.title, ackLabel: r.label, target: null, early: null, ringing: false, doneAt: r.recordedAt * 1000 })
+    seen.set(r.key, { key: r.key, ruleId: r.ruleId, title: rule.title, ackLabel: r.label, target: null, early: null, ringing: false, doneAt: at(r), doneLabel: r.label, arrived: arrivals.has(r.key) })
   }
   return [...seen.values()].sort((a, b) => (a.target ?? a.doneAt) - (b.target ?? b.doneAt))
 }
+
+// The window an arrival counts in, for one alarm target: { from, to } in ms.
+export function arrivalWindow(targetMs) {
+  return { from: targetMs - ARRIVAL_WINDOW_MINUTES * 60000, to: targetMs + ARRIVAL_WINDOW_MINUTES * 60000 }
+}
+
+// Where the arrival row stands, from the rule and the phone's location status:
+//   off | needs-place | needs-always | denied | unavailable | ready
+// "ready" means on, placed, and allowed to wake in the background.
+export function arrivalState(rule, location) {
+  const a = rule?.arrival
+  if (!a || !a.enabled) return a ? 'off' : 'needs-place'
+  if (!location?.available) return 'unavailable'
+  if (location.authorization === 'denied' || location.authorization === 'restricted') return 'denied'
+  if (location.authorization !== 'always') return 'needs-always'
+  if (location.monitoring === false) return 'unavailable'
+  return 'ready'
+}
+

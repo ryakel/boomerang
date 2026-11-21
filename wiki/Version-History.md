@@ -6,6 +6,24 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-11-21
 
+- feat(kept): arriving at a saved place marks the loop's day done [L]
+  - Owner: "If I am at the school, I made it and we are done", with four decisions recorded in D020 (BOOM-53).
+  - **Alarm card:** a **Done when I arrive** row and sheet. Save the place with **Use where I am now** or a typed address (looked up on the phone), name it, and turn it on. Turning it on asks iOS for Always location. The card warns when Always is missing, location is off, or the app needs the rebuild.
+  - **On the phone (native, Dev build only):** `ArrivalMonitor` watches each armed rule's place.
+    - An entry within an hour of that day's alarm records an arrival, cancels the day's remaining cues, and posts a quiet banner ("Arrived at School, 2:14").
+    - On next sync, the server records the day and the app marks the loop done through `handleMarkLoopDay`. Today reads "Arrived at School at 2:14".
+    - Turning arrival off drops the place at the next sync without re-arming.
+  - **Native changes:**
+    - `BoomerangAlarmRules.swift`: arrival types, `ArrivalMonitor`, and plugin methods (`locationStatus`, `requestLocation`, `currentLocation`, `geocode`, `arrivalSynced`, `dropPlaces`);
+    - `AppDelegate`: starts the monitor at launch;
+    - `Info.plist`: the location usage strings.
+  - **Needs one iOS rebuild of the Dev app.**
+  - **Checked:**
+    - New tests for arrival validation and storage, Today's wording, the window and the row states. `scripts/alarmArrivalBrowser.test.mjs` drives the whole flow against the real routes and a fake phone written to mirror the Swift.
+    - `npm test` 704/704; alarm unit suite 31/31; the 3 alarm browser tests pass. Lint is unchanged at 13 warnings.
+    - The Swift was reviewed by reading only. It hasn't been compiled here; the owner's Xcode build is the first compile.
+  - The phone's new storage fields are optional, so an existing alarm file still loads (CLAUDE.md now records why).
+
 - docs(wiki): record the owner's answers on arriving as done [XS]
   - D020 now records the four location decisions (BOOM-53): save the place by "here now" or by address (map later); count arrival from 1h before to 1h after the alarm; without Always, the alarm is unchanged; and a quiet notification plus a Today line when it fires. Nothing is built yet.
 

@@ -127,3 +127,25 @@ Before BOOM-51, the owner ran the Settings sound test on the Dev phone: "The ala
 Not reported this time: Snooze re-alert, Stop, Cancel-before-fire, and Silent switch position. The 2026-11-14 probe results in [AlarmKit Probe](AlarmKit-Probe.md) still cover those.
 
 No rule alarm, meaning one armed from the new card, has been tested on the phone yet.
+
+## Arriving as done (BOOM-53, 2026-11-21)
+
+A rule can carry an optional **arrival** place: `{ enabled, latitude, longitude, radius (150 m default, 50–1000), label }`, validated in `server/alarmSchedule.js`. The owner's decisions are in D020.
+
+- **Saving the place.** "Use where I am now" (`currentLocation`, which needs While Using) or an address (`geocode`, CLGeocoder on the phone). Map picking is a future option. Saving with arrival on asks for Always.
+- **Arming.** `applyAlarmRulePlan` sends `places` for the armed rules whose arrival is on. The phone stores them (`AlarmRulesDisk.places`) and monitors a circular region per place, only while that rule has a cue still to come or one within the hour after its target (`syncRegions`).
+- **Switching off.** Turning arrival off doesn't wait for a re-arm. Every sync tells the phone to `dropPlaces` for rules whose arrival is off, and that never touches a cue.
+- **On entry.** `ArrivalMonitor` is a single `CLLocationManager`, created in `AppDelegate` so iOS can relaunch the app for a region entry. It hands the event to `AlarmRulesService.arrive`, which:
+  - picks the rule's target cue nearest now, within **±1 hour** (`ArrivalMonitor.window`, mirrored by `ARRIVAL_WINDOW_MINUTES`), counting at most once per occurrence;
+  - writes a durable `ArrivalReceipt` first;
+  - cancels the occurrence's remaining cues, the same as the done button;
+  - posts a quiet notification: a banner, no sound.
+- **Sync.** `syncAlarmRuleState` records the day on the server (the existing `/ack`). Then it calls the app's arrival handler, which marks the loop day done through `handleMarkLoopDay`, the same stamp-and-close path as the loop calendar. Only then does it mark the arrival synced. If loops haven't loaded yet, the handler throws, so the arrival stays pending and nothing is lost.
+- **No server call from native code.** It stays within CLAUDE.md's native credential rules.
+- **Storage compatibility.** `places` and `arrivals` are optional fields on the phone's alarm file. A file from before BOOM-53 lacks them, and a required field would fail to decode and mark the whole store unreadable.
+- **Checked in this environment:**
+  - `scripts/alarmRules.test.mjs` covers arrival validation and storage;
+  - `scripts/alarmRuleModel.test.mjs` covers arrival wording on Today, the window and the arrival row's states;
+  - `scripts/alarmArrivalBrowser.test.mjs` drives the card, arming, an arrival, the sync and switching off, against the real routes and a fake phone written to mirror the Swift.
+- **Not checked here:** the Swift has not been compiled in this environment (there's no Xcode). It needs the owner's Dev build and a real arrival.
+

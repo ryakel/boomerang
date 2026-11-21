@@ -14,9 +14,22 @@ export function validateAlarmRule(input) {
   if (!Number.isInteger(input.leadMinutes) || input.leadMinutes < 1 || input.leadMinutes > 120) fail('Early cue must be 1–120 minutes before the target.')
   if (!Number.isInteger(input.snoozeMinutes) || input.snoozeMinutes < 1 || input.snoozeMinutes > 30) fail('Snooze must be 1–30 minutes.')
   if (typeof input.ackLabel !== 'string' || !input.ackLabel.trim() || input.ackLabel.length > 60) fail('Enter an acknowledgment label.')
+  // Arriving as done (BOOM-53): an optional saved place. Coordinates only, the
+  // ones the owner saved; never a location history.
+  const arrival = input.arrival == null ? null : validateArrival(input.arrival, fail)
   return { sourceKind: input.sourceKind, sourceId: input.sourceId, enabled: input.enabled, timeZone: input.timeZone,
     weekly: weekly.map(({weekday,time}) => ({weekday,time})), dates: dates.map(({date,time}) => ({date,time})),
-    leadMinutes: input.leadMinutes, snoozeMinutes: input.snoozeMinutes, ackLabel: input.ackLabel.trim() }
+    leadMinutes: input.leadMinutes, snoozeMinutes: input.snoozeMinutes, ackLabel: input.ackLabel.trim(), arrival }
+}
+
+export const ARRIVAL_RADIUS_DEFAULT = 150
+function validateArrival(a, fail) {
+  const num = (v, lo, hi) => typeof v === 'number' && Number.isFinite(v) && v >= lo && v <= hi
+  if (typeof a !== 'object' || typeof a.enabled !== 'boolean') fail('Choose whether arriving counts as done.')
+  if (!num(a.latitude, -90, 90) || !num(a.longitude, -180, 180)) fail('Save the place again: its location is invalid.')
+  if (!num(a.radius ?? ARRIVAL_RADIUS_DEFAULT, 50, 1000)) fail('The arrival area must be 50–1000 m.')
+  if (typeof a.label !== 'string' || !a.label.trim() || a.label.length > 80) fail('Name the place (up to 80 characters).')
+  return { enabled: a.enabled, latitude: a.latitude, longitude: a.longitude, radius: a.radius ?? ARRIVAL_RADIUS_DEFAULT, label: a.label.trim() }
 }
 export function validDate(value) {
   return typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value) && Number.isFinite(Date.parse(value)) && new Date(value).toISOString().slice(0,10) === value

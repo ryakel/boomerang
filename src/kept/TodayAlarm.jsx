@@ -33,7 +33,7 @@ export default function TodayAlarm() {
               <span className={`t2-row-title${a.doneAt ? ' al-done' : ''}`}>{a.title}{a.target ? ` · ${timeIn(a.target, zone)}` : ''}</span>
               <span className="t2-row-meta">
                 {a.doneAt
-                  ? `${a.ackLabel} at ${timeIn(a.doneAt, zone)}`
+                  ? `${a.doneLabel || a.ackLabel} at ${timeIn(a.doneAt, zone)}`
                   : a.ringing ? 'Ringing now' : [a.early ? `First warning ${timeIn(a.early, zone)}` : null, 'armed on this phone'].filter(Boolean).join(' · ')}
               </span>
             </div>

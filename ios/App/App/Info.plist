@@ -39,6 +39,10 @@
 	<false/>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>Boomerang uses your location to save a place, like a school, so arriving there can count as done for the day.</string>
+	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+	<string>Boomerang notices when you arrive at a place you saved for a loop, even when the app is closed, and turns that day's alarms off. Only the arrival time is recorded.</string>
 	<key>NSAlarmKitUsageDescription</key>
 	<string>Boomerang schedules alarms you explicitly review and arm for your tasks and routines, including snooze and sound tests. These alarms can sound through Silent and Focus.</string>
 	<key>NSRemindersFullAccessUsageDescription</key>
