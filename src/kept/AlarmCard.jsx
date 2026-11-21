@@ -381,9 +381,14 @@ function ArrivalSheet({ arrival, location, busy, onClose, onSave, onLocationChan
     setMsg({ text: `Found ${r.name || address.trim()}.` })
   })
   const save = () => act('save', async () => {
-    // Always is asked for only when arrival is being switched on.
-    if (on && location?.authorization !== 'always') await alarmLocation.request(true)
+    // Save FIRST, then ask iOS for Always. The ask can resolve late or not at
+    // all (keeping "While Using" changes nothing, so iOS never calls back), and
+    // a save parked behind it could land after a re-arm and leave the card on
+    // "Changes waiting" (owner, 2026-11-21). The card re-reads permission when
+    // the ask settles and warns if Always is still missing.
+    const wantsAlways = on && location?.authorization !== 'always'
     await onSave({ enabled: on, latitude: place.latitude, longitude: place.longitude, radius: place.radius ?? 150, label: name.trim() })
+    if (wantsAlways) alarmLocation.request(true).catch(() => {}).finally(() => onLocationChanged?.())
   })
 
   return (

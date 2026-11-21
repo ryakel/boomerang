@@ -55,7 +55,9 @@ test('arriving at a saved place stops the day\'s alarm, marks the loop done and 
           cancelRules:async({ruleIds=[],keys=[]})=>{state.cues=state.cues.map(x=>ruleIds.includes(x.ruleId)||keys.includes(x.key)?{...x,state:'cancelled'}:x);state.places=state.places.filter(p=>!ruleIds.includes(p.ruleId));return snap()},
           cancelAll:async()=>{state.cues=state.cues.map(x=>({...x,state:'cancelled'}));state.places=[];return snap()},
           locationStatus:async()=>({...loc}),
-          requestLocation:async({always})=>{loc.requests.push(!!always);if(always)loc.authorization='always';return {...loc}},
+          // Like keeping "While Using" at iOS's Always prompt: the ask hangs a
+          // while and changes nothing, so iOS never calls back.
+          requestLocation:async({always})=>{loc.requests.push(!!always);if(always){await new Promise(r=>setTimeout(r,4000));return {...loc}}return {...loc}},
           currentLocation:async()=>({...loc,latitude:41.8781,longitude:-87.6298,accuracy:12}),
           geocode:async({address})=>({...loc,latitude:41.9,longitude:-87.65,name:'Lincoln Elementary, Chicago'}),
         })});`
@@ -85,24 +87,37 @@ test('arriving at a saved place stops the day\'s alarm, marks the loop done and 
   await dialog.getByRole('button',{name:'Save',exact:true}).click()
   await badge('Not armed yet')
 
-  // Save the place by "Use where I am now".
+  // The owner's order (2026-11-21): arm first, add the place, then re-arm.
+  await card.getByRole('button',{name:'Arm on this phone'}).click()
+  await badge('Armed on this phone')
   await card.getByRole('button',{name:/Done when I arrive\s*Off/}).click()
   await dialog.getByRole('button',{name:'Use where I am now'}).click()
   await dialog.getByText('Saved where you are now',{exact:false}).waitFor()
   await dialog.getByLabel('Place name').fill('Lincoln')
+  const t0=Date.now()
   await dialog.getByRole('button',{name:'Save',exact:true}).click()
+  // The place saves at once, even though the Always ask is still hanging.
+  await badge('Changes waiting')
+  assert.ok(Date.now()-t0<3000,'saving never waits for the Always prompt')
   await card.getByRole('button',{name:/Done when I arrive\s*Lincoln/}).waitFor()
   assert.deepEqual(data.rules[0].arrival,{enabled:true,latitude:41.8781,longitude:-87.6298,radius:150,label:'Lincoln'})
   assert.deepEqual(await native(()=>window.locationNative.requests),[false,true],'While Using to read the spot, then Always because arrival was switched on')
-  assert.equal(await native(()=>window.ruleNative.arms),0,'saving the place never arms')
+  assert.equal(await native(()=>window.ruleNative.arms),1,'saving the place never arms')
 
-  // Arm: the phone gets the place with the plan.
-  await card.getByRole('button',{name:'Arm on this phone'}).click()
+  // Re-arm: the phone gets the place, and the card settles on Armed, even
+  // after the hanging Always ask finally returns.
+  const rev=data.rules[0].revision
+  await card.getByRole('button',{name:'Re-arm changes'}).click()
   await badge('Armed on this phone')
+  await page.waitForTimeout(4500)
+  await native(()=>document.dispatchEvent(new Event('visibilitychange')))
+  await badge('Armed on this phone')
+  assert.equal(data.rules[0].revision,rev,'nothing saved the rule again after the re-arm')
   const places=await native(()=>window.ruleNative.lastPlaces)
   assert.equal(places.length,1)
   assert.equal(places[0].ruleId,data.rules[0].id)
   assert.equal(places[0].label,'Lincoln')
+  await native(()=>{window.locationNative.authorization='always'})
 
   // Arrive. The phone cancels the day's cues and records it; the next sync
   // records it on the server and calls the app's mark-done handler.
@@ -137,7 +152,7 @@ test('arriving at a saved place stops the day\'s alarm, marks the loop done and 
   await card.getByRole('button',{name:/Done when I arrive\s*Off/}).waitFor()
   await native(async()=>{const m=await import('/src/alarmRules.js');await m.refreshAlarmRuleState()})
   assert.deepEqual(await native(()=>window.ruleNative.places),[],'the place is dropped')
-  assert.equal(await native(()=>window.ruleNative.arms),1,'without arming again')
+  assert.equal(await native(()=>window.ruleNative.arms),2,'without arming again')
   assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth),true,'no sideways scroll')
   await page.screenshot({path:'/tmp/boomerang-arrival-card.png',fullPage:true})
   assert.deepEqual(errors,[])

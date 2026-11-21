@@ -6,6 +6,25 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-11-21
 
+- fix(kept): save an arrival place before asking for always location [S]
+  - Owner: the flow "worked until re-arm… now its stuck at changes waiting" (BOOM-53).
+  - **Likely cause:** saving the place waited for iOS's Always prompt first. When the answer leaves permission unchanged (keeping "While Using"), iOS never calls back, so the save sat for the 30-second timeout. A re-arm in that gap was followed by the late save, which bumped the rule's revision after arming and left the badge on "Changes waiting".
+  - **Fix:** save first, then ask for Always in the background. The card re-reads permission when the ask settles, and still warns if Always is missing.
+  - **Checked:**
+    - `scripts/alarmArrivalBrowser.test.mjs` now follows the owner's order (arm, add the place, re-arm), with a fake Always prompt that hangs and changes nothing. It checks the place saves within 3 seconds, the re-arm settles on Armed, and nothing re-saves the rule afterwards.
+    - The test fails on the previous code ("saving never waits for the Always prompt") and passes on this one.
+    - The owner's own phone state hasn't been seen, so this is the likely cause rather than a confirmed one.
+- fix(kept): switch a loop to checklist or practice from its own page [S]
+  - Owner: "checklist and Practice drop me into the old UI" (BOOM-54).
+  - Tapping Checklist or Practice under "How it comes back" opened the legacy loop editor. Now it opens a Kept sheet on the loop page (`src/kept/LoopModeSheet.jsx`):
+    - **Practice:** aim for N a week or month.
+    - **Checklist:** add or remove items.
+    - **Reminder from a checklist:** confirm removing its items.
+    - **Practice back to Reminder:** switches straight away.
+  - Saves go through `updateRoutineFromEditor` with the same fields the editor sets (`spawn_mode`, `target_count`/`target_period`, `remind: false`, `members`). A loop's mode stays derived.
+  - **Checked:** Playwright drove every switch in the real app. Each one saved to the server, the page shows the new mode, a checklist's items go only after the confirm, the old editor never opened, and there were no page errors.
+  - The page's **Edit** button still opens the old editor for title, schedule and time.
+
 - feat(kept): arriving at a saved place marks the loop's day done [L]
   - Owner: "If I am at the school, I made it and we are done", with four decisions recorded in D020 (BOOM-53).
   - **Alarm card:** a **Done when I arrive** row and sheet. Save the place with **Use where I am now** or a typed address (looked up on the phone), name it, and turn it on. Turning it on asks iOS for Always location. The card warns when Always is missing, location is off, or the app needs the rebuild.
