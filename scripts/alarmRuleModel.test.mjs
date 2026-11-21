@@ -1,7 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { planAlarmRule } from '../server/alarmSchedule.js'
-import { ringsSummary, oneOffSummary, armWindow, alarmCardStatus, todayAlarms, clock12, MAX_ARMED, arrivalWindow, arrivalState } from '../src/alarmRuleModel.js'
+import { changesWhyText, ringsSummary, oneOffSummary, armWindow, alarmCardStatus, todayAlarms, clock12, MAX_ARMED, arrivalWindow, arrivalState } from '../src/alarmRuleModel.js'
 
 // The alarm interface's rules (BOOM-51). State is built with the REAL server
 // planner so a change to planning shows up here too.
@@ -189,4 +189,22 @@ test('the arrival row says exactly what is missing', () => {
   assert.equal(arrivalState(pickup({ arrival: place }), { available: false }), 'unavailable')
   assert.equal(arrivalState(pickup({ arrival: place }), loc('always', { monitoring: false })), 'unavailable')
   assert.equal(arrivalState(pickup({ arrival: place }), loc('always')), 'ready')
+})
+
+test('changes waiting says what differs, including days the phone cancelled', () => {
+  const rule = pickup(), state = stateFor(rule, SAT_NOON)
+  const items = armWindow(state, DEVICE).items
+  // Two days in the middle came back cancelled from the phone.
+  const native = nativeFor(items)
+  const gone = new Set([items[2].key, items[3].key])
+  native.cues = native.cues.map(c => gone.has(c.key) ? { ...c, state: 'cancelled' } : c)
+  const s = alarmCardStatus({ rule, state, native, armedRevision: 1, now: SAT_NOON })
+  assert.equal(s.status, 'changes')
+  assert.deepEqual(s.why.missing, [{ date: items[2].date, state: 'cancelled' }, { date: items[3].date, state: 'cancelled' }])
+  assert.match(changesWhyText(s.why), /doesn’t have .* \(cancelled on the phone\)/)
+  // A settings-only edit names itself.
+  const snooze = pickup({ revision: 2, snoozeMinutes: 10 })
+  const s2 = alarmCardStatus({ rule: snooze, state: stateFor(snooze, SAT_NOON), native: nativeFor(items), armedRevision: 1, now: SAT_NOON })
+  assert.equal(changesWhyText(s2.why), 'The warning, snooze or done-button text changed since arming.')
+  assert.equal(alarmCardStatus({ rule, state, native: nativeFor(items), armedRevision: 1, now: SAT_NOON }).why, null)
 })

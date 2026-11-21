@@ -6,6 +6,15 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-11-21
 
+- feat(kept): say why an alarm reads changes waiting [XS]
+  - Owner, after the BOOM-56 rebuild: "Still not rearming. Stuck in waiting."
+  - Under the badge, the card names what differs:
+    - days the phone doesn't have, with the phone's own state for each (cancelled, not listed, absent, marked done);
+    - days whose times differ;
+    - days the phone still has that you removed;
+    - a settings-only edit.
+  - "Cancelled on the phone" right after an arming means the phone skipped those days, i.e. it is still on the pre-BOOM-56 build. Web-only, no rebuild.
+
 - fix(ios): arming again schedules days whose alarms were cancelled [S]
   - Owner: "Now arm on this phone doesn't work at all… It's persistently off now" (BOOM-56).
   - The phone's apply skipped any cue it had cancelled, so after Turn off → Turn on, Arm scheduled nothing and reported no error. The same skip hit a day dropped and added back.

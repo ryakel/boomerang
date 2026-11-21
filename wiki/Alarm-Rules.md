@@ -179,3 +179,12 @@ Launch and resume still never schedule anything.
 **Why the tests missed it.** The browser fixture re-scheduled cancelled cues, which the Swift never did. Both alarm browser suites now share `scripts/alarmNativeFixture.mjs`, which mirrors the Swift apply. `ALARM_NATIVE_RULES=before-boom-56` replays the old skip and fails at Turn off → Turn on → Arm. A change to the Swift apply must change that file in the same commit.
 
 `useAlarmRules.run` also used to clear a failed re-read when the operation itself had succeeded. The card then showed stale state with no hint. The re-read's error now shows.
+
+**Saying why.** When the card reads "Changes waiting", a line under the badge (`changesWhyText`, from `alarmCardStatus().why`) names what differs. For each missing day it gives the phone's own state:
+- `cancelled`;
+- `not-listed` (accepted but iOS no longer lists it);
+- `uncertain`;
+- `absent`;
+- `marked done` (a receipt or an arrival on the phone).
+
+A day that still reads cancelled right after an arming means the phone didn't schedule it.
