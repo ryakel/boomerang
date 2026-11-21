@@ -4,6 +4,7 @@ import {
   Sparkles, Plus, Compass, Bell, StickyNote, ShoppingCart,
 } from 'lucide-react'
 import Logo from '../components/Logo'
+import { SheetHostContext } from './sheetHost'
 import { useSyncBounce } from '../hooks/useSyncBounce'
 import TodayView from './TodayView'
 import TodayKept2 from './TodayKept2'
@@ -35,6 +36,7 @@ export default function KeptDesktop({
   const [tab, setTab] = useState('today')
   const syncVisualState = useSyncBounce(syncStatus, queueLength)
   const [throwOpen, setThrowOpen] = useState(false)
+  const [sheetHost, setSheetHost] = useState(null)
 
   useEffect(() => {
     const onKey = (e) => {
@@ -98,7 +100,8 @@ export default function KeptDesktop({
   }
 
   return (
-    <div className="bm-desktop bm-desktop-sheets">
+    <SheetHostContext.Provider value={sheetHost}>
+    <div className="bm-desktop bm-desktop-sheets" ref={setSheetHost}>
       <aside className="bm-side">
         <div className="bm-side-brand">
           <Logo size={22} />
@@ -157,5 +160,6 @@ export default function KeptDesktop({
         onScanSchedule={onScanSchedule}
       />
     </div>
+    </SheetHostContext.Provider>
   )
 }

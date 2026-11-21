@@ -10,6 +10,7 @@ import RowSwipe from './RowSwipe'
 import Section, { useCollapsedSections } from './Section'
 import BoardView from './BoardView'
 import TasksUpcoming from './TasksUpcoming'
+import SheetPortal from './SheetPortal'
 import WeatherBadge from '../components/WeatherBadge'
 import { resolveWeatherVisibility } from '../components/WeatherSection'
 import './shell.css'
@@ -258,6 +259,7 @@ export default function TasksViewKept({ tasks = [], labels = [], routines = [], 
       ))}
 
       {sheetTask && (
+        <SheetPortal>
         <div className="bm-sheet-backdrop" onClick={() => setSheetTask(null)}>
           <div className="bm-sheet" ref={sheetRef} onClick={e => e.stopPropagation()}>
             <div className="bm-sheet-handle" {...sheetHandleProps}>
@@ -290,6 +292,7 @@ export default function TasksViewKept({ tasks = [], labels = [], routines = [], 
             </button>
           </div>
         </div>
+        </SheetPortal>
       )}
     </div>
   )

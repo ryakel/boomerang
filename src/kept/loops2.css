@@ -53,6 +53,17 @@
 .lp-qitem > svg { color: var(--t2-faint); flex: 0 0 auto; }
 
 /* ── A loop's page ─────────────────────────────────────────────────────── */
+/* The title row (Back · title · Edit) stays pinned while the page scrolls, so
+ * leaving a long loop page never means scrolling back to the top first. The
+ * negative margins cancel .bm-surface's padding so the bar spans the surface
+ * and covers what scrolls under it. */
+.bm-loop-detail > .bm-title-row {
+  position: sticky; top: 0; z-index: 3;
+  margin: -14px -16px 14px; padding: 12px 18px 10px;
+  background: var(--bm-bg);
+  border-bottom: 1px solid var(--bm-hairline);
+}
+.bm-desktop .bm-loop-detail > .bm-title-row { margin: -22px -28px 14px; padding: 14px 28px 10px; }
 .lp-seg {
   display: grid; grid-template-columns: repeat(4, 1fr);
   background: color-mix(in srgb, var(--t2-text) 5.5%, transparent);
