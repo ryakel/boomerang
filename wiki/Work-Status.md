@@ -1,6 +1,13 @@
 # Work status and authorization
 
-## Production release v2.64.2 (2026-11-21)
+## Alarm interface in dev (BOOM-51, 2026-11-21)
+
+The owner approved the mockup ("Ok. Let's try it in dev").
+- A loop's page gets an Alarm card. Today gets "Alarm today". Settings → Alarms becomes an overview, and the raw form is gone.
+- Decisions: renewal is offered, never automatic; the done button doesn't complete the loop; the form leaves Settings.
+- Still Dev-only: D015 holds, and enabling in production needs separate approval.
+- Owner device evidence so far: the sound test rang with the phone locked. No alarm armed from the new card has been tested on the phone yet. That's next, and it's web-only, so no rebuild beyond the one BOOM-38 already needed.
+
 
 Everything in the Kept 2.0 table below is in production. The owner asked for
 it ("it's time to start moving this all to production"), and promoted the CI

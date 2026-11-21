@@ -798,10 +798,28 @@ offline queue — a capture made with no connectivity (car, dead zones) is
 stored in the App Group and replayed on the next capture or app open, so a
 thought is never lost to a network blip. See `wiki/iOS-Native-App.md`.
 
-### Configurable task/routine alarms — Dev native trial
+### Alarms on a loop — Dev native trial
 
-[Alarm rules](Alarm-Rules.md) attach editable weekly/on-demand clocks, timezone,
-early cues, snooze and acknowledgment to an existing source. Saved rules require
-explicit preview/arming on one Dev phone. Native Stop is not task completion;
-acknowledgment cancels that date's remaining cues. Owner-led physical delivery
-checks remain pending; no live configuration is seeded by the feature.
+A loop's page has an **Alarm** card (Dev phone app only). It shows:
+- **Rings:** the days and a time per day, for example "Mon · Tue · Thu · Fri 2:00 PM / Wed 1:30 PM".
+- **First warning:** how many minutes before the alarm.
+- **Snooze:** its length.
+- **Done button says:** for example "Leaving now".
+- **One-off changes:** skipped days and extra days.
+- **Next up:** the next three alarms.
+
+Tap a row to change it. **When it rings** is a sheet with day chips, a time per day, and one-off dates or skips.
+
+Saving never reaches the phone. **Arm on this phone** does that. The badge reads Not armed yet, Armed on this phone, Changes waiting, Off, or On hold.
+
+**On hold** means one of two things:
+- the loop's own phone reminder is on, and the card offers **Turn off the reminder** so you don't get both;
+- the loop is paused, ended or on Autopilot.
+
+The phone holds 16 alarms at a time. One arming covers the next 16, and the card says how far that reaches ("Armed through Dec 14"). Nothing re-arms by itself: within five days of the end, the card and Today say so and offer **Re-arm to keep going**.
+
+**Today** shows an **Alarm today** card with the time, the first warning and the done button. Tapping it stops that day's remaining alarms and records the tap. It doesn't mark the loop done. The card then reads "Leaving now at 1:52 PM".
+
+**Settings → Notifications → Alarms** lists what this phone holds and has **Cancel all alarms on this phone**. Permission and the one-minute sound test stay in **Test channels**. Stop on the alarm only silences it.
+
+Details and limits: [Alarm Rules](Alarm-Rules.md).
