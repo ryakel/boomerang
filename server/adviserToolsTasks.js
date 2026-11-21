@@ -269,7 +269,7 @@ export function registerTaskTools() {
   // --- CREATE ---
   registerTool({
     name: 'create_task',
-    description: 'Create a new task — something the user has to DO. NOT the place for reference material: "make a KB", "add to my knowledge base", "remember that…", a how-to, a recipe or a procedure is `create_knowledge`, and a quick jot is `create_note`. Never fall back to a task because one of those is unavailable — say it is unavailable instead. Defaults: size M, status not_started. Size/energy will be auto-refined by the background AI sizer. For multi-part tasks, populate `checklist_items` with sub-items so the user gets one umbrella task with a checklist rather than 8 separate tasks. For PROJECT sub-tasks (the user wants real, independent tasks broken out from a project so each can complete on its own schedule), set `parent_id` to the project id — the task is linked at creation, no follow-up `link_task_to_project` call needed. To create a project itself, set `status: "project"`; optionally `pinned_to_today: true` and `nag_allowed: true`. The staged response includes the real `id` this task will have after commit — chain from THAT id (e.g. as `parent_id` of sub-tasks staged in the same plan, or the `id` of a same-plan update_task); never invent ids, never use the stepId UUID or partial id substrings.',
+    description: 'Create a new task — something the user has to DO. NOT the place for reference material: "make a KB", "add to my knowledge base", "remember that…", a how-to, a recipe or a procedure is `create_knowledge`, and a quick jot is `create_note`. Never fall back to a task because one of those is unavailable — say it is unavailable instead. Defaults: size M, status not_started. Size/energy will be auto-refined by the background AI sizer. For multi-part tasks, populate `checklist_items` with sub-items so the user gets one umbrella task with a checklist rather than 8 separate tasks. For PROJECT sub-tasks (the user wants real, independent tasks broken out from a project so each can complete on its own schedule), set `parent_id` to the project id — the task is linked at creation, no follow-up `link_task_to_project` call needed. To create a project itself, set `status: "project"`; optionally `pinned_to_today: true` and `nag_allowed: true`. For an ordinary task the user wants to work on today but that is not due today, set `pinned_to_today: true` ("keep it on Today"): it stays on Today until done, unpinned or due — never set a due date of today to fake that. The staged response includes the real `id` this task will have after commit — chain from THAT id (e.g. as `parent_id` of sub-tasks staged in the same plan, or the `id` of a same-plan update_task); never invent ids, never use the stepId UUID or partial id substrings.',
     schema: {
       type: 'object',
       properties: {
@@ -310,7 +310,7 @@ export function registerTaskTools() {
         },
         pinned_to_today: {
           type: 'boolean',
-          description: 'Project-only flag (ignored unless status=project). When true, the project pins to the main task list as a "Pinned projects" section.',
+          description: 'Keep on Today. On an ordinary task: it stays on the Today screen until it is done, unpinned, or its due date arrives (then it is simply due). On a project: it pins as a "Pinned projects" arc. Only when the user asks to keep/put something on Today without it being due today.',
         },
         nag_allowed: {
           type: 'boolean',
@@ -431,10 +431,10 @@ export function registerTaskTools() {
         checklists,
         parent_id: args.parent_id || null,
         child_visibility: childVis,
-        // pinned_to_today only has visible effect on projects (the "Pinned
-        // projects" section is project-only) so it's skipped for other
-        // statuses to avoid surprise. nag_allowed now applies to any task.
-        pinned_to_today: args.status === 'project' ? !!args.pinned_to_today : false,
+        // pinned_to_today: a project's pinned arc, or an ordinary task kept
+        // on Today until done/unpinned/due (2026-11-21). nag_allowed applies
+        // to any task.
+        pinned_to_today: !!args.pinned_to_today,
         nag_allowed: !!args.nag_allowed,
         assignee: args.assignee || null,
         impact: args.impact ?? null,

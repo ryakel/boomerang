@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { SlidersHorizontal, ScanLine } from 'lucide-react'
+import { SlidersHorizontal, ScanLine, Pin } from 'lucide-react'
 import { localYMD, addDays, localDateTimeValue, nextHalfHour } from '../dates'
 import useSheetSwipeDown from '../hooks/useSheetSwipeDown'
 import './shell.css'
@@ -41,6 +41,11 @@ export default function ThrowSheet({ open, onClose, onThrow, onThrowNote, onMore
   const [dateId, setDateId] = useState('none')
   const [mode, setMode] = useState('task')
   const [remindAt, setRemindAt] = useState('')
+  // Keep on Today: a conscious choice for a task that isn't due today. It holds
+  // until done, unticked or due, so it's separate from the day chips (a task
+  // can be due at the weekend AND kept on Today). Choosing Today already puts
+  // it there, so the toggle steps aside for that chip.
+  const [keepToday, setKeepToday] = useState(false)
   // True while the keyboard is up and the sheet is translated above it.
   const [lifted, setLifted] = useState(false)
   const inputRef = useRef(null)
@@ -115,9 +120,10 @@ export default function ThrowSheet({ open, onClose, onThrow, onThrowNote, onMore
         title: t,
         dueDate: mode === 'reminder' ? null : resolve(dateId),
         remindAt: mode === 'reminder' ? (remindAt || null) : null,
+        pinnedToToday: mode === 'task' && keepToday && dateId !== 'today',
       })
     }
-    setTitle(''); setDateId('none'); setRemindAt('')
+    setTitle(''); setDateId('none'); setRemindAt(''); setKeepToday(false)
     closeAndBlur()
   }
 
@@ -130,6 +136,7 @@ export default function ThrowSheet({ open, onClose, onThrow, onThrowNote, onMore
       title: title.trim(),
       dueDate: mode === 'reminder' ? null : resolve(dateId),
       remindAt: mode === 'reminder' ? (remindAt || null) : null,
+      pinnedToToday: mode === 'task' && keepToday && dateId !== 'today',
     })
   }
 
@@ -189,6 +196,11 @@ export default function ThrowSheet({ open, onClose, onThrow, onThrowNote, onMore
             {DATES.map(d => (
               <button key={d.id} className={`bm-pick${dateId === d.id ? ' is-on' : ''}`} onMouseDown={keepFocus} onClick={() => setDateId(d.id)}>{d.label}</button>
             ))}
+            {dateId !== 'today' && (
+              <button className={`bm-pick bm-pick-keep${keepToday ? ' is-on' : ''}`} aria-pressed={keepToday} onMouseDown={keepFocus} onClick={() => setKeepToday(v => !v)}>
+                <Pin size={13} strokeWidth={2.2} aria-hidden="true" /> Keep on Today
+              </button>
+            )}
           </div>
         )}
         {mode === 'reminder' && (
