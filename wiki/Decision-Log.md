@@ -328,3 +328,23 @@ below predate those decisions and are historical recommendations, not authority.
      Practice, otherwise Reminder); Autopilot is the owner's choice per loop,
      made on the loop's page. No production loop is changed by the release.
 - Merge authority: D017 (standing, `dev` only).
+
+## D019 — Production release of Kept 2.0 beyond Today
+
+- Date/status: 2026-11-21, **approved and deployed**.
+- Source: owner, "Ok it's time to start moving this all to production and get
+  building. I need to reengage with this app on sabbatical", then "yes, promote
+  it once it's merged" for the CI fix.
+- Evidence:
+  - Release [#1043](https://github.com/ryakel/boomerang/pull/1043) built
+    v2.64.1 but did not deploy. Tailscale failed on the Ubuntu 26 runner.
+  - [#1045](https://github.com/ryakel/boomerang/pull/1045) pinned the
+    runners to `ubuntu-24.04`. Release
+    [#1046](https://github.com/ryakel/boomerang/pull/1046) promoted it.
+  - [Production workflow 44911059431](https://github.com/ryakel/boomerang/actions/runs/44911059431)
+    confirmed appVersion v2.64.2.
+  - Content-neutral [#1044](https://github.com/ryakel/boomerang/pull/1044) and
+    [#1047](https://github.com/ryakel/boomerang/pull/1047) restored main
+    ancestry in dev.
+- Both production approvals are used up by these releases. The next promotion
+  needs a new one.
