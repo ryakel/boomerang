@@ -6,6 +6,14 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-11-22
 
+- fix(ios): build the warning alarm without a countdown screen so iOS accepts it [XS]
+  - Owner screenshot (BOOM-56): "iOS won't take another alarm… It holds 1 for this app". So this was not the limit.
+  - The warning cue had a countdown screen in its presentation but no countdown length in its configuration. AlarmKit refuses that with "com.apple.AlarmKit.Alarm error 0", the same code as its limit error.
+  - Every arming scheduled the first 9:00 alarm, then died on its 8:55 warning. iOS held one alarm, and the card stayed on Changes waiting.
+  - The warning cue is now built from the alert alone.
+  - The refusal message no longer guesses "limit". It names the cue and date and how many alarms iOS holds.
+  - Native: needs one iOS rebuild.
+
 - fix(ios): recover when iOS refuses an alarm, and reclaim stray ones [S]
   - Owner screenshot (BOOM-56): Re-arm on "check bank account" failed with "com.apple.AlarmKit.Alarm error 0". The card's own line said only a setting had changed.
   - Error 0 is most likely `maximumLimitReached`, the only error AlarmKit documents. iOS sets the alarm limit per device and publishes no number.

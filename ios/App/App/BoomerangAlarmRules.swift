@@ -156,9 +156,9 @@ final class AlarmRulesService {
     // The disposable probe's one fixed alarm (BoomerangAlarmProbe.swift). The
     // only AlarmKit alarm this app makes outside the ledger; never reclaimed.
     private static let probeAlarmId = UUID(uuidString: "6C325A61-D308-4F9A-BE0F-4B5B741EE825")!
-    // AlarmKit's one documented error, maximumLimitReached, reaches us as
-    // "com.apple.AlarmKit.Alarm error 0". iOS sets the limit per device and
-    // state and documents no number (BOOM-56).
+    // "com.apple.AlarmKit.Alarm error 0": AlarmKit's documented limit error
+    // (maximumLimitReached, no published number) AND what a malformed
+    // configuration gets, e.g. a countdown screen with no countdown (BOOM-56).
     private func isLimit(_ error: Error) -> Bool {
         let e = error as NSError
         return e.domain == "com.apple.AlarmKit.Alarm" && e.code == 0
@@ -180,8 +180,10 @@ final class AlarmRulesService {
                 disk.cues[key]?.cancelled = true; try? save()
             }
             guard isLimit(error) else { throw error }
+            // Error 0 is not only the limit: a malformed configuration gets it
+            // too. Say what was refused and how many iOS holds, not a guess.
             let held = (try? alarms().count) ?? 0
-            throw self.error("iOS won’t take another alarm for Boomerang right now. It holds \(held) for this app. Try again in a minute; if it keeps refusing, fewer alarms fit on this phone.")
+            throw self.error("iOS refused the \(cue.earlyCue ? "warning" : "alarm") for \(cue.entry.date) (AlarmKit error 0). It holds \(held) alarm\(held == 1 ? "" : "s") for this app.")
         }
     }
     private func cancel(_ keys: [String]) throws {
@@ -324,7 +326,14 @@ final class AlarmRulesService {
         let text: LocalizedStringResource = "\(e.title)"
         let button: LocalizedStringResource = cue.earlyCue ? "Snooze until next cue" : "Snooze \(e.snoozeMinutes) min"
         let alert = AlarmPresentation.Alert(title: text, secondaryButton: AlarmButton(text: button, textColor: .white, systemImageName: "zzz"), secondaryButtonBehavior: cue.earlyCue ? .custom : .countdown)
-        let presentation = AlarmPresentation(alert: alert, countdown: AlarmPresentation.Countdown(title: text))
+        // The warning cue has no countdown (its snooze is a custom intent), so
+        // its presentation must not carry one either: a countdown screen with
+        // no countdownDuration makes AlarmKit refuse the alarm with
+        // "com.apple.AlarmKit.Alarm error 0". Every arming scheduled the first
+        // target, then died on its warning, so iOS held 1 alarm (BOOM-56).
+        let presentation = cue.earlyCue
+            ? AlarmPresentation(alert: alert)
+            : AlarmPresentation(alert: alert, countdown: AlarmPresentation.Countdown(title: text))
         let attributes = AlarmAttributes(presentation: presentation, metadata: AlarmProbeMetadata(title: e.title, detail: "Stop silences sound; acknowledgment is in Boomerang."), tintColor: Color.orange)
         let intent: (any LiveActivityIntent)? = cue.earlyCue ? AlarmEarlySnoozeIntent(cueID: cue.id.uuidString) : nil
         let config = AlarmManager.AlarmConfiguration(countdownDuration: cue.earlyCue ? nil : Alarm.CountdownDuration(preAlert: nil, postAlert: Double(e.snoozeMinutes*60)), schedule: .fixed(Date(timeIntervalSince1970: fireAt ?? (cue.earlyCue ? e.early : e.target))), attributes: attributes, secondaryIntent: intent)
