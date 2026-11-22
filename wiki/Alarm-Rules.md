@@ -190,3 +190,14 @@ Launch and resume still never schedule anything.
 A day that still reads cancelled right after an arming means the phone didn't schedule it.
 
 **Errors stay put.** `useAlarmRules` keeps a re-read error (cleared by the next good read) apart from an action's error (kept until the next action). They used to share one slot. The `boom-alarms-changed` event each action sends made the same card re-read and wipe its own error within a second, so a refused Re-arm only flashed.
+
+## When iOS refuses an alarm (BOOM-56, 2026-11-22)
+
+On the owner's phone, Re-arm failed with "com.apple.AlarmKit.Alarm error 0". AlarmKit documents one error, `maximumLimitReached`, and Apple's DTS FAQ says there is "no set number as a limit". The device decides based on its state. The browser tests can't model this, so the phone handles it itself:
+
+- **Retry once.** A refused schedule is retried after one second, because a re-arm cancels a cue right before replacing it and that slot may not be free yet.
+- **No permanent block.** A schedule that still fails marks its cue cancelled, so the next arming schedules it again. It used to stay "uncertain", which refused every later arming until Turn off. An unconfirmed cue that iOS doesn't list is now scheduled again: its id was persisted first and iOS doesn't hold it, so it can't duplicate an alarm.
+- **Reclaim.** Each arming cancels any scheduled alarm iOS holds for this app that no live ledger cue owns. The probe's fixed id is never touched. Such strays count against the limit and nothing else would cancel them.
+- **Say the number.** The refusal names how many alarms iOS holds for the app, and Settings → Alarms shows `systemAlarms` from the readback. Arming sends up to 16 occurrences, and each can carry a warning cue, so a full plan is up to 32 alarms.
+
+Open question: if 32 is over this phone's limit, the plan cap should count alarms (warnings included), not occurrences. Decide once the count is known.

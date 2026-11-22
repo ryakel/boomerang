@@ -49,6 +49,11 @@ export default function AlarmRulesPanel() {
           <p key={r.key} className="alarm-overview-receipt">{shortDate(r.date)}: {r.label}, {r.synced ? 'synced' : 'saved on this phone, waiting to sync'}</p>
         ))}
         <p>Alarm permission: {native?.authorization || 'unavailable'}</p>
+        {typeof native?.systemAlarms === 'number' && (
+          // What iOS holds for this app, counted by iOS. It sets an alarm limit
+          // per device and refuses past it (BOOM-56), so this is the number to read.
+          <p>iOS holds {native.systemAlarms} alarm{native.systemAlarms === 1 ? '' : 's'} for this app, including warnings.</p>
+        )}
         {error && <p role="alert">{error}</p>}
         {native?.lastError && <p role="alert">{native.lastError}</p>}
         <div className="alarm-overview-actions">
