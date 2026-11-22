@@ -201,3 +201,11 @@ On the owner's phone, Re-arm failed with "com.apple.AlarmKit.Alarm error 0". Ala
 - **Say the number.** The refusal names how many alarms iOS holds for the app, and Settings → Alarms shows `systemAlarms` from the readback. Arming sends up to 16 occurrences, and each can carry a warning cue, so a full plan is up to 32 alarms.
 
 Open question: if 32 is over this phone's limit, the plan cap should count alarms (warnings included), not occurrences. Decide once the count is known.
+
+**Update, same day: it wasn't the limit.** The new message read "It holds 1 for this app".
+
+The warning cue's presentation carried a `Countdown` while its configuration had `countdownDuration: nil`. AlarmKit refuses that combination with error 0, which other developers report as well. Every arming scheduled the first target and then failed on its warning.
+
+The warning is now built with `AlarmPresentation(alert:)`. Any future alarm shape must match presentation to configuration: a countdown screen only when `countdownDuration` is set.
+
+The retry, the reclaim and the count stay. Error 0 is still also the limit error.
