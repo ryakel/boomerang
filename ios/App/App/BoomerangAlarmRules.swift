@@ -153,6 +153,37 @@ final class AlarmRulesService {
         return UUID(uuid: (bytes[0],bytes[1],bytes[2],bytes[3],bytes[4],bytes[5],bytes[6],bytes[7],bytes[8],bytes[9],bytes[10],bytes[11],bytes[12],bytes[13],bytes[14],bytes[15]))
     }
     private func alarms() throws -> [Alarm] { try manager.alarms }
+    // The disposable probe's one fixed alarm (BoomerangAlarmProbe.swift). The
+    // only AlarmKit alarm this app makes outside the ledger; never reclaimed.
+    private static let probeAlarmId = UUID(uuidString: "6C325A61-D308-4F9A-BE0F-4B5B741EE825")!
+    // AlarmKit's one documented error, maximumLimitReached, reaches us as
+    // "com.apple.AlarmKit.Alarm error 0". iOS sets the limit per device and
+    // state and documents no number (BOOM-56).
+    private func isLimit(_ error: Error) -> Bool {
+        let e = error as NSError
+        return e.domain == "com.apple.AlarmKit.Alarm" && e.code == 0
+    }
+    // Schedule, retrying once on the limit: a slot a cancel just freed may not
+    // be free yet, and a re-arm always cancels a cue right before replacing it.
+    // A thrown schedule is a definite no, not a lost reply, so the cue is
+    // marked cancelled (the next arming schedules it again) instead of being
+    // left "uncertain", which refuses every later arming.
+    private func scheduleOwned(_ cue: OwnedAlarmCue, key: String) async throws {
+        do {
+            do { try await schedule(cue) }
+            catch let limited where isLimit(limited) {
+                try await Task.sleep(nanoseconds: 1_000_000_000)
+                try await schedule(cue)
+            }
+        } catch {
+            if !((try? alarms())?.contains(where: { $0.id == cue.id }) ?? false) {
+                disk.cues[key]?.cancelled = true; try? save()
+            }
+            guard isLimit(error) else { throw error }
+            let held = (try? alarms().count) ?? 0
+            throw self.error("iOS won’t take another alarm for Boomerang right now. It holds \(held) for this app. Try again in a minute; if it keeps refusing, fewer alarms fit on this phone.")
+        }
+    }
     private func cancel(_ keys: [String]) throws {
         let active = Set(try alarms().map(\.id))
         // Persist cancellation intent before daemon mutation. Resume never re-adds these.
@@ -201,6 +232,13 @@ final class AlarmRulesService {
             guard !active.contains(where: { alarm in disk.cues.values.contains { $0.id == alarm.id } && alarm.state != .scheduled }) else {
                 throw error("An owned alarm is ringing or snoozed. Acknowledge or cancel it before changing the plan.")
             }
+            // Reclaim: an alarm iOS holds for this app that no live cue owns
+            // still counts against iOS's alarm limit and nothing would ever
+            // cancel it. Only the ledger and the probe make alarms here.
+            let ownedLive = Set(disk.cues.values.filter { !$0.cancelled }.map(\.id))
+            for alarm in active where alarm.id != Self.probeAlarmId && !ownedLive.contains(alarm.id) && alarm.state == .scheduled {
+                try manager.cancel(id: alarm.id)
+            }
             let incoming = Set(entries.map(\.key))
             try cancel(disk.cues.keys.filter { !incoming.contains(disk.cues[$0]!.entry.key) })
             // A day already done on this phone (the done button, or an arrival
@@ -212,11 +250,12 @@ final class AlarmRulesService {
                     var fresh = false
                     if let old = disk.cues[key] {
                         let live = active.contains(where: { $0.id == old.id })
-                        if !old.cancelled && !old.accepted {
-                            guard live else { throw error("A previous scheduling outcome is uncertain. Cancel rule alarms and review native status before continuing.") }
-                            disk.cues[key]?.accepted = true; try save()
-                            continue
-                        }
+                        // An unconfirmed cue iOS does list did get scheduled.
+                        // One it doesn't list is scheduled again below: the
+                        // id was persisted first and iOS doesn't hold it, so
+                        // this can't duplicate an alarm. It used to refuse
+                        // every later arming until Turn off (BOOM-56).
+                        if !old.cancelled && !old.accepted && live { disk.cues[key]?.accepted = true; try save() }
                         if !old.cancelled && live && old.entry == entry { continue }
                         // Anything else in the plan is scheduled again: a cue
                         // cancelled by Turn off, a day dropped and added back,
@@ -233,7 +272,7 @@ final class AlarmRulesService {
                     // one iOS is still tearing down.
                     let cue = OwnedAlarmCue(id: fresh ? UUID() : cueId(key), entry: entry, earlyCue: early, accepted: false)
                     disk.cues[key] = cue; try save() // Own the ID even if scheduling reply is lost.
-                    try await schedule(cue)
+                    try await scheduleOwned(cue, key: key)
                     guard try alarms().contains(where: { $0.id == cue.id }) else { throw error("An alarm was not found after arming. Check status; do not retry blindly.") }
                     disk.cues[key]?.accepted = true; try save()
                 }
@@ -329,6 +368,7 @@ final class AlarmRulesService {
         let receipts = try JSONSerialization.jsonObject(with: JSONEncoder().encode(Array(disk.receipts.values)))
         let arrivals = try JSONSerialization.jsonObject(with: JSONEncoder().encode(Array((disk.arrivals ?? [:]).values)))
         return ["available": true, "authorization": auth, "deviceId": disk.deviceId, "cues": rows, "receipts": receipts,
+                "systemAlarms": active.count,
                 "arrivals": arrivals, "placeRules": Array((disk.places ?? [:]).keys), "lastError": disk.lastError ?? ""]
     }
 

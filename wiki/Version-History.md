@@ -4,6 +4,20 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ---
 
+## 2026-11-22
+
+- fix(ios): recover when iOS refuses an alarm, and reclaim stray ones [S]
+  - Owner screenshot (BOOM-56): Re-arm on "check bank account" failed with "com.apple.AlarmKit.Alarm error 0". The card's own line said only a setting had changed.
+  - Error 0 is most likely `maximumLimitReached`, the only error AlarmKit documents. iOS sets the alarm limit per device and publishes no number.
+  - The refused schedule left an "uncertain" cue that would refuse every later arming.
+  - Now:
+    - a refused schedule is retried once after a second, since a re-arm cancels a cue right before replacing it;
+    - a cue that still fails is marked cancelled, so the next arming retries it;
+    - an unconfirmed cue that iOS doesn't list is scheduled again instead of blocking;
+    - alarms iOS holds that no live cue owns (never the probe's) are reclaimed on each arming;
+    - the refusal says how many alarms iOS holds, and Settings → Alarms shows that count.
+  - Native: needs one iOS rebuild. The Swift has not been compiled here.
+
 ## 2026-11-21
 
 - fix(kept): keep an alarm action's error on the card instead of flashing it [XS]
