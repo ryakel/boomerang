@@ -250,7 +250,7 @@ export default function AppV2() {
   // Background work that must keep running even when v2 is the active shell:
   // notifications, AI inference, external (Trello/Notion) outbound sync,
   // package polling + delivery notifications.
-  useExternalSync(tasks, updateTask, updateRoutine)
+  useExternalSync(tasks, updateTask)
   useSizeAutoInfer(tasks, updateTask, labels)
   // Critical triage auto-breakdown — same background-net pattern as the
   // sizer: any task that lands with the critical label and no triage pass
@@ -1687,6 +1687,7 @@ export default function AppV2() {
           onGmailDismiss={handleDismissPending}
           onReconcileYesterday={handleReconcileYesterday}
           onReconcileKeep={handleReconcileKeep}
+          onUpdateTask={updateTask}
           onWhatNow={() => setShowWhatNow(true)}
           onToggleItem={(task, clId, itemId) => {
             const checklists = (task.checklists || []).map(cl =>
@@ -1754,6 +1755,7 @@ export default function AppV2() {
           onGmailDismiss={handleDismissPending}
           onReconcileYesterday={handleReconcileYesterday}
           onReconcileKeep={handleReconcileKeep}
+          onUpdateTask={updateTask}
           onWhatNow={() => setShowWhatNow(true)}
           onToggleItem={(task, clId, itemId) => {
             const checklists = (task.checklists || []).map(cl =>
@@ -1859,6 +1861,7 @@ export default function AppV2() {
           onStatusChange={handleStatusChange}
           onOpenFull={() => setEditFull(true)}
           onConvertToLoop={handleConvertToRoutine}
+          onUpdateTask={updateTask}
         />
       )}
 

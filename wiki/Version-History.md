@@ -4,6 +4,30 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ---
 
+## 2026-11-23
+
+- feat(kept): weekly review, week priorities and calendar blocks; retire calendar push [L]
+  - The owner shared a "Calendar says WHEN, Reminders says WHAT" workflow and asked for all three changes it suggested (D023).
+  - **Blocks (BOOM-57):**
+    - a task gets one Google Calendar event from the editor's Block chip or a priority's Block button;
+    - 30/60/90 minutes at a suggested free slot or any time;
+    - move PATCHes that event, remove deletes only it, completing leaves it;
+    - Today shows it as the task's focus time;
+    - pull sync and calendar rules never mine it.
+  - **Push retired (BOOM-58):**
+    - nothing creates, edits or deletes a calendar event because a task has a due date;
+    - leftover queued calendar ops are dropped;
+    - Settings explains blocks.
+  - **Weekly review (BOOM-59):**
+    - Friday through Sunday, Today offers it: clear the inbox, see next week's dates, pick two or three priorities;
+    - the priorities sit at the top of Today all week, each with a Block button;
+    - no notification, no count;
+    - Quokka can set and name a week priority.
+  - **Storage:** migration 064 adds `block_event_id`, `block_calendar_id`, `block_start`, `block_minutes` and `week_priority` to tasks.
+  - **Tests:**
+    - `scripts/weekBlocks.test.mjs`, 14 cases: models, Today, rules, retired push, DB round trip;
+    - `scripts/weekBlocksBrowser.test.mjs`: the review and a block's add/move/remove against a fake calendar, at 375px.
+
 ## 2026-11-22
 
 - fix(ios): build the warning alarm without a countdown screen so iOS accepts it [XS]

@@ -392,3 +392,13 @@ below predate those decisions and are historical recommendations, not authority.
   - If the phone refuses, the card shows why and offers Re-arm.
 - Merge authority: D017 (standing, `dev` only).
 
+## D023 — Calendar says when, Boomerang says what
+
+- Date/status: 2026-11-23, **accepted and built** (BOOM-57, BOOM-58, BOOM-59).
+- Source: the owner shared a "Keep the WHAT / weekly review / time-block / keep it calm" workflow, then asked for all three changes proposed from it. Review day: **Friday**. Push sync was already off for him.
+- Decisions:
+  - **Blocks.** A task gets at most ONE calendar event, its block, and only from a deliberate tap. Moving a block moves that same event, and removing it deletes only that event. Completing a task leaves the block alone as a record of the time. Blocks use their own columns, never `gcal_event_id`.
+  - **Push sync retired.** No code path creates, edits or deletes a calendar event because a task has a due date. The old push also edited and deleted events linked by `gcal_event_id`. Those are mostly the user's own events behind imported tasks.
+  - **Weekly review.** Today offers it Friday through Sunday, with no notification and no count. It covers the inbox, next week's dates, and picking two or three priorities, never more than three. The priorities sit at the top of Today all week, each with its block. Skipping hides the offer for that weekend on that device.
+- Merge authority: D017 (standing, `dev` only). Production promotion requested by the owner ("one massive push to prod"); the release PR still waits on his go-ahead.
+

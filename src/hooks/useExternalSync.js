@@ -1,5 +1,5 @@
 import { useEffect, useRef, useCallback } from 'react'
-import { loadSettings, loadRoutines, localYMD, safeSetItem } from '../store'
+import { loadSettings, safeSetItem } from '../store'
 import {
   trelloUpdateCard,
   trelloCreateChecklist,
@@ -8,10 +8,6 @@ import {
   trelloDeleteChecklist,
   trelloGetChecklists,
   notionUpdatePage,
-  gcalCreateEvent,
-  gcalUpdateEvent,
-  gcalDeleteEvent,
-  inferEventTime,
 } from '../api'
 
 const DEBOUNCE_MS = 5000
@@ -37,38 +33,6 @@ function log(...args) {
   console.log('[ExternalSync]', ...args)
 }
 
-// Map Boomerang routine cadence to Google Calendar RRULE
-function cadenceToRRule(cadence, customDays, endDate) {
-  let rule
-  switch (cadence) {
-    case 'daily': rule = 'RRULE:FREQ=DAILY'; break
-    case 'weekly': rule = 'RRULE:FREQ=WEEKLY'; break
-    case 'biweekly': rule = 'RRULE:FREQ=WEEKLY;INTERVAL=2'; break
-    case 'monthly': rule = 'RRULE:FREQ=MONTHLY'; break
-    case 'quarterly': rule = 'RRULE:FREQ=MONTHLY;INTERVAL=3'; break
-    case 'annually': rule = 'RRULE:FREQ=YEARLY'; break
-    case 'custom':
-      rule = `RRULE:FREQ=DAILY;INTERVAL=${customDays || 14}`
-      break
-    default: return null
-  }
-  if (endDate) {
-    const until = endDate.replace(/-/g, '') + 'T235959Z'
-    rule += `;UNTIL=${until}`
-  }
-  return rule
-}
-
-function buildEventDescription(task) {
-  const parts = []
-  if (task.notes) parts.push(task.notes)
-  if (task.size) parts.push(`Size: ${task.size}`)
-  if (task.energy) parts.push(`Energy: ${task.energy}`)
-  if (task.tags?.length) parts.push(`Tags: ${task.tags.join(', ')}`)
-  parts.push('\n---\nManaged by Boomerang')
-  return parts.join('\n')
-}
-
 // Extract only user-facing fields for diffing (ignore trello_*_id fields)
 function userFacingSnapshot(task) {
   return {
@@ -87,23 +51,12 @@ function userFacingSnapshot(task) {
   }
 }
 
-export function useExternalSync(tasks, onUpdateTask, onUpdateRoutine = null) {
+export function useExternalSync(tasks, onUpdateTask) {
   const prevTasks = useRef(null)
-  // Live view of task state, for re-reading a row at FIRE time. Every push
-  // below is scheduled behind a debounce or a stagger and then runs with the
-  // snapshot it captured seconds earlier — see the create guard in
-  // syncTaskToGCal for why that matters once a second client is awake.
-  const tasksRef = useRef(tasks)
-  tasksRef.current = tasks
   const debounceTimers = useRef({}) // per-task timers
   const hydratedIds = useRef(new Set()) // track tasks we've already hydrated
   const onUpdateTaskRef = useRef(onUpdateTask)
   onUpdateTaskRef.current = onUpdateTask
-  const onUpdateRoutineRef = useRef(onUpdateRoutine)
-  onUpdateRoutineRef.current = onUpdateRoutine
-  // Loops whose recurring series is being created right now, so a second sync
-  // pass in the gap before the routine update lands can't create another.
-  const seriesInFlight = useRef(new Set())
 
   // Initialize prevTasks on first render
   useEffect(() => {
@@ -340,197 +293,6 @@ export function useExternalSync(tasks, onUpdateTask, onUpdateRoutine = null) {
     }
   }, [])
 
-  // Build timed event start/end with optional buffer
-  const buildTimedEvent = useCallback(async (task, settings) => {
-    const buffer = settings.gcal_event_buffer ? 15 : 0
-    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone
-
-    // Resolve duration: per-task override → AI inference → size fallback → global default
-    let time, duration
-    if (task.gcal_duration) {
-      // User set a specific duration — still need a time from AI
-      duration = task.gcal_duration
-      try {
-        const inferred = await inferEventTime(task.title, task.notes, task.size, task.energy)
-        time = inferred.time
-      } catch {
-        time = settings.gcal_default_time || '09:00'
-      }
-    } else {
-      try {
-        const inferred = await inferEventTime(task.title, task.notes, task.size, task.energy)
-        time = inferred.time
-        duration = inferred.duration
-      } catch {
-        time = settings.gcal_default_time || '09:00'
-        duration = settings.gcal_event_duration || 60
-      }
-    }
-
-    // Apply buffer: shift start earlier and end later
-    const startDate = new Date(`${task.due_date}T${time}:00`)
-    if (buffer) startDate.setMinutes(startDate.getMinutes() - buffer)
-    const endDate = new Date(`${task.due_date}T${time}:00`)
-    endDate.setMinutes(endDate.getMinutes() + duration + buffer)
-
-    return {
-      start: { dateTime: startDate.toISOString(), timeZone: tz },
-      end: { dateTime: endDate.toISOString(), timeZone: tz },
-    }
-  }, [])
-
-  const syncTaskToGCal = useCallback(async (task, prevTask) => {
-    const settings = loadSettings()
-    const calendarId = settings.gcal_calendar_id || 'primary'
-    const syncStatuses = settings.gcal_sync_statuses || ['not_started', 'doing', 'waiting', 'open']
-
-    if (task.gcal_event_id) {
-      // Task already linked to a calendar event
-      const shouldRemove = (
-        (task.status === 'done' && settings.gcal_remove_on_complete) ||
-        task.status === 'project' ||
-        task.status === 'backlog' ||
-        !task.due_date
-      )
-
-      if (shouldRemove) {
-        try {
-          await gcalDeleteEvent(task.gcal_event_id, calendarId)
-          onUpdateTaskRef.current(task.id, { gcal_event_id: null })
-          log(`deleted GCal event for "${task.title}"`)
-        } catch (err) {
-          log(`ERROR deleting GCal event:`, err.message)
-          enqueue([{ type: 'gcalDelete', eventId: task.gcal_event_id, calendarId }])
-        }
-        return
-      }
-
-      // Update if relevant fields changed
-      const titleChanged = task.title !== prevTask.title
-      const dateChanged = task.due_date !== prevTask.due_date
-      const notesChanged = task.notes !== prevTask.notes
-      const durationChanged = task.gcal_duration !== prevTask.gcal_duration
-      if (titleChanged || dateChanged || notesChanged || durationChanged) {
-        const event = { summary: task.title }
-        if (notesChanged || titleChanged) {
-          event.description = buildEventDescription(task)
-        }
-        if ((dateChanged || durationChanged) && task.due_date) {
-          if (settings.gcal_use_timed_events) {
-            try {
-              const timing = await buildTimedEvent(task, settings)
-              Object.assign(event, timing)
-            } catch {
-              event.start = { date: task.due_date }
-              event.end = { date: task.due_date }
-            }
-          } else {
-            event.start = { date: task.due_date }
-            event.end = { date: task.due_date }
-          }
-        }
-        try {
-          await gcalUpdateEvent(task.gcal_event_id, calendarId, event)
-          log(`updated GCal event for "${task.title}"`)
-        } catch (err) {
-          log(`ERROR updating GCal event:`, err.message)
-          enqueue([{ type: 'gcalUpdate', eventId: task.gcal_event_id, calendarId, event }])
-        }
-      }
-    } else if (task.due_date && syncStatuses.includes(task.status)) {
-      // Creating an event is the one irreversible thing this function does, and
-      // every caller reaches it holding a snapshot up to several seconds old (a
-      // 5s debounce, or the initial push's stagger). With a desktop and a phone
-      // both awake that window is long enough for the OTHER client to have
-      // created the event already and pushed the link back: this client's stale
-      // copy still reads `gcal_event_id: null`, so it creates a second event
-      // and overwrites the link — orphaning the first one on the calendar with
-      // nothing pointing at it (2026-08-31). Re-read the row before committing.
-      const live = (tasksRef.current || []).find(t => t.id === task.id)
-      if (!live) {
-        log(`skipping GCal create for "${task.title}" — task no longer exists`)
-        return
-      }
-      if (live.gcal_event_id) {
-        log(`skipping GCal create for "${task.title}" — already linked to ${live.gcal_event_id}`)
-        return
-      }
-      if (!live.due_date || !syncStatuses.includes(live.status)) {
-        log(`skipping GCal create for "${task.title}" — no longer eligible (status=${live.status}, due=${live.due_date || 'none'})`)
-        return
-      }
-
-      // Create new calendar event
-      let event
-      if (settings.gcal_use_timed_events) {
-        try {
-          const timing = await buildTimedEvent(task, settings)
-          event = {
-            summary: task.title,
-            description: buildEventDescription(task),
-            ...timing,
-          }
-        } catch {
-          event = {
-            summary: task.title,
-            description: buildEventDescription(task),
-            start: { date: task.due_date },
-            end: { date: task.due_date },
-          }
-        }
-      } else {
-        event = {
-          summary: task.title,
-          description: buildEventDescription(task),
-          start: { date: task.due_date },
-          end: { date: task.due_date },
-        }
-      }
-
-      // A loop shows on the calendar as ONE recurring series that the LOOP owns
-      // (routine.gcal_recurring_event_id, BOOM-45). Its spawned tasks never take
-      // the series id as gcal_event_id: that column means "this task owns the
-      // event", and the branch above deletes an owned event when its task is
-      // done/backlogged and moves it when the task is rescheduled — on a series
-      // id that deletes or moves every occurrence. The id used to be written to
-      // a localStorage key nothing reads, so every spawn could add a series.
-      let seriesFor = null
-      if (task.routine_id && settings.gcal_sync_routines_recurring !== false) {
-        // Fresh read at fire time: the other client may have made the series.
-        const routine = loadRoutines().find(r => r.id === task.routine_id)
-        if (routine?.gcal_recurring_event_id || seriesInFlight.current.has(task.routine_id)) {
-          log(`"${task.title}" is on the calendar through its loop's recurring event — nothing to create`)
-          return
-        }
-        if (routine && routine.spawn_mode !== 'autopilot' && routine.spawn_mode !== 'habit') {
-          const rrule = cadenceToRRule(routine.cadence, routine.custom_days, routine.end_date)
-          if (rrule) {
-            event.recurrence = [rrule]
-            seriesFor = routine.id
-            seriesInFlight.current.add(routine.id)
-            log(`adding recurrence to event for routine "${routine.title}": ${rrule}`)
-          }
-        }
-      }
-
-      try {
-        const result = await gcalCreateEvent(calendarId, event)
-        if (seriesFor) {
-          onUpdateRoutineRef.current?.(seriesFor, { gcal_recurring_event_id: result.eventId })
-          log(`created the recurring GCal event for "${task.title}"'s loop`)
-        } else {
-          onUpdateTaskRef.current(task.id, { gcal_event_id: result.eventId })
-          log(`created GCal event for "${task.title}"`)
-        }
-      } catch (err) {
-        log(`ERROR creating GCal event:`, err.message)
-        enqueue([{ type: 'gcalCreate', calendarId, event, taskId: task.id, ...(seriesFor ? { routineId: seriesFor } : {}) }])
-      } finally {
-        if (seriesFor) seriesInFlight.current.delete(seriesFor)
-      }
-    }
-  }, [buildTimedEvent])
-
   // Watch for task changes and sync to Trello/Notion/GCal
   useEffect(() => {
     if (!prevTasks.current || !Array.isArray(tasks)) return
@@ -538,33 +300,21 @@ export function useExternalSync(tasks, onUpdateTask, onUpdateRoutine = null) {
     const settings = loadSettings()
     const hasTrello = !!settings.trello_board_id
     const hasNotion = !!settings.notion_sync_parent_id
-    const hasGCal = !!settings.gcal_sync_enabled
-
-    if (!hasTrello && !hasNotion && !hasGCal) return
+    // Calendar push is retired (BOOM-58): a task reaches Google Calendar only
+    // as a block the user set (src/blockActions.js), never because it has a
+    // due date, and nothing here edits or deletes an event. Imported tasks
+    // carry the user's own events in gcal_event_id; touching those was the risk.
+    if (!hasTrello && !hasNotion) return
 
     const currMap = new Map(tasks.map(t => [t.id, t]))
 
     for (const [id, task] of currMap) {
       const hasTrelloLink = task.trello_card_id && task.trello_sync_enabled !== false
       const hasNotionLink = !!task.notion_page_id
-      const hasGCalLink = !!task.gcal_event_id
-      // GCal sync applies to tasks with due_date or already linked events
-      const gcalApplies = hasGCal && (hasGCalLink || task.due_date)
-
-      if (!hasTrelloLink && !hasNotionLink && !gcalApplies) continue
+      if (!hasTrelloLink && !hasNotionLink) continue
 
       const prev = prevTasks.current.get(id)
-      if (!prev) {
-        // New task — trigger GCal create if it has a due date
-        if (gcalApplies && !hasGCalLink && task.due_date) {
-          if (debounceTimers.current[id]) clearTimeout(debounceTimers.current[id])
-          debounceTimers.current[id] = setTimeout(() => {
-            delete debounceTimers.current[id]
-            syncTaskToGCal(task, { ...task, due_date: null })
-          }, DEBOUNCE_MS)
-        }
-        continue
-      }
+      if (!prev) continue
 
       // Compare only user-facing fields
       const prevSnap = JSON.stringify(userFacingSnapshot(prev))
@@ -579,41 +329,12 @@ export function useExternalSync(tasks, onUpdateTask, onUpdateRoutine = null) {
         delete debounceTimers.current[id]
         if (hasTrello && hasTrelloLink) syncTaskToTrello(task, prev)
         if (hasNotion && hasNotionLink) syncTaskToNotion(task, prev)
-        if (gcalApplies) syncTaskToGCal(task, prev)
       }, DEBOUNCE_MS)
     }
 
     // Update prev snapshot
     prevTasks.current = currMap
-  }, [tasks, syncTaskToTrello, syncTaskToNotion, syncTaskToGCal])
-
-  // Initial GCal push: sync existing tasks that have due_date but no gcal_event_id
-  const initialGCalDone = useRef(false)
-  useEffect(() => {
-    if (initialGCalDone.current || !Array.isArray(tasks)) return
-    const settings = loadSettings()
-    if (!settings.gcal_sync_enabled) return
-
-    const syncStatuses = settings.gcal_sync_statuses || ['not_started', 'doing', 'waiting', 'open']
-    const today = localYMD()
-    const unsyncedTasks = tasks.filter(t =>
-      t.due_date && !t.gcal_event_id && syncStatuses.includes(t.status) && t.due_date >= today
-    )
-    if (unsyncedTasks.length === 0) {
-      initialGCalDone.current = true
-      return
-    }
-
-    initialGCalDone.current = true
-    log(`initial GCal push: ${unsyncedTasks.length} task(s) with due dates not yet synced`)
-
-    // Stagger creation to avoid rate limits
-    unsyncedTasks.forEach((task, i) => {
-      setTimeout(() => {
-        syncTaskToGCal(task, { ...task, due_date: null })
-      }, i * 1000)
-    })
-  }, [tasks, syncTaskToGCal])
+  }, [tasks, syncTaskToTrello, syncTaskToNotion])
 
   // Replay queue on online event
   const replayQueue = useCallback(async () => {
@@ -644,28 +365,12 @@ export function useExternalSync(tasks, onUpdateTask, onUpdateRoutine = null) {
           case 'updateNotionPage':
             await notionUpdatePage(op.pageId, op.updates)
             break
-          case 'gcalCreate': {
-            // A replayed create must link what it made, or the next sync pass
-            // creates the event again. Re-check first: the other client, or a
-            // later pass here, may already have made it.
-            if (op.routineId) {
-              const routine = loadRoutines().find(r => r.id === op.routineId)
-              if (!routine || routine.gcal_recurring_event_id) break
-              const made = await gcalCreateEvent(op.calendarId, op.event)
-              onUpdateRoutineRef.current?.(op.routineId, { gcal_recurring_event_id: made.eventId })
-            } else {
-              const live = op.taskId ? (tasksRef.current || []).find(t => t.id === op.taskId) : null
-              if (op.taskId && (!live || live.gcal_event_id)) break
-              const made = await gcalCreateEvent(op.calendarId, op.event)
-              if (op.taskId) onUpdateTaskRef.current(op.taskId, { gcal_event_id: made.eventId })
-            }
-            break
-          }
+          case 'gcalCreate':
           case 'gcalUpdate':
-            await gcalUpdateEvent(op.eventId, op.calendarId, op.event)
-            break
           case 'gcalDelete':
-            await gcalDeleteEvent(op.eventId, op.calendarId)
+            // Left over from the retired push sync (BOOM-58). Never replayed:
+            // a task's calendar event is now only its block, set by a tap.
+            log(`dropping a queued ${op.type} from the retired calendar push`)
             break
         }
       } catch (err) {

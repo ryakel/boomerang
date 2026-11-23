@@ -16,6 +16,7 @@ import { LASTNIGHT_KEY, useNotNow, clock, minutesLabel, useCalendarEvents, useNo
 import { Ring, Head, NextCard } from './today2Parts'
 import SheetPortal from './SheetPortal'
 import TodayAlarm from './TodayAlarm'
+import WeekPlan from './WeekPlan'
 import './shell.css'
 import './today2.css'
 
@@ -82,7 +83,7 @@ export default function TodayKept2({
   onCompleteTask, onOpenTask, onDeleteTask, onEditLoop,
   onLogSession, onGmailKeep, onGmailDismiss, onWhatNow,
   onReconcileYesterday, onReconcileKeep,
-  pinnedNotes = [], onOpenNotes, onUnpinNote, onShowTasks,
+  pinnedNotes = [], onOpenNotes, onUnpinNote, onShowTasks, onUpdateTask,
 }) {
   const now = useNow()
   const todayKey = localYMD(now)
@@ -155,8 +156,11 @@ export default function TodayKept2({
       const e = it.event
       title = e.title
       const dur = !e.allDay && e.endMs && e.startMs ? minutesLabel(Math.round((e.endMs - e.startMs) / 60000)) : null
-      meta = [it.ongoing ? 'now' : soon, e.allDay ? 'all day' : null, e.location, dur, e.calendar].filter(Boolean).join(' · ') || 'Calendar'
-      bar = 'var(--bm-f-billabong)'
+      // A block is this task's own focus time: it opens the task (BOOM-57).
+      const blockTask = e.blockTaskId ? tasks.find(t => t.id === e.blockTaskId) : null
+      meta = [it.ongoing ? 'now' : soon, blockTask ? 'focus block' : null, e.allDay ? 'all day' : null, e.location, dur, blockTask ? null : e.calendar].filter(Boolean).join(' · ') || 'Calendar'
+      bar = blockTask ? 'var(--bm-ember)' : 'var(--bm-f-billabong)'
+      if (blockTask) onClick = () => onOpenTask?.(blockTask)
     } else if (it.kind === 'checklist') {
       title = it.routine.title
       meta = [soon, `checklist · ${it.count} ${it.count === 1 ? 'item' : 'items'}`].filter(Boolean).join(' · ')
@@ -394,6 +398,10 @@ export default function TodayKept2({
       {/* Today's alarm (BOOM-51). Renders only on the Dev native build, and
           only when an alarm is armed for today or an arming is running out. */}
       <TodayAlarm />
+
+      {/* The week (BOOM-59): priorities with their blocks, and the Friday review. */}
+      <WeekPlan tasks={tasks} todayKey={todayKey} onCompleteTask={onCompleteTask} onOpenTask={onOpenTask}
+        onUpdateTask={onUpdateTask} onGmailKeep={onGmailKeep} onGmailDismiss={onGmailDismiss} />
 
       {bigClear && (
         <section className="t2-clear">

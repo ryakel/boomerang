@@ -486,18 +486,21 @@ Bidirectional sync between tasks and Google Calendar events. First integration t
 
 **Token Management:** Server-side in `app_data` table. `getGCalAccessToken()` auto-refreshes with 5-min buffer. Client never sees OAuth tokens.
 
-**Push Sync** (`src/hooks/useExternalSync.js`):
-- Watches tasks with `due_date` for changes (title, date, status, notes)
-- Creates timed events via AI inference (`inferEventTime()`) or all-day events
-- Size → duration mapping: XS=15min, S=30min, M=60min, L=120min, XL=240min
-- Per-task duration override (`gcal_duration` column) — user sets minutes in EditTaskModal, overrides AI/size defaults
-- Optional 15-min buffer on either side of events (`gcal_event_buffer` setting)
-- Completing/deleting a task removes the calendar event (configurable)
-- 5-second per-task debounce, same as Trello/Notion sync
-- Failed operations queued in `boom_external_sync_queue`
-- **Initial sync:** When push sync is first enabled, all existing tasks with due dates today or in the future are pushed to the calendar (1s stagger between creates). Tasks with past due dates are excluded to avoid clutter.
-- **New tasks:** Creating a task with a due date triggers a calendar event create after the 5s debounce — no manual sync needed.
-- **Bulk cleanup:** "Remove All Events" button in Settings deletes all Boomerang-managed events (identified by "Managed by Boomerang" in description) and clears `gcal_event_id` from all tasks.
+**Push Sync — retired (BOOM-58, 2026-11-23).** It used to put every task with a due date on the calendar, with AI-guessed times and size-based lengths, and it edited and deleted events linked by `gcal_event_id`. The owner had it off, and it ran against "keep it calm: only blocks and appointments" (D023).
+- `useExternalSync` no longer touches Google Calendar at all: no create, update or delete, and no first-run backfill.
+- Queued `gcalCreate`/`gcalUpdate`/`gcalDelete` ops left in `boom_external_sync_queue` are dropped on replay, never sent.
+- `scripts/weekBlocks.test.mjs` pins that `src/blockActions.js` is the only client caller of `gcalCreateEvent`.
+- The `gcal_sync_*` settings keys are inert.
+
+**Blocks (BOOM-57).** The one way a task reaches the calendar. `src/blockModel.js` is pure: slots, the event resource and labels. `src/blockActions.js` makes the calendar call and then updates the task. `src/kept/BlockSheet.jsx` is the sheet.
+- **Storage.** A block is ONE event, stored in `block_event_id`/`block_calendar_id`/`block_start`/`block_minutes` (migration 064). Never in `gcal_event_id`: that column hides the event on Today and drives import identity and the dedupe sweep.
+- **Moving.** PATCHes the same event. Gone on Google (404/410) means create a fresh one.
+- **Removing.** Deletes only that event. Gone counts as removed.
+- **Completing the task.** Leaves the block on the calendar.
+- **Order of calls.** The calendar call runs first, so a failure leaves the task unchanged.
+- **Marking.** The event's description ends "Managed by Boomerang". Pull sync skips it, and also skips any task's `block_event_id`. Calendar rules skip Boomerang's own events in `matchEvent()`.
+- **Today.** `normalizeEvents()` keeps a block (busy) and tags it `blockTaskId`, so it reads "focus block" and opens its task.
+- **Where you set it.** The task editor's Block chip, and each of the week's priorities on Today.
 
 **Pull Sync** (`src/hooks/useGCalSync.js`):
 - Triggered by "Sync Now" button (only visible when pull sync is enabled) or on app open
@@ -508,7 +511,7 @@ Bidirectional sync between tasks and Google Calendar events. First integration t
 **Settings:**
 - `gcal_client_id`, `gcal_client_secret` — OAuth credentials
 - `gcal_calendar_id` — which calendar to sync with (default: `primary`)
-- `gcal_sync_enabled` — master toggle for push sync
+- `gcal_sync_enabled` — retired with push sync (BOOM-58); read by nothing
 - `gcal_sync_statuses` — which task statuses sync (default: all active)
 - `gcal_use_timed_events` — AI-inferred times vs all-day (default: true)
 - `gcal_default_time`, `gcal_event_duration` — fallback time/duration

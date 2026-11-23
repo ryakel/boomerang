@@ -39,6 +39,10 @@ export function useGCalSync(tasks, setTasks) {
     const currentTasks = tasksRef.current
     // Block reimport for events linked to ANY task (including done)
     const linkedEventIds = new Set(currentTasks.filter(t => t.gcal_event_id).map(t => t.gcal_event_id))
+    // A task's own block (BOOM-57) is never imported back as a task. Its
+    // description also carries "Managed by Boomerang"; this holds even if
+    // someone edits that line out on Google.
+    for (const t of currentTasks) if (t.block_event_id) linkedEventIds.add(t.block_event_id)
     // An imported recurring event is stamped with its SERIES id
     // (`recurringEventId`), but Google hands this pull one row per INSTANCE,
     // each with its own `e.id`. Checking only `e.id` meant a series never

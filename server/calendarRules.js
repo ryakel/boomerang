@@ -171,6 +171,9 @@ export function matchEvent(rule, event) {
   if (!event) return miss
   // A cancelled instance of a recurring series is not an event that happened.
   if (event.status === 'cancelled') return miss
+  // Boomerang's own events (a task's block, BOOM-57) are never a rule's
+  // trigger: we do not mine our own output.
+  if (typeof event.description === 'string' && event.description.includes('Managed by Boomerang')) return miss
   // The engine already fetches per calendar; this only bites on a preview
   // where the events carry their own calendarId.
   if (rule.calendar_id && event.calendarId && rule.calendar_id !== event.calendarId) return miss

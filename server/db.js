@@ -304,6 +304,11 @@ function taskToRow(task) {
     remind_at: task.remind_at || null,
     reminders_id: task.reminders_id || null,
     reconciled_on: task.reconciled_on || null,
+    block_event_id: task.block_event_id || null,
+    block_calendar_id: task.block_calendar_id || null,
+    block_start: task.block_start || null,
+    block_minutes: Number.isFinite(task.block_minutes) ? task.block_minutes : null,
+    week_priority: task.week_priority || null,
   }
 }
 
@@ -387,6 +392,11 @@ function rowToTask(row) {
     remind_at: row.remind_at || null,
     reminders_id: row.reminders_id || null,
     reconciled_on: row.reconciled_on || null,
+    block_event_id: row.block_event_id || null,
+    block_calendar_id: row.block_calendar_id || null,
+    block_start: row.block_start || null,
+    block_minutes: row.block_minutes ?? null,
+    week_priority: row.week_priority || null,
   }
 }
 
@@ -420,8 +430,9 @@ const UPSERT_TASK_SQL = `
     intention_when, intention_where, first_step, location_json,
     committed_on, boomerang_count, last_boomeranged_at, released_at,
     due_date_original, due_shifted_at, due_shifted_reason,
-    remind_at, reminders_id, reconciled_on)
-  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    remind_at, reminders_id, reconciled_on,
+    block_event_id, block_calendar_id, block_start, block_minutes, week_priority)
+  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   ON CONFLICT(id) DO UPDATE SET
     title=excluded.title, status=excluded.status, notes=excluded.notes,
     due_date=excluded.due_date, snoozed_until=excluded.snoozed_until,
@@ -478,7 +489,10 @@ const UPSERT_TASK_SQL = `
     due_shifted_reason=excluded.due_shifted_reason,
     remind_at=excluded.remind_at,
     reminders_id=excluded.reminders_id,
-    reconciled_on=excluded.reconciled_on`
+    reconciled_on=excluded.reconciled_on,
+    block_event_id=excluded.block_event_id, block_calendar_id=excluded.block_calendar_id,
+    block_start=excluded.block_start, block_minutes=excluded.block_minutes,
+    week_priority=excluded.week_priority`
 
 function runUpsertTask(task) {
   const r = taskToRow(task)
@@ -503,6 +517,7 @@ function runUpsertTask(task) {
     r.committed_on, r.boomerang_count, r.last_boomeranged_at, r.released_at,
     r.due_date_original, r.due_shifted_at, r.due_shifted_reason,
     r.remind_at, r.reminders_id, r.reconciled_on,
+    r.block_event_id, r.block_calendar_id, r.block_start, r.block_minutes, r.week_priority,
   ])
 }
 
