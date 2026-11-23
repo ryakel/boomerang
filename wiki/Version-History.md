@@ -6,6 +6,9 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-11-23
 
+- docs(wiki): record the v2.66.0 production release [XS]
+  - Release #1069 is live; relink #1070 keeps `dev..main` at 0.
+
 - feat(kept): weekly review, week priorities and calendar blocks; retire calendar push [L]
   - The owner shared a "Calendar says WHEN, Reminders says WHAT" workflow and asked for all three changes it suggested (D023).
   - **Blocks (BOOM-57):**

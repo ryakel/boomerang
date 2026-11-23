@@ -1,5 +1,9 @@
 # Work status and authorization
 
+## Production release v2.66.0 (2026-11-23)
+
+The owner said "Go" on release #1069, and it deployed and passed the health check (run 45224619165). It includes the weekly review, calendar blocks, the end of calendar push and the loop mode sheets. Alarm and arrival code ships but stays off outside dev (D015). Turning that on in prod is an open question to the owner: it needs a server change, a web change and a production iOS rebuild. Relink #1070 keeps `dev..main` at 0.
+
 ## Week, blocks and a big release (2026-11-23)
 
 Built on `dev` (D023): the Friday weekly review with week priorities (BOOM-59), calendar blocks (BOOM-57), and retiring the calendar push (BOOM-58). The owner asked to "get this into dev and make one massive push to prod". The release PR goes to `main` only after the dev deploy is checked and he gives the go-ahead. Since v2.65.0 the release also carries the alarm fixes (BOOM-53..56), which stay off outside dev. Alarm fixes since 2026-11-21 are confirmed on the phone: re-arm after Turn off works (BOOM-56 closed).
