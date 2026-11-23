@@ -359,6 +359,46 @@ below predate those decisions and are historical recommendations, not authority.
   - Source: "can you use geolocation to complete the task for that day. If I am at the school, I made it and we are done", then "Stop alarms + mark done", and "Today pick first".
   - Decision: arriving at a saved place, within a window around that day's alarm, cancels the day's remaining alarms and marks that day's loop done. Building it means native region monitoring, an "Always" location permission and an iOS rebuild.
   - This reverses D014's "no location inference" for this one, owner-requested use. The place stays on the phone; only the arrival time is recorded.
-  - Still to settle before building: how the place is saved (for example "I'm here now"), the window's width, and what happens without Always permission.
+  - Settled the same day (BOOM-53):
+    - **Saving the place:** both "Use where I am now" and typing an address (geocoded on the phone). Picking on a map is a noted future option.
+    - **Window:** an arrival counts from 1 hour before to 1 hour after that day's alarm.
+    - **Without Always:** the alarm works exactly as today, and the card says arrival can't be detected.
+    - **Feedback:** a quiet notification ("Arrived at school 2:14, pickup done") plus the same line on Today, so a false arrival is noticed before pickup is missed.
 - Merge authority: D017 (standing, `dev` only). Production is unchanged.
+
+## D021 — Production release v2.65.0: Keep on Today
+
+- Date/status: 2026-11-21, **approved and deployed**.
+- Source: owner, "Good. Get that into prod."
+- Contents:
+  - Keep on Today (BOOM-52).
+  - The alarm interface code (BOOM-51). It stays off in production: the route returns 403 off dev, and only the Dev native build shows it, so D015 holds.
+  - Deploys on Ubuntu 26 with `tailscale/github-action@v4.4.0` (BOOM-50).
+- Evidence:
+  - Release [#1056](https://github.com/ryakel/boomerang/pull/1056).
+  - [Production workflow 44926587179](https://github.com/ryakel/boomerang/actions/runs/44926587179) confirmed appVersion v2.65.0 on the first check. It was the first production deploy on Ubuntu 26 / Tailscale 1.104, and connected without the retry.
+  - Content-neutral [#1057](https://github.com/ryakel/boomerang/pull/1057) restored main ancestry in dev.
+- This approval is used up by the release.
+
+## D022 — Armed alarms update on save
+
+- Date/status: 2026-11-21, **accepted and built** (BOOM-55).
+- Source: owner, after the first device run: re-arming "feels clunky", then chose "Auto re-arm once armed".
+- Decision: replaces D014's "saving never touches the phone" for alarms already armed.
+  - The **first** arming stays an explicit tap.
+  - Once a rule has live alarms on the phone, saving a change re-arms it at once and the card says "Updated on this phone."
+  - Turning a rule off, a held rule, or missing alarm permission never re-arms.
+  - Nothing re-arms on its own; renewal near the end of the armed window stays a prompt.
+  - If the phone refuses, the card shows why and offers Re-arm.
+- Merge authority: D017 (standing, `dev` only).
+
+## D023 — Calendar says when, Boomerang says what
+
+- Date/status: 2026-11-23, **accepted and built** (BOOM-57, BOOM-58, BOOM-59).
+- Source: the owner shared a "Keep the WHAT / weekly review / time-block / keep it calm" workflow, then asked for all three changes proposed from it. Review day: **Friday**. Push sync was already off for him.
+- Decisions:
+  - **Blocks.** A task gets at most ONE calendar event, its block, and only from a deliberate tap. Moving a block moves that same event, and removing it deletes only that event. Completing a task leaves the block alone as a record of the time. Blocks use their own columns, never `gcal_event_id`.
+  - **Push sync retired.** No code path creates, edits or deletes a calendar event because a task has a due date. The old push also edited and deleted events linked by `gcal_event_id`. Those are mostly the user's own events behind imported tasks.
+  - **Weekly review.** Today offers it Friday through Sunday, with no notification and no count. It covers the inbox, next week's dates, and picking two or three priorities, never more than three. The priorities sit at the top of Today all week, each with its block. Skipping hides the offer for that weekend on that device.
+- Merge authority: D017 (standing, `dev` only). Production promotion requested by the owner ("one massive push to prod"); the release PR still waits on his go-ahead.
 

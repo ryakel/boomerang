@@ -16,21 +16,29 @@ export function useAlarmRules() {
   const available = alarmRulesAvailable()
   const [state, setState] = useState(null)
   const [native, setNative] = useState(null)
-  const [error, setError] = useState(null)
+  // Two errors, kept apart: a failed re-read clears itself on the next good
+  // read, but an operation's own failure stays until you act again. They used
+  // to share one slot, and the "alarms changed" event every operation sends
+  // made this same card re-read and wipe its own error a moment after showing
+  // it: Re-arm failed with a message that flashed and vanished (BOOM-56).
+  const [loadError, setLoadError] = useState(null)
+  const [opError, setOpError] = useState(null)
   const [busy, setBusy] = useState(false)
   const alive = useRef(true)
   const running = useRef(false)
 
   const load = useCallback(async ({ sync = false } = {}) => {
-    if (!available) return
+    if (!available) return null
     try {
       if (sync) await refreshAlarmRuleState()
       const n = await alarmRuleStatus()
       const s = await alarmRuleApi.load()
-      if (!alive.current) return
-      setNative(n); setState(s); setError(null)
+      if (!alive.current) return null
+      setNative(n); setState(s); setLoadError(null)
+      return null
     } catch (e) {
-      if (alive.current) setError(e.message)
+      if (alive.current) setLoadError(e.message)
+      return e.message || 'Could not read the alarm state.'
     }
   }, [available])
 
@@ -54,15 +62,15 @@ export function useAlarmRules() {
     if (running.current) return false
     running.current = true
     setBusy(true)
+    setOpError(null)
     let failure = null
     try { await fn() } catch (e) { failure = e.message || 'Something went wrong.' }
-    // The re-read clears a stale error, so the operation's own error goes last.
     await load()
     running.current = false
-    if (alive.current) { setBusy(false); setError(failure) }
+    if (alive.current) { setBusy(false); setOpError(failure) }
     window.dispatchEvent(new Event(CHANGED))
     return !failure
   }, [load])
 
-  return { available, state, native, error, busy, load, run }
+  return { available, state, native, error: opError || loadError, busy, load, run }
 }

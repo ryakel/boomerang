@@ -39,6 +39,9 @@ const TASK_FIELDS = [
   // DIY-or-hire Reality check (migration 042). Quokka can set/flip a verdict
   // when the user decides ("fine, I'll hire out the deck repair").
   'diy_assessed', 'diy_verdict', 'diy_reason', 'diy_first_move',
+  // The week's priorities (migration 064, BOOM-59): the Monday of the week
+  // this task was picked for in the weekly review. Two or three per week.
+  'week_priority',
 ]
 
 function summarizeTask(t) {
@@ -62,6 +65,7 @@ function summarizeTask(t) {
     completed_at: t.completed_at || null,
     parent_id: t.parent_id || null,
     pinned_to_today: !!t.pinned_to_today,
+    week_priority: t.week_priority || null,
     nag_allowed: !!t.nag_allowed,
     session_count: t.session_count || 0,
     last_session_at: t.last_session_at || null,
@@ -476,6 +480,7 @@ export function registerTaskTools() {
         parent_id: { type: ['string', 'null'], description: 'Link to a project. Pass null to unlink.' },
         child_visibility: { type: 'string', enum: ['active', 'backstage'], description: 'Visibility under the parent project. Only meaningful when parent_id is set.' },
         pinned_to_today: { type: 'boolean', description: 'Project pin toggle (status=project tasks only).' },
+        week_priority: { type: ['string', 'null'], description: 'Make this one of the week\'s priorities: the YYYY-MM-DD Monday of that week (weeks run Monday to Sunday). Today shows that week\'s priorities at the top. Two or three per week, never more than three; null removes it. Use when the user says "make X a priority this week" or picks next week\'s priorities.' },
         nag_allowed: { type: 'boolean', description: 'Opt this task into calm stale/nudge notifications while it has no due date. Default false for any undated task (ordinary or project) — set true if the user wants reminders on it anyway.' },
         blocked_by: { type: 'array', items: { type: 'string' }, description: 'Array of sibling sub task ids that must complete before this sub becomes visible in the main list. Empty array clears all blockers. Cycles are rejected.' },
         assignee: { type: ['string', 'null'], description: 'Set when this task is actually for someone else the user supervises (e.g. a kid\'s chore) — a name, e.g. "Jack". Pass null to clear (back to the user\'s own task).' },

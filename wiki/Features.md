@@ -276,7 +276,7 @@ Lists have **no task semantics** — no due date, energy, impact, size or rollov
 - **On autopilot**: things you already do. Boomerang won't ask, remind or count misses.
 - Two quiet rows at the bottom: **N days not recorded** (loops with days to look at) and **N resting** (paused or ended), each opening to the loops behind it.
 
-**How it comes back.** Each loop's page shows its mode: **Reminder** (a task shows up when due; a slipped cycle just waits), **Checklist** (a set of items at a time of day), **Practice** (no task; log it when you do it) or **Autopilot**. The first three follow from how the loop is built; Autopilot is a switch on the page for a plain loop. The loop editor uses the same words (Reminder, or Checklist once a loop has stack items / Practice / Autopilot), so a loop can also be made or unmade Autopilot there; Autopilot isn't offered while a loop has stack items. At the bottom, **Delete loop** (asks first; tasks it already made stay). Under the mode: Schedule, Last done, Next, the away offer, a collapsed list of days not recorded, the editable calendar ("Tap a day to fix the record. Nothing here counts against you."), Pause/Resume and Mark done today. **Marking a day done closes that cycle's open task too** (every item, for a checklist), so Today and Tasks agree with the loop, and taking the day back off reopens it rather than letting a duplicate appear. Switching a loop to Autopilot turns off its phone alarm and cancels its open task (cancelled, not deleted). A practice loop counts days marked on its calendar as well as days logged with + Log today.
+**How it comes back.** Each loop's page shows its mode: **Reminder** (a task shows up when due; a slipped cycle just waits), **Checklist** (a set of items at a time of day), **Practice** (no task; log it when you do it) or **Autopilot**. The first three follow from how the loop is built; Autopilot is a switch on the page for a plain loop. The loop editor uses the same words (Reminder, or Checklist once a loop has stack items / Practice / Autopilot), so a loop can also be made or unmade Autopilot there; Autopilot isn't offered while a loop has stack items. At the bottom, **Delete loop** (asks first; tasks it already made stay). Under the mode: Schedule, Last done, Next, the away offer, a collapsed list of days not recorded, the editable calendar ("Tap a day to fix the record. Nothing here counts against you."), Pause/Resume and Mark done today. Tapping **Checklist** or **Practice** opens a small sheet right there: the checklist's items, or how many times a week or month to aim for. Going back to **Reminder** from a checklist asks before removing its items. **Marking a day done closes that cycle's open task too** (every item, for a checklist), so Today and Tasks agree with the loop, and taking the day back off reopens it rather than letting a duplicate appear. Switching a loop to Autopilot turns off its phone alarm and cancels its open task (cancelled, not deleted). A practice loop counts days marked on its calendar as well as days logged with + Log today.
 
 Recurring tasks with configurable cadence:
 
@@ -475,11 +475,17 @@ GOOGLE_CLIENT_SECRET=your_client_secret
 
 ### Features
 
-- **Push sync** — tasks with due dates are automatically synced as Google Calendar events. AI infers the optimal time of day and duration based on task title, size, and energy type. When push sync is first enabled, all existing tasks with due dates today or in the future are pushed to the calendar automatically (past due dates are excluded). New tasks with due dates are synced after a 5-second debounce.
-- **Recurring events** — routine-spawned tasks create recurring Google Calendar events with RRULE matching the routine's cadence (daily, weekly, biweekly, monthly, etc.). Subsequent routine spawns link to the existing recurring event. Pull sync collapses recurring instances into a single task per series.
+- **Blocks** — give a task one block of focus time on your calendar. Open the task, then **Block**: choose 30, 60 or 90 minutes and a free slot Boomerang finds on today's calendar (or tomorrow's), or pick any date and time. Moving a block moves that one event, and removing it deletes only that event. Finishing the task leaves the block there as a record. Today shows a block in the day's schedule as that task's focus time. This is the only way Boomerang adds anything to your calendar: tasks with due dates are no longer pushed there automatically.
+- **Weekly review** — on Friday, Today offers fifteen minutes. The offer stays through the weekend; there's no notification and nothing counts it.
+  - **Clear the inbox:** Keep or Dismiss each suggestion.
+  - **Look ahead:** see what's due next week.
+  - **Pick:** choose two or three priorities, never more than three.
+  - **All week:** the priorities sit at the top of Today, each with its block.
+  - **Not this week** hides the offer for that weekend. On other days you can change the week's priorities from Today.
+- **Recurring events** — pull sync collapses recurring instances into a single task per series. (Loops no longer create recurring calendar events: automatic push was retired in favour of blocks.)
 - **Event rules** — *"when an event like this shows up, make me this task."* Different from pull sync: the task is work the event **implies** rather than the event itself. A flight on the calendar creates *"update the flight budget spreadsheet"* due the day after — the flight stays an event. Match on title, location, description, attendees, organizer, or all-day-vs-timed, with contains / doesn't contain / is exactly / matches regex — conditions in the same box are **or** (any one is enough) and every box has to match, so *(N5274S or N12345) and at Hap's* is one rule — and build the task title and notes from the event (`{{event.title}}`, `{{event.date}}`, `{{event.location}}`, and regex captures as `{{match.1}}`, so a rule matching a tail number can title its task "Log 5274S hours"). Due dates are an offset in days from the event, before or after. **Test** shows what a rule would do before you save it — how many of the next 30 days' events match and what each would create. Saving a rule never backfills: events already on your calendar are noted and left alone, and an "Apply to N existing" button appears if you want them after all. Optionally suppress the triggering event's own import so you get the follow-up task and not both, and optionally restrict a rule to **events that haven't started yet** — useful because the calendar still hands Boomerang an event that's under way, so without it a flight you add to the calendar after the fact creates its follow-up task as though it were coming up. (Left off by default: *"log the flight hours"* is a rule you want firing on flights that already happened.) And when the work is the same work every time, **reuse the one task instead of adding another**: a repeat rolls the existing task's due date to the soonest event it covers and notes which one, leaving your title, notes and progress alone — so a weekly flight gives you one budget task that keeps moving, not four identical cards. Finish it and the next event starts a fresh one. Settings → Integrations → Google Calendar → Event rules.
 - **Pull sync** — calendar events can be pulled as Boomerang tasks via "Sync Now" (only visible when pull sync is enabled) or automatically on app open. Events already pushed by Boomerang are filtered out. Recurring event instances are collapsed (one task per series).
-- **Bulk cleanup** — "Remove All Events" button in Settings deletes all Boomerang-managed events from the calendar and unlinks all tasks. Useful for testing or starting fresh.
+- **Bulk cleanup** — "Remove Boomerang events" in Settings deletes every event Boomerang made, blocks included.
 - **AI-timed events** — Claude suggests time slots (desk tasks → morning, errands → midday, people tasks → afternoon) and durations based on task size (XS=15min to XL=4h). Falls back to configurable defaults.
 - **Per-task duration override** — set a custom duration (in minutes) on any task via EditTaskModal. Overrides AI/size-based defaults. Shown when a due date is set.
 - **Event buffer** — optional 15-minute buffer on either side of calendar events, ensuring breathing room around meetings. Toggle in Settings → GCal.
@@ -818,7 +824,7 @@ A loop's page has an **Alarm** card (Dev phone app only). It shows:
 
 Tap a row to change it. **When it rings** is a sheet with day chips, a time per day, and one-off dates or skips.
 
-Saving never reaches the phone. **Arm on this phone** does that. The badge reads Not armed yet, Armed on this phone, Changes waiting, Off, or On hold.
+The first time, **Arm on this phone** sends it to the phone. After that, every change you save goes to the phone right away ("Updated on this phone."). The badge reads Not armed yet, Armed on this phone, Changes waiting, Off, or On hold.
 
 **On hold** means one of two things:
 - the loop's own phone reminder is on, and the card offers **Turn off the reminder** so you don't get both;
@@ -829,5 +835,14 @@ The phone holds 16 alarms at a time. One arming covers the next 16, and the card
 **Today** shows an **Alarm today** card with the time, the first warning and the done button. Tapping it stops that day's remaining alarms and records the tap. It doesn't mark the loop done. The card then reads "Leaving now at 1:52 PM".
 
 **Settings → Notifications → Alarms** lists what this phone holds and has **Cancel all alarms on this phone**. Permission and the one-minute sound test stay in **Test channels**. Stop on the alarm only silences it.
+
+**Done when I arrive** (Dev phone app, needs one rebuild). On the Alarm card, save a place: tap **Use where I am now**, or type an address and tap **Find**. Then name it and turn it on.
+- Saving asks iOS for "Always" location, so arriving counts even when Boomerang is closed.
+- Arriving there from an hour before to an hour after that day's alarm stops the rest of that day's alarms and marks the loop done for the day.
+- You get a quiet notification ("Arrived at School, 2:14"), and Today's alarm card reads "Arrived at School at 2:14".
+- Outside that window, being there does nothing.
+- **Without Always location:** the card says arrival can't be detected, and the alarm works as before.
+- **Turning arrival off** stops the phone watching the place right away. Any other change waits for a re-arm, like the rest of the card.
+- **Privacy:** only the place you saved and the arrival time are kept, never your location history.
 
 Details and limits: [Alarm Rules](Alarm-Rules.md).

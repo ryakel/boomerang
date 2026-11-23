@@ -24,6 +24,7 @@ import DoneList from './components/DoneList'
 import ActivityLog from './components/ActivityLog'
 import NotificationsModal from './components/NotificationsModal'
 import RoutinesModal from './components/RoutinesModal'
+import { setArrivalHandler } from './alarmRules'
 import KeptShell from './kept/KeptShell'
 import KeptDesktop from './kept/KeptDesktop'
 import QuickEditTask from './kept/QuickEditTask'
@@ -249,7 +250,7 @@ export default function AppV2() {
   // Background work that must keep running even when v2 is the active shell:
   // notifications, AI inference, external (Trello/Notion) outbound sync,
   // package polling + delivery notifications.
-  useExternalSync(tasks, updateTask, updateRoutine)
+  useExternalSync(tasks, updateTask)
   useSizeAutoInfer(tasks, updateTask, labels)
   // Critical triage auto-breakdown — same background-net pattern as the
   // sizer: any task that lands with the critical label and no triage pass
@@ -1090,6 +1091,23 @@ export default function AppV2() {
     if (routine?.resume_at) updateRoutine(routineId, { resume_at: null })
   }, [markRoutineDayDone, routines, tasks, completeTask, updateTask, pushStatusToTrello, updateRoutine])
 
+  // Arriving as done (BOOM-53): an arrival the phone recorded marks that day of
+  // the loop done through the same path as the loop page's calendar (stamp +
+  // close the day's open task). Throwing leaves the arrival pending on the
+  // phone, so a sync that runs before loops have loaded never loses it.
+  const arrivalRef = useRef(null)
+  arrivalRef.current = ({ sourceKind, sourceId, date, recordedAt }) => {
+    if (sourceKind !== 'routine') return
+    if (!routines.some(r => r.id === sourceId)) throw new Error('That loop has not loaded yet; the arrival will sync on the next open.')
+    handleMarkLoopDay(sourceId, date, new Date(recordedAt * 1000).toISOString())
+  }
+  const routinesLoaded = routines.length > 0
+  useEffect(() => {
+    if (!routinesLoaded) return
+    setArrivalHandler((arrival) => arrivalRef.current?.(arrival))
+    return () => setArrivalHandler(null)
+  }, [routinesLoaded])
+
   // The undo twin. Taking a day back off must also reopen the task that mark
   // closed (the latest cycle's only), or the spawn pass would see a finished
   // cycle with no stamp and mint a duplicate beside it. A practice loop's day
@@ -1669,6 +1687,7 @@ export default function AppV2() {
           onGmailDismiss={handleDismissPending}
           onReconcileYesterday={handleReconcileYesterday}
           onReconcileKeep={handleReconcileKeep}
+          onUpdateTask={updateTask}
           onWhatNow={() => setShowWhatNow(true)}
           onToggleItem={(task, clId, itemId) => {
             const checklists = (task.checklists || []).map(cl =>
@@ -1694,6 +1713,7 @@ export default function AppV2() {
           onToggleLoopPause={togglePause}
           onDeleteLoop={deleteRoutine}
           onTurnOffLoopReminder={turnOffLoopReminder}
+          onUpdateLoop={updateRoutineFromEditor}
           onUnmarkLoopDay={handleUnmarkLoopDay}
           onSkipLoopDay={skipRoutineDay}
           onPushLoopOut={pushLoopOut}
@@ -1735,6 +1755,7 @@ export default function AppV2() {
           onGmailDismiss={handleDismissPending}
           onReconcileYesterday={handleReconcileYesterday}
           onReconcileKeep={handleReconcileKeep}
+          onUpdateTask={updateTask}
           onWhatNow={() => setShowWhatNow(true)}
           onToggleItem={(task, clId, itemId) => {
             const checklists = (task.checklists || []).map(cl =>
@@ -1760,6 +1781,7 @@ export default function AppV2() {
           onToggleLoopPause={togglePause}
           onDeleteLoop={deleteRoutine}
           onTurnOffLoopReminder={turnOffLoopReminder}
+          onUpdateLoop={updateRoutineFromEditor}
           onUnmarkLoopDay={handleUnmarkLoopDay}
           onSkipLoopDay={skipRoutineDay}
           onPushLoopOut={pushLoopOut}
@@ -1839,6 +1861,7 @@ export default function AppV2() {
           onStatusChange={handleStatusChange}
           onOpenFull={() => setEditFull(true)}
           onConvertToLoop={handleConvertToRoutine}
+          onUpdateTask={updateTask}
         />
       )}
 

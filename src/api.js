@@ -1131,6 +1131,21 @@ export async function gcalUpdateEvent(eventId, calendarId, event) {
   return res.json()
 }
 
+// A task's block (BOOM-57). Unlike the helpers below, these tell "the event is
+// gone" (404/410) apart from a failure: removing a block whose event was
+// already deleted on Google is done, and moving one is a fresh create.
+export async function gcalBlockRequest(method, eventId, calendarId, event) {
+  const params = calendarId ? `?calendarId=${encodeURIComponent(calendarId)}` : ''
+  const res = await fetch(`/api/gcal/events/${encodeURIComponent(eventId)}${method === 'DELETE' ? params : ''}`, {
+    method,
+    headers: getApiHeaders(),
+    ...(method === 'DELETE' ? {} : { body: JSON.stringify({ calendarId, event }) }),
+  })
+  if (res.status === 404 || res.status === 410) return { gone: true }
+  if (!res.ok) throw new Error(method === 'DELETE' ? 'Could not remove the block from your calendar' : 'Could not move the block on your calendar')
+  return res.json()
+}
+
 export async function gcalDeleteEvent(eventId, calendarId) {
   const params = calendarId ? `?calendarId=${encodeURIComponent(calendarId)}` : ''
   const res = await fetch(`/api/gcal/events/${encodeURIComponent(eventId)}${params}`, {

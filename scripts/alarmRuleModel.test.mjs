@@ -1,7 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { planAlarmRule } from '../server/alarmSchedule.js'
-import { ringsSummary, oneOffSummary, armWindow, alarmCardStatus, todayAlarms, clock12, MAX_ARMED } from '../src/alarmRuleModel.js'
+import { changesWhyText, ringsSummary, oneOffSummary, armWindow, alarmCardStatus, todayAlarms, clock12, MAX_ARMED, arrivalWindow, arrivalState } from '../src/alarmRuleModel.js'
 
 // The alarm interface's rules (BOOM-51). State is built with the REAL server
 // planner so a change to planning shows up here too.
@@ -149,4 +149,62 @@ test('a second alarm behind 16 earlier ones has nowhere to go yet, and says so (
   assert.equal(s.status, 'not-armed')
   assert.equal(s.armsThrough, null)
   assert.equal(armWindow(state, DEVICE).items.every(o => o.ruleId === daily.id), true)
+})
+
+// Arriving as done (BOOM-53).
+test('an arrival reads as done on Today and wins the wording over the done button', () => {
+  const mon = at('2026-11-23T09:00:00-06:00')
+  const rule = pickup(), state = stateFor(rule, mon)
+  const native = nativeFor(armWindow(state, DEVICE).items)
+  const key = todayAlarms({ state, native, now: mon })[0].key
+  const arrivedAt = at('2026-11-23T14:12:00-06:00') / 1000
+  const arrived = {
+    ...native,
+    cues: native.cues.map(c => c.key === key ? { ...c, state: 'cancelled' } : c),
+    receipts: [{ key, ruleId: RULE_ID, date: '2026-11-23', label: 'Leaving now', recordedAt: arrivedAt - 900 }],
+    arrivals: [{ key, ruleId: RULE_ID, date: '2026-11-23', label: 'Arrived at Lincoln', recordedAt: arrivedAt, synced: false }],
+  }
+  const [row] = todayAlarms({ state, native: arrived, now: mon })
+  assert.equal(row.doneLabel, 'Arrived at Lincoln')
+  assert.equal(row.doneAt, arrivedAt * 1000)
+  assert.equal(row.arrived, true)
+  // Even if the cancelled cue drops out of the readback.
+  const [orphan] = todayAlarms({ state, native: { ...arrived, cues: [] }, now: mon })
+  assert.equal(orphan.doneLabel, 'Arrived at Lincoln')
+})
+
+test('the arrival window is an hour either side of the alarm', () => {
+  const target = at('2026-11-23T14:00:00-06:00')
+  assert.deepEqual(arrivalWindow(target), { from: at('2026-11-23T13:00:00-06:00'), to: at('2026-11-23T15:00:00-06:00') })
+})
+
+test('the arrival row says exactly what is missing', () => {
+  const place = { enabled: true, latitude: 41.88, longitude: -87.63, radius: 150, label: 'Lincoln' }
+  const loc = (authorization, extra = {}) => ({ available: true, authorization, monitoring: true, ...extra })
+  assert.equal(arrivalState(pickup(), loc('always')), 'needs-place')
+  assert.equal(arrivalState(pickup({ arrival: { ...place, enabled: false } }), loc('always')), 'off')
+  assert.equal(arrivalState(pickup({ arrival: place }), loc('whenInUse')), 'needs-always')
+  assert.equal(arrivalState(pickup({ arrival: place }), loc('notDetermined')), 'needs-always')
+  assert.equal(arrivalState(pickup({ arrival: place }), loc('denied')), 'denied')
+  assert.equal(arrivalState(pickup({ arrival: place }), { available: false }), 'unavailable')
+  assert.equal(arrivalState(pickup({ arrival: place }), loc('always', { monitoring: false })), 'unavailable')
+  assert.equal(arrivalState(pickup({ arrival: place }), loc('always')), 'ready')
+})
+
+test('changes waiting says what differs, including days the phone cancelled', () => {
+  const rule = pickup(), state = stateFor(rule, SAT_NOON)
+  const items = armWindow(state, DEVICE).items
+  // Two days in the middle came back cancelled from the phone.
+  const native = nativeFor(items)
+  const gone = new Set([items[2].key, items[3].key])
+  native.cues = native.cues.map(c => gone.has(c.key) ? { ...c, state: 'cancelled' } : c)
+  const s = alarmCardStatus({ rule, state, native, armedRevision: 1, now: SAT_NOON })
+  assert.equal(s.status, 'changes')
+  assert.deepEqual(s.why.missing, [{ date: items[2].date, state: 'cancelled' }, { date: items[3].date, state: 'cancelled' }])
+  assert.match(changesWhyText(s.why), /doesn’t have .* \(cancelled on the phone\)/)
+  // A settings-only edit names itself.
+  const snooze = pickup({ revision: 2, snoozeMinutes: 10 })
+  const s2 = alarmCardStatus({ rule: snooze, state: stateFor(snooze, SAT_NOON), native: nativeFor(items), armedRevision: 1, now: SAT_NOON })
+  assert.equal(changesWhyText(s2.why), 'The warning, snooze or done-button text changed since arming.')
+  assert.equal(alarmCardStatus({ rule, state, native: nativeFor(items), armedRevision: 1, now: SAT_NOON }).why, null)
 })

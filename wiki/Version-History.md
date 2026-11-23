@@ -4,7 +4,130 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ---
 
+## 2026-11-23
+
+- feat(kept): weekly review, week priorities and calendar blocks; retire calendar push [L]
+  - The owner shared a "Calendar says WHEN, Reminders says WHAT" workflow and asked for all three changes it suggested (D023).
+  - **Blocks (BOOM-57):**
+    - a task gets one Google Calendar event from the editor's Block chip or a priority's Block button;
+    - 30/60/90 minutes at a suggested free slot or any time;
+    - move PATCHes that event, remove deletes only it, completing leaves it;
+    - Today shows it as the task's focus time;
+    - pull sync and calendar rules never mine it.
+  - **Push retired (BOOM-58):**
+    - nothing creates, edits or deletes a calendar event because a task has a due date;
+    - leftover queued calendar ops are dropped;
+    - Settings explains blocks.
+  - **Weekly review (BOOM-59):**
+    - Friday through Sunday, Today offers it: clear the inbox, see next week's dates, pick two or three priorities;
+    - the priorities sit at the top of Today all week, each with a Block button;
+    - no notification, no count;
+    - Quokka can set and name a week priority.
+  - **Storage:** migration 064 adds `block_event_id`, `block_calendar_id`, `block_start`, `block_minutes` and `week_priority` to tasks.
+  - **Tests:**
+    - `scripts/weekBlocks.test.mjs`, 14 cases: models, Today, rules, retired push, DB round trip;
+    - `scripts/weekBlocksBrowser.test.mjs`: the review and a block's add/move/remove against a fake calendar, at 375px.
+
+## 2026-11-22
+
+- fix(ios): build the warning alarm without a countdown screen so iOS accepts it [XS]
+  - Owner screenshot (BOOM-56): "iOS won't take another alarm… It holds 1 for this app". So this was not the limit.
+  - The warning cue had a countdown screen in its presentation but no countdown length in its configuration. AlarmKit refuses that with "com.apple.AlarmKit.Alarm error 0", the same code as its limit error.
+  - Every arming scheduled the first 9:00 alarm, then died on its 8:55 warning. iOS held one alarm, and the card stayed on Changes waiting.
+  - The warning cue is now built from the alert alone.
+  - The refusal message no longer guesses "limit". It names the cue and date and how many alarms iOS holds.
+  - Native: needs one iOS rebuild.
+
+- fix(ios): recover when iOS refuses an alarm, and reclaim stray ones [S]
+  - Owner screenshot (BOOM-56): Re-arm on "check bank account" failed with "com.apple.AlarmKit.Alarm error 0". The card's own line said only a setting had changed.
+  - Error 0 is most likely `maximumLimitReached`, the only error AlarmKit documents. iOS sets the alarm limit per device and publishes no number.
+  - The refused schedule left an "uncertain" cue that would refuse every later arming.
+  - Now:
+    - a refused schedule is retried once after a second, since a re-arm cancels a cue right before replacing it;
+    - a cue that still fails is marked cancelled, so the next arming retries it;
+    - an unconfirmed cue that iOS doesn't list is scheduled again instead of blocking;
+    - alarms iOS holds that no live cue owns (never the probe's) are reclaimed on each arming;
+    - the refusal says how many alarms iOS holds, and Settings → Alarms shows that count.
+  - Native: needs one iOS rebuild. The Swift has not been compiled here.
+
 ## 2026-11-21
+
+- fix(kept): keep an alarm action's error on the card instead of flashing it [XS]
+  - Owner: "re-arm changes flashes to other text and then does not change 'Changes waiting'" (BOOM-56).
+  - Every alarm action broadcasts "alarms changed" so other alarm views re-read. The card that sent it re-read too, and the re-read cleared the action's error a moment after showing it. A refused Re-arm was therefore unreadable.
+  - Re-read errors and action errors now live apart. An action's error stays until the next action.
+  - The browser test makes an arming fail and checks the message is still there 1.5s later. The old code fails that check.
+
+- feat(kept): say why an alarm reads changes waiting [XS]
+  - Owner, after the BOOM-56 rebuild: "Still not rearming. Stuck in waiting."
+  - Under the badge, the card names what differs:
+    - days the phone doesn't have, with the phone's own state for each (cancelled, not listed, absent, marked done);
+    - days whose times differ;
+    - days the phone still has that you removed;
+    - a settings-only edit.
+  - "Cancelled on the phone" right after an arming means the phone skipped those days, i.e. it is still on the pre-BOOM-56 build. Web-only, no rebuild.
+
+- fix(ios): arming again schedules days whose alarms were cancelled [S]
+  - Owner: "Now arm on this phone doesn't work at all… It's persistently off now" (BOOM-56).
+  - The phone's apply skipped any cue it had cancelled, so after Turn off → Turn on, Arm scheduled nothing and reported no error. The same skip hit a day dropped and added back.
+  - A deliberate arming now schedules every plan entry that isn't already live and unchanged, with a fresh alarm id. Stopped alarms, done days and arrivals not yet synced still never come back.
+  - The browser fixture now mirrors the Swift apply (`scripts/alarmNativeFixture.mjs`); the old rules fail the new Turn off → Turn on → Arm step.
+  - The card shows a failed re-read instead of quietly showing stale state.
+  - Native: needs one iOS rebuild.
+
+- feat(kept): once an alarm is armed, saving a change updates the phone [S]
+  - Owner: re-arming "feels clunky", then "Auto re-arm once armed" (D022, BOOM-55).
+  - The first arming stays a tap. After that, saving any change (times, warning, snooze, done-button text, arrival place) re-arms right away, and the card says "Updated on this phone."
+  - Turning a rule off, a held rule, or missing permission never re-arms, and nothing re-arms on its own.
+  - The card and sheet wording now says changes go to the phone right away. "Changes waiting" now reads as "the phone still has the earlier version", with Re-arm.
+  - **Checked:**
+    - The alarm browser tests now expect an armed alarm's saved change to end on "Armed" with "Updated on this phone", and the plan to be re-sent: an every-day edit re-sends 16 occurrences, and saving the arrival place re-sends with the place.
+    - Turn off still arms nothing.
+    - After an arrival has completed the day's only alarm, switching arrival off doesn't re-arm; `dropPlaces` stops the watching.
+    - All 3 alarm browser suites pass.
+
+- fix(kept): save an arrival place before asking for always location [S]
+  - Owner: the flow "worked until re-arm… now its stuck at changes waiting" (BOOM-53).
+  - **Likely cause:** saving the place waited for iOS's Always prompt first. When the answer leaves permission unchanged (keeping "While Using"), iOS never calls back, so the save sat for the 30-second timeout. A re-arm in that gap was followed by the late save, which bumped the rule's revision after arming and left the badge on "Changes waiting".
+  - **Fix:** save first, then ask for Always in the background. The card re-reads permission when the ask settles, and still warns if Always is missing.
+  - **Checked:**
+    - `scripts/alarmArrivalBrowser.test.mjs` now follows the owner's order (arm, add the place, re-arm), with a fake Always prompt that hangs and changes nothing. It checks the place saves within 3 seconds, the re-arm settles on Armed, and nothing re-saves the rule afterwards.
+    - The test fails on the previous code ("saving never waits for the Always prompt") and passes on this one.
+    - The owner's own phone state hasn't been seen, so this is the likely cause rather than a confirmed one.
+- fix(kept): switch a loop to checklist or practice from its own page [S]
+  - Owner: "checklist and Practice drop me into the old UI" (BOOM-54).
+  - Tapping Checklist or Practice under "How it comes back" opened the legacy loop editor. Now it opens a Kept sheet on the loop page (`src/kept/LoopModeSheet.jsx`):
+    - **Practice:** aim for N a week or month.
+    - **Checklist:** add or remove items.
+    - **Reminder from a checklist:** confirm removing its items.
+    - **Practice back to Reminder:** switches straight away.
+  - Saves go through `updateRoutineFromEditor` with the same fields the editor sets (`spawn_mode`, `target_count`/`target_period`, `remind: false`, `members`). A loop's mode stays derived.
+  - **Checked:** Playwright drove every switch in the real app. Each one saved to the server, the page shows the new mode, a checklist's items go only after the confirm, the old editor never opened, and there were no page errors.
+  - The page's **Edit** button still opens the old editor for title, schedule and time.
+
+- feat(kept): arriving at a saved place marks the loop's day done [L]
+  - Owner: "If I am at the school, I made it and we are done", with four decisions recorded in D020 (BOOM-53).
+  - **Alarm card:** a **Done when I arrive** row and sheet. Save the place with **Use where I am now** or a typed address (looked up on the phone), name it, and turn it on. Turning it on asks iOS for Always location. The card warns when Always is missing, location is off, or the app needs the rebuild.
+  - **On the phone (native, Dev build only):** `ArrivalMonitor` watches each armed rule's place.
+    - An entry within an hour of that day's alarm records an arrival, cancels the day's remaining cues, and posts a quiet banner ("Arrived at School, 2:14").
+    - On next sync, the server records the day and the app marks the loop done through `handleMarkLoopDay`. Today reads "Arrived at School at 2:14".
+    - Turning arrival off drops the place at the next sync without re-arming.
+  - **Native changes:**
+    - `BoomerangAlarmRules.swift`: arrival types, `ArrivalMonitor`, and plugin methods (`locationStatus`, `requestLocation`, `currentLocation`, `geocode`, `arrivalSynced`, `dropPlaces`);
+    - `AppDelegate`: starts the monitor at launch;
+    - `Info.plist`: the location usage strings.
+  - **Needs one iOS rebuild of the Dev app.**
+  - **Checked:**
+    - New tests for arrival validation and storage, Today's wording, the window and the row states. `scripts/alarmArrivalBrowser.test.mjs` drives the whole flow against the real routes and a fake phone written to mirror the Swift.
+    - `npm test` 704/704; alarm unit suite 31/31; the 3 alarm browser tests pass. Lint is unchanged at 13 warnings.
+    - The Swift was reviewed by reading only. It hasn't been compiled here; the owner's Xcode build is the first compile.
+  - The phone's new storage fields are optional, so an existing alarm file still loads (CLAUDE.md now records why).
+
+- docs(wiki): record the owner's answers on arriving as done [XS]
+  - D020 now records the four location decisions (BOOM-53): save the place by "here now" or by address (map later); count arrival from 1h before to 1h after the alarm; without Always, the alarm is unchanged; and a quiet notification plus a Today line when it fires. Nothing is built yet.
+
+- docs(wiki): record the v2.65.0 production release [XS]
+  - Work Status and Decision Log (D021): release #1056 deployed v2.65.0, confirmed by the health check. It was the first production deploy on Ubuntu 26 with Tailscale action v4. #1057 relinked `dev` with `main`.
 
 - style(kept): make quick add's keep on today a pin icon in the header [XS]
   - Owner: "I really dislike that button. It is huge… just use the pin icon and put it up at the top next to the task reminder note stuff… on the left… just the pin and not the text" (BOOM-52).

@@ -1,10 +1,10 @@
-import { useEffect, useRef, useState } from 'react'
-import { AlarmClock, ChevronRight, X } from 'lucide-react'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { AlarmClock, ChevronRight, MapPin, X } from 'lucide-react'
 import SheetPortal from './SheetPortal'
 import { useAlarmRules } from './useAlarmRules'
-import { alarmRuleApi, applyAlarmRulePlan, armedRevisions, refreshAlarmRuleState } from '../alarmRules'
+import { alarmLocation, alarmRuleApi, applyAlarmRulePlan, armedRevisions, refreshAlarmRuleState } from '../alarmRules'
 import { alarmProbe } from '../alarmProbe'
-import { alarmCardStatus, blankAlarmRule, STATUS_LABEL, clock12, ringsSummary, oneOffSummary, shortDate, dayDate, timeIn, DAY_LONG } from '../alarmRuleModel'
+import { alarmCardStatus, arrivalState, blankAlarmRule, STATUS_LABEL, changesWhyText, ARRIVAL_WINDOW_MINUTES, clock12, ringsSummary, oneOffSummary, shortDate, dayDate, timeIn, DAY_LONG } from '../alarmRuleModel'
 import { dateInZone } from '../../server/alarmSchedule.js'
 import './alarm.css'
 
@@ -28,7 +28,27 @@ const BADGE_ON = new Set(['changes', 'armed'])
 
 export default function AlarmCard({ kind = 'routine', sourceId, reminderOn = false, onTurnOffReminder }) {
   const { available, state, native, error, busy, load, run } = useAlarmRules()
-  const [sheet, setSheet] = useState(null) // 'when' | 'lead' | 'snooze' | 'label'
+  const [sheet, setSheet] = useState(null) // 'when' | 'lead' | 'snooze' | 'label' | 'arrive'
+  // "Updated on this phone." after a save re-armed an armed alarm (BOOM-55).
+  const [flash, setFlash] = useState(null)
+  useEffect(() => {
+    if (!flash) return
+    const t = setTimeout(() => setFlash(null), 3500)
+    return () => clearTimeout(t)
+  }, [flash])
+  // The phone's location permission, for arriving as done (BOOM-53). Re-read
+  // on return from iOS Settings, where Always is granted.
+  const [location, setLocation] = useState(null)
+  const loadLocation = useCallback(() => {
+    if (!available) return
+    alarmLocation.status().then(setLocation).catch(() => setLocation({ available: false }))
+  }, [available])
+  useEffect(() => {
+    loadLocation()
+    const onVis = () => { if (document.visibilityState === 'visible') loadLocation() }
+    document.addEventListener('visibilitychange', onVis)
+    return () => document.removeEventListener('visibilitychange', onVis)
+  }, [loadLocation])
 
   // Turning the loop's own reminder off goes through the normal sync; give it
   // a moment to land before asking the server whether the rule is still held.
@@ -49,13 +69,31 @@ export default function AlarmCard({ kind = 'routine', sourceId, reminderOn = fal
   const authorized = native?.authorization === 'authorized'
   const mine = !!native?.deviceId && (!rule || rule.deviceId === native.deviceId)
 
-  const save = (patch) => run(async () => {
-    if (!native?.deviceId) throw Error('Open Boomerang Dev on this phone to set alarms.')
-    const base = rule || blankAlarmRule(kind, sourceId, deviceZone())
-    await alarmRuleApi.save(rule?.id || crypto.randomUUID(), { ...base, ...patch }, rule?.revision || 0, native.deviceId)
-    // Cancels this rule's cues if it is now off or held. Never arms.
-    await refreshAlarmRuleState()
-  }).then(ok => { if (ok) setSheet(null); return ok })
+  // Once an alarm is armed on this phone, saving a change updates the phone
+  // straight away (owner, 2026-11-21: re-arming "feels clunky"). The FIRST
+  // arming stays a deliberate tap, and nothing re-arms on its own: this only
+  // runs because you saved. Off, held, or no alarm permission: no re-arm.
+  const wasArmed = s.status === 'armed' || s.status === 'changes'
+  const save = (patch) => {
+    let rearmed = false
+    return run(async () => {
+      if (!native?.deviceId) throw Error('Open Boomerang Dev on this phone to set alarms.')
+      const base = rule || blankAlarmRule(kind, sourceId, deviceZone())
+      const id = rule?.id || crypto.randomUUID()
+      await alarmRuleApi.save(id, { ...base, ...patch }, rule?.revision || 0, native.deviceId)
+      // Cancels this rule's cues if it is now off or held.
+      await refreshAlarmRuleState()
+      if (!wasArmed || !authorized) return
+      const fresh = await alarmRuleApi.load()
+      const saved = fresh.rules.find(r => r.id === id)
+      if (!saved?.enabled || !saved.available || saved.conflict) return
+      await applyAlarmRulePlan(fresh, native)
+      rearmed = true
+    }).then(ok => {
+      if (ok) { setSheet(null); if (rearmed) setFlash('Updated on this phone.') }
+      return ok
+    })
+  }
 
   const arm = () => run(async () => {
     const fresh = await alarmRuleApi.load()
@@ -75,6 +113,14 @@ export default function AlarmCard({ kind = 'routine', sourceId, reminderOn = fal
     return { key: o.key, date: o.date, warn: timeIn(target - rule.leadMinutes * 60000, zone), at: timeIn(target, zone) }
   })
 
+  // Arriving as done: what, if anything, stops it from working on this phone.
+  const arrival = rule ? arrivalState(rule, location) : null
+  const arrivalNote = {
+    'needs-always': 'Arrival needs “Always” location to work while Boomerang is closed. The alarm works either way.',
+    denied: 'Location is off for Boomerang, so arriving can’t be detected. The alarm still works.',
+    unavailable: location?.needsRebuild ? 'Arriving as done needs the updated Dev app (one rebuild). The alarm still works.' : 'This phone can’t watch places right now. The alarm still works.',
+  }[arrival] || null
+
   let note = null, primary = null, secondary = null
   const turnOff = { label: 'Turn off', fn: () => save({ enabled: false }) }
   switch (s.status) {
@@ -87,19 +133,19 @@ export default function AlarmCard({ kind = 'routine', sourceId, reminderOn = fal
         ? 'Your other alarms fill the phone’s 16 slots first. This one fits once some of theirs have passed.'
         : s.capped
         ? `The phone holds 16 alarms at a time, so arming covers through ${shortDate(s.armsThrough)}. You’ll be asked to re-arm before then.`
-        : `Arming covers through ${shortDate(s.armsThrough)}. Saving a change never arms it.`
+        : `Arming covers through ${shortDate(s.armsThrough)}. After that, changes you save go to the phone right away.`
       primary = { label: 'Arm on this phone', fn: arm, needsAuth: true }
       secondary = turnOff
       break
     case 'changes':
-      note = 'You changed this after arming. The phone keeps the old times until you re-arm.'
+      note = 'The phone still has the earlier version of this alarm. Re-arm to send your latest changes.'
       primary = { label: 'Re-arm changes', fn: arm, needsAuth: true }
       secondary = turnOff
       break
     case 'armed':
       note = s.renewSoon
         ? `Armed through ${shortDate(s.armedThrough)}. Re-arm to add the next weeks.`
-        : `Armed through ${shortDate(s.armedThrough)}. Changes you save wait here until you re-arm.`
+        : `Armed through ${shortDate(s.armedThrough)}. Changes you save go to the phone right away.`
       if (s.renewSoon) primary = { label: 'Re-arm to keep going', fn: arm, needsAuth: true }
       secondary = turnOff
       break
@@ -155,6 +201,15 @@ export default function AlarmCard({ kind = 'routine', sourceId, reminderOn = fal
           {row('Done button says', rule.ackLabel, () => setSheet('label'))}
           {(oneOff.skips.length > 0 || oneOff.extras.length > 0) &&
             row('One-off changes', [...oneOff.skips.map(x => `Skip ${x}`), ...oneOff.extras].map(l => <span key={l} className="al-line">{l}</span>), () => setSheet('when'))}
+          {row('Done when I arrive', rule.arrival?.enabled ? rule.arrival.label : 'Off', () => setSheet('arrive'))}
+          {rule.arrival?.enabled && arrival !== 'ready' && arrivalNote && (
+            <p className="al-note al-left al-arrive-note" role="status">
+              <MapPin size={13} strokeWidth={2.2} aria-hidden="true" /> {arrivalNote}
+              {arrival === 'needs-always' && location?.authorization !== 'denied' && (
+                <button className="t2-chip al-inline" disabled={busy} onClick={() => run(async () => { await alarmLocation.request(true) }).then(loadLocation)}>Allow</button>
+              )}
+            </p>
+          )}
         </>
       )}
 
@@ -179,7 +234,9 @@ export default function AlarmCard({ kind = 'routine', sourceId, reminderOn = fal
           {primary && <button className="t2-btn t2-btn-primary" onClick={primary.fn} disabled={busy || (primary.needsAuth && !authorized)}>{busy ? 'Working…' : primary.label}</button>}
         </div>
       )}
+      {flash && <p className="al-note al-flash" role="status">{flash}</p>}
       {note && <p className="al-note">{note}</p>}
+      {s.status === 'changes' && s.why && <p className="al-note al-why" data-testid="changes-why">{changesWhyText(s.why)}</p>}
       {error && <p className="al-note al-error" role="alert">{error}</p>}
       {native?.lastError && <p className="al-note al-error" role="alert">{native.lastError}</p>}
 
@@ -199,6 +256,10 @@ export default function AlarmCard({ kind = 'routine', sourceId, reminderOn = fal
       )}
       {sheet === 'label' && (
         <LabelSheet value={rule.ackLabel} busy={busy} onClose={() => setSheet(null)} onSave={(label) => save({ ackLabel: label })} />
+      )}
+      {sheet === 'arrive' && (
+        <ArrivalSheet arrival={rule.arrival} location={location} busy={busy} onClose={() => setSheet(null)}
+          onLocationChanged={loadLocation} onSave={(arrival) => save({ arrival })} />
       )}
     </section>
   )
@@ -281,7 +342,7 @@ function WhenSheet({ rule, todayKey, busy, onClose, onSave }) {
         <button className="t2-btn t2-btn-ghost" onClick={onClose}>Cancel</button>
         <button className="t2-btn t2-btn-primary" disabled={busy || !valid} onClick={() => onSave({ weekly, dates })}>{busy ? 'Saving…' : 'Save'}</button>
       </div>
-      <p className="al-note">Saved changes wait on the loop page until you arm them.</p>
+      <p className="al-note">Once the alarm is armed, saving updates the phone right away.</p>
     </Sheet>
   )
 }
@@ -314,3 +375,92 @@ function LabelSheet({ value, busy, onClose, onSave }) {
     </Sheet>
   )
 }
+
+// Arriving as done (BOOM-53): where the place is, what it's called, and
+// whether arriving there counts. Saving it, like every other change here,
+// waits on the card until you re-arm, which is what sends the place to the
+// phone. Turning it off takes effect at the next sync without re-arming.
+function ArrivalSheet({ arrival, location, busy, onClose, onSave, onLocationChanged }) {
+  const [place, setPlace] = useState(() => arrival ? { latitude: arrival.latitude, longitude: arrival.longitude, radius: arrival.radius } : null)
+  const [name, setName] = useState(arrival?.label || '')
+  const [on, setOn] = useState(arrival ? arrival.enabled : true)
+  const [address, setAddress] = useState('')
+  const [working, setWorking] = useState(null)
+  const [msg, setMsg] = useState(null)
+  const blocked = location?.needsRebuild
+
+  const act = async (kind, fn) => {
+    setWorking(kind); setMsg(null)
+    try { await fn() } catch (e) { setMsg({ error: true, text: e?.message || 'That didn’t work. Try again.' }) }
+    finally { setWorking(null); onLocationChanged?.() }
+  }
+  const useHere = () => act('here', async () => {
+    await alarmLocation.request(false)
+    const r = await alarmLocation.current()
+    setPlace({ latitude: r.latitude, longitude: r.longitude, radius: 150 })
+    setName(n => n.trim() ? n : 'This place')
+    setMsg({ text: `Saved where you are now${Number.isFinite(r.accuracy) ? ` (within about ${Math.round(r.accuracy)} m)` : ''}.` })
+  })
+  const find = () => act('find', async () => {
+    const r = await alarmLocation.geocode(address)
+    setPlace({ latitude: r.latitude, longitude: r.longitude, radius: 150 })
+    setName(n => n.trim() ? n : (r.name || address.trim()))
+    setMsg({ text: `Found ${r.name || address.trim()}.` })
+  })
+  const save = () => act('save', async () => {
+    // Save FIRST, then ask iOS for Always. The ask can resolve late or not at
+    // all (keeping "While Using" changes nothing, so iOS never calls back), and
+    // a save parked behind it could land after a re-arm and leave the card on
+    // "Changes waiting" (owner, 2026-11-21). The card re-reads permission when
+    // the ask settles and warns if Always is still missing.
+    const wantsAlways = on && location?.authorization !== 'always'
+    await onSave({ enabled: on, latitude: place.latitude, longitude: place.longitude, radius: place.radius ?? 150, label: name.trim() })
+    if (wantsAlways) alarmLocation.request(true).catch(() => {}).finally(() => onLocationChanged?.())
+  })
+
+  return (
+    <Sheet title="Done when I arrive"
+      sub={`Arriving here stops the rest of that day’s alarms, marks the loop done and sends a quiet notification. It only counts from ${ARRIVAL_WINDOW_MINUTES} minutes before to ${ARRIVAL_WINDOW_MINUTES} minutes after the alarm.`}
+      onClose={onClose}>
+      {blocked && <p className="al-note al-left" role="alert">This needs the updated Dev app (one rebuild).</p>}
+      <p className="al-sec">The place</p>
+      {place
+        ? <p className="al-place"><MapPin size={14} strokeWidth={2.2} aria-hidden="true" /> {name.trim() || 'Saved place'}</p>
+        : <p className="al-note al-left">No place yet. Save where you are, or look up an address.</p>}
+      <div className="al-place-acts">
+        <button className="t2-chip" disabled={!!working || blocked} onClick={useHere}>
+          {working === 'here' ? 'Finding you…' : 'Use where I am now'}
+        </button>
+      </div>
+      <div className="al-add-row al-address">
+        <input className="v2-form-input al-input" placeholder="Or type an address" value={address} maxLength={300}
+          onChange={e => setAddress(e.target.value)} onKeyDown={e => { if (e.key === 'Enter' && address.trim()) find() }} aria-label="Address" />
+        <button className="t2-chip" disabled={!!working || blocked || !address.trim()} onClick={find}>{working === 'find' ? 'Looking…' : 'Find'}</button>
+      </div>
+      {msg && <p className={`al-note al-left${msg.error ? ' al-error' : ''}`} role={msg.error ? 'alert' : 'status'}>{msg.text}</p>}
+
+      <p className="al-sec">Name</p>
+      <input className="v2-form-input al-input" value={name} maxLength={80} placeholder="School" onChange={e => setName(e.target.value)} aria-label="Place name" />
+
+      <div className="al-time">
+        <span>Count arriving here</span>
+        <div className="al-toggle" role="radiogroup" aria-label="Count arriving here">
+          <button role="radio" aria-checked={on} className={on ? 'is-on' : ''} onClick={() => setOn(true)}>On</button>
+          <button role="radio" aria-checked={!on} className={!on ? 'is-on' : ''} onClick={() => setOn(false)}>Off</button>
+        </div>
+      </div>
+      {on && location?.authorization !== 'always' && !blocked && (
+        <p className="al-note al-left">Saving asks iOS for “Always” location, so arriving counts even when Boomerang is closed. Only the arrival time is recorded.</p>
+      )}
+
+      <div className="al-actions">
+        <button className="t2-btn t2-btn-ghost" onClick={onClose}>Cancel</button>
+        <button className="t2-btn t2-btn-primary" disabled={busy || !!working || blocked || !place || !name.trim()} onClick={save}>
+          {working === 'save' ? 'Saving…' : 'Save'}
+        </button>
+      </div>
+      <p className="al-note">Once the alarm is armed, saving sends the place to the phone right away.</p>
+    </Sheet>
+  )
+}
+

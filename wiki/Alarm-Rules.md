@@ -127,3 +127,85 @@ Before BOOM-51, the owner ran the Settings sound test on the Dev phone: "The ala
 Not reported this time: Snooze re-alert, Stop, Cancel-before-fire, and Silent switch position. The 2026-11-14 probe results in [AlarmKit Probe](AlarmKit-Probe.md) still cover those.
 
 No rule alarm, meaning one armed from the new card, has been tested on the phone yet.
+
+## Arriving as done (BOOM-53, 2026-11-21)
+
+A rule can carry an optional **arrival** place: `{ enabled, latitude, longitude, radius (150 m default, 50–1000), label }`, validated in `server/alarmSchedule.js`. The owner's decisions are in D020.
+
+- **Saving the place.** "Use where I am now" (`currentLocation`, which needs While Using) or an address (`geocode`, CLGeocoder on the phone). Map picking is a future option. Saving with arrival on asks for Always.
+- **Arming.** `applyAlarmRulePlan` sends `places` for the armed rules whose arrival is on. The phone stores them (`AlarmRulesDisk.places`) and monitors a circular region per place, only while that rule has a cue still to come or one within the hour after its target (`syncRegions`).
+- **Switching off.** Turning arrival off doesn't wait for a re-arm. Every sync tells the phone to `dropPlaces` for rules whose arrival is off, and that never touches a cue.
+- **On entry.** `ArrivalMonitor` is a single `CLLocationManager`, created in `AppDelegate` so iOS can relaunch the app for a region entry. It hands the event to `AlarmRulesService.arrive`, which:
+  - picks the rule's target cue nearest now, within **±1 hour** (`ArrivalMonitor.window`, mirrored by `ARRIVAL_WINDOW_MINUTES`), counting at most once per occurrence;
+  - writes a durable `ArrivalReceipt` first;
+  - cancels the occurrence's remaining cues, the same as the done button;
+  - posts a quiet notification: a banner, no sound.
+- **Sync.** `syncAlarmRuleState` records the day on the server (the existing `/ack`). Then it calls the app's arrival handler, which marks the loop day done through `handleMarkLoopDay`, the same stamp-and-close path as the loop calendar. Only then does it mark the arrival synced. If loops haven't loaded yet, the handler throws, so the arrival stays pending and nothing is lost.
+- **No server call from native code.** It stays within CLAUDE.md's native credential rules.
+- **Storage compatibility.** `places` and `arrivals` are optional fields on the phone's alarm file. A file from before BOOM-53 lacks them, and a required field would fail to decode and mark the whole store unreadable.
+- **Checked in this environment:**
+  - `scripts/alarmRules.test.mjs` covers arrival validation and storage;
+  - `scripts/alarmRuleModel.test.mjs` covers arrival wording on Today, the window and the arrival row's states;
+  - `scripts/alarmArrivalBrowser.test.mjs` drives the card, arming, an arrival, the sync and switching off, against the real routes and a fake phone written to mirror the Swift.
+- **Not checked here:** the Swift has not been compiled in this environment (there's no Xcode). It needs the owner's Dev build and a real arrival.
+
+## Armed alarms update on save (BOOM-55, 2026-11-21)
+
+D022 records the decision. The first arming is a deliberate tap. After that, `AlarmCard`'s save re-arms when the rule was already armed (status armed or changes waiting), is still enabled, isn't held, and alarm permission is granted.
+
+The re-arm goes through `applyAlarmRulePlan`, so the stale-plan check, the 16-occurrence cap and the place hand-off are unchanged. The card then says "Updated on this phone."
+
+Turning a rule off never re-arms; the sync cancels it. A failed re-arm leaves the card on "Changes waiting", with the error and a Re-arm button.
+
+
+## Arming schedules cancelled days again (BOOM-56, 2026-11-21)
+
+On the Dev phone, Turn off → Turn on → Arm did nothing. The card stayed on "Not armed yet" with no error.
+
+**Cause.** The native apply skipped any cue its ledger had marked cancelled. The skip existed to keep a stopped alarm from coming back. But Turn off cancels every upcoming day of the rule, so the next arming skipped all of them. The same skip hit:
+- a day dropped and added back (the likely cause of the earlier stuck "Changes waiting");
+- days the 16-slot window let go of and later took back;
+- an accepted cue that iOS no longer lists.
+
+**The rule now.** A deliberate arming (Arm, Re-arm, or a save re-arm on an armed rule) schedules every plan entry that isn't already live and unchanged. A re-created cue gets a fresh id.
+
+**What still never comes back:**
+- an alarm you stopped: the plan holds only times still ahead, and an early cue whose time has passed is skipped;
+- a day with a done-button receipt;
+- a day with an arrival not yet synced to the server, which lives in its own store on the phone.
+
+Launch and resume still never schedule anything.
+
+**Why the tests missed it.** The browser fixture re-scheduled cancelled cues, which the Swift never did. Both alarm browser suites now share `scripts/alarmNativeFixture.mjs`, which mirrors the Swift apply. `ALARM_NATIVE_RULES=before-boom-56` replays the old skip and fails at Turn off → Turn on → Arm. A change to the Swift apply must change that file in the same commit.
+
+`useAlarmRules.run` also used to clear a failed re-read when the operation itself had succeeded. The card then showed stale state with no hint. The re-read's error now shows.
+
+**Saying why.** When the card reads "Changes waiting", a line under the badge (`changesWhyText`, from `alarmCardStatus().why`) names what differs. For each missing day it gives the phone's own state:
+- `cancelled`;
+- `not-listed` (accepted but iOS no longer lists it);
+- `uncertain`;
+- `absent`;
+- `marked done` (a receipt or an arrival on the phone).
+
+A day that still reads cancelled right after an arming means the phone didn't schedule it.
+
+**Errors stay put.** `useAlarmRules` keeps a re-read error (cleared by the next good read) apart from an action's error (kept until the next action). They used to share one slot. The `boom-alarms-changed` event each action sends made the same card re-read and wipe its own error within a second, so a refused Re-arm only flashed.
+
+## When iOS refuses an alarm (BOOM-56, 2026-11-22)
+
+On the owner's phone, Re-arm failed with "com.apple.AlarmKit.Alarm error 0". AlarmKit documents one error, `maximumLimitReached`, and Apple's DTS FAQ says there is "no set number as a limit". The device decides based on its state. The browser tests can't model this, so the phone handles it itself:
+
+- **Retry once.** A refused schedule is retried after one second, because a re-arm cancels a cue right before replacing it and that slot may not be free yet.
+- **No permanent block.** A schedule that still fails marks its cue cancelled, so the next arming schedules it again. It used to stay "uncertain", which refused every later arming until Turn off. An unconfirmed cue that iOS doesn't list is now scheduled again: its id was persisted first and iOS doesn't hold it, so it can't duplicate an alarm.
+- **Reclaim.** Each arming cancels any scheduled alarm iOS holds for this app that no live ledger cue owns. The probe's fixed id is never touched. Such strays count against the limit and nothing else would cancel them.
+- **Say the number.** The refusal names how many alarms iOS holds for the app, and Settings → Alarms shows `systemAlarms` from the readback. Arming sends up to 16 occurrences, and each can carry a warning cue, so a full plan is up to 32 alarms.
+
+Open question: if 32 is over this phone's limit, the plan cap should count alarms (warnings included), not occurrences. Decide once the count is known.
+
+**Update, same day: it wasn't the limit.** The new message read "It holds 1 for this app".
+
+The warning cue's presentation carried a `Countdown` while its configuration had `countdownDuration: nil`. AlarmKit refuses that combination with error 0, which other developers report as well. Every arming scheduled the first target and then failed on its warning.
+
+The warning is now built with `AlarmPresentation(alert:)`. Any future alarm shape must match presentation to configuration: a countdown screen only when `countdownDuration` is set.
+
+The retry, the reclaim and the count stay. Error 0 is still also the limit error.

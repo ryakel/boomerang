@@ -1702,7 +1702,7 @@ function IntegrationsPanel({
                     <div className="v2-integrations-actions" style={{ marginBottom: 8 }}>
                       <button type="button" className="v2-settings-btn v2-settings-btn-danger" onClick={handleGcalDisconnect}>Disconnect</button>
                       <button type="button" className="v2-settings-btn" onClick={handleGcalBulkDelete} disabled={gcalBulkDeleting}>
-                        {gcalBulkDeleting ? 'Deleting…' : 'Remove All Events'}
+                        {gcalBulkDeleting ? 'Deleting…' : 'Remove Boomerang events'}
                       </button>
                     </div>
                     {gcalBulkDeleteResult && <div className="v2-integrations-hint">{gcalBulkDeleteResult}</div>}
@@ -1723,7 +1723,7 @@ function IntegrationsPanel({
                       {gcalCalendars.map(c => <option key={c.id} value={c.id}>{c.summary}{c.primary ? ' (Primary)' : ''}</option>)}
                     </select>
                     <div className="v2-integrations-hint">
-                      Pick the calendar by name rather than leaving it on Primary — Primary resolves to
+                      Blocks you give tasks go on this calendar. Pick it by name rather than leaving it on Primary — Primary resolves to
                       whichever account Boomerang is connected as, which may not be the one holding the
                       events you want.
                     </div>
@@ -1752,44 +1752,8 @@ function IntegrationsPanel({
                         <div className="v2-integrations-hint">Today shows timed events in Coming up and all-day events at the top. Nothing here turns an event into a task.</div>
                       </>
                     )}
-                    <div className="v2-integrations-toggle-row">
-                      <span>Push tasks as calendar events</span>
-                      <Toggle checked={settings.gcal_sync_enabled} onChange={e => update('gcal_sync_enabled', e.target.checked)} />
-                    </div>
-                    {settings.gcal_sync_enabled && (
-                      <div className="v2-integrations-sub-settings">
-                        <div className="v2-integrations-hint">Sync tasks with these statuses:</div>
-                        {['not_started', 'doing', 'waiting', 'open'].map(status => (
-                          <label key={status} className="v2-integrations-check">
-                            <input type="checkbox" checked={(settings.gcal_sync_statuses || []).includes(status)} onChange={e => {
-                              const cur = settings.gcal_sync_statuses || []
-                              update('gcal_sync_statuses', e.target.checked ? [...cur, status] : cur.filter(s => s !== status))
-                            }} />
-                            <span>{status.replace('_', ' ')}</span>
-                          </label>
-                        ))}
-                        <div className="v2-integrations-toggle-row">
-                          <span>AI-timed events (vs all-day)</span>
-                          <Toggle checked={settings.gcal_use_timed_events} onChange={e => update('gcal_use_timed_events', e.target.checked)} />
-                        </div>
-                        {settings.gcal_use_timed_events && (
-                          <div className="v2-integrations-row-compact">
-                            <label className="v2-integrations-hint">Fallback time</label>
-                            <input type="time" className="v2-form-input v2-settings-compact-input" value={settings.gcal_default_time || '09:00'} onChange={e => update('gcal_default_time', e.target.value)} />
-                            <label className="v2-integrations-hint">Duration (min)</label>
-                            <input type="number" className="v2-form-input v2-settings-compact-input" min={5} max={480} value={settings.gcal_event_duration || 60} onChange={e => update('gcal_event_duration', parseInt(e.target.value, 10) || 60)} />
-                          </div>
-                        )}
-                        <div className="v2-integrations-toggle-row">
-                          <span>Remove events when tasks completed</span>
-                          <Toggle checked={settings.gcal_remove_on_complete !== false} onChange={e => update('gcal_remove_on_complete', e.target.checked)} />
-                        </div>
-                        <div className="v2-integrations-toggle-row">
-                          <span>15-min buffer around events</span>
-                          <Toggle checked={settings.gcal_event_buffer} onChange={e => update('gcal_event_buffer', e.target.checked)} />
-                        </div>
-                      </div>
-                    )}
+                    {/* The every-dated-task push is retired (BOOM-58): only blocks. */}
+                    <div className="v2-integrations-hint">Boomerang puts a task on your calendar only when you give it a block (open the task, then Block). Nothing else is added, moved or removed.</div>
                     <div className="v2-integrations-toggle-row">
                       <span>Pull events as tasks</span>
                       <Toggle checked={settings.gcal_pull_enabled} onChange={e => update('gcal_pull_enabled', e.target.checked)} />

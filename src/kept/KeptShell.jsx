@@ -21,9 +21,9 @@ export default function KeptShell({
   tasks = [], routines = [], labels = [], weatherByDate = null,
   dailyStats = {},
   onCompleteTask, onOpenTask, onToggleHabit, onRescheduleTask, onDeleteTask,
-  onLogSession, onGmailKeep, onGmailDismiss, onReconcileYesterday, onReconcileKeep, onWhatNow, onToggleItem, onUnsnooze,
+  onLogSession, onGmailKeep, onGmailDismiss, onReconcileYesterday, onReconcileKeep, onWhatNow, onToggleItem, onUnsnooze, onUpdateTask,
   onCycleImpact, onStatusChange, onRestoreStatus,
-  onThrow, onThrowNote, onOpenFullAdd, onScanSchedule, onEditLoop, onAddLoop, onSpawnNow, onSkipCycle, onMarkLoopDay, onUnmarkLoopDay, onSkipLoopDay, onPushLoopOut, onSetLoopAutopilot, onToggleLoopPause, onDeleteLoop, onTurnOffLoopReminder, onSetKeepToday,
+  onThrow, onThrowNote, onOpenFullAdd, onScanSchedule, onEditLoop, onAddLoop, onSpawnNow, onSkipCycle, onMarkLoopDay, onUnmarkLoopDay, onSkipLoopDay, onPushLoopOut, onSetLoopAutopilot, onToggleLoopPause, onDeleteLoop, onTurnOffLoopReminder, onSetKeepToday, onUpdateLoop,
   onOpenQuokka, onOpenSettings, onOpenPackages, onOpenAnalytics,
   onOpenProjects, onOpenActivity, onOpenSuggestions, onOpenNotifications,
   onOpenNotes,
@@ -40,7 +40,7 @@ export default function KeptShell({
 
   let surface
   if (tab === 'loops') {
-    surface = <LoopsView routines={routines} tasks={tasks} onEditLoop={onEditLoop} onAddLoop={onAddLoop} onSpawnNow={onSpawnNow} onSkipCycle={onSkipCycle} onMarkLoopDay={onMarkLoopDay} onUnmarkLoopDay={onUnmarkLoopDay} onSkipLoopDay={onSkipLoopDay} onPushLoopOut={onPushLoopOut} onOpenSuggestions={onOpenSuggestions} onSetAutopilot={onSetLoopAutopilot} onTogglePause={onToggleLoopPause} onDeleteLoop={onDeleteLoop} onTurnOffLoopReminder={onTurnOffLoopReminder} onCompleteTask={onCompleteTask} onOpenTask={onOpenTask} onToggleHabit={onToggleHabit} />
+    surface = <LoopsView routines={routines} tasks={tasks} onEditLoop={onEditLoop} onAddLoop={onAddLoop} onSpawnNow={onSpawnNow} onSkipCycle={onSkipCycle} onMarkLoopDay={onMarkLoopDay} onUnmarkLoopDay={onUnmarkLoopDay} onSkipLoopDay={onSkipLoopDay} onPushLoopOut={onPushLoopOut} onOpenSuggestions={onOpenSuggestions} onSetAutopilot={onSetLoopAutopilot} onTogglePause={onToggleLoopPause} onDeleteLoop={onDeleteLoop} onTurnOffLoopReminder={onTurnOffLoopReminder} onUpdateLoop={onUpdateLoop} onCompleteTask={onCompleteTask} onOpenTask={onOpenTask} onToggleHabit={onToggleHabit} />
   } else if (tab === 'tasks') {
     surface = (
       <TasksViewKept
@@ -74,6 +74,7 @@ export default function KeptShell({
         onDeleteTask={onDeleteTask} onEditLoop={onEditLoop}
         onLogSession={onLogSession} onGmailKeep={onGmailKeep} onGmailDismiss={onGmailDismiss}
         onReconcileYesterday={onReconcileYesterday} onReconcileKeep={onReconcileKeep}
+        onUpdateTask={onUpdateTask}
         onWhatNow={onWhatNow}
         onCycleImpact={onCycleImpact}
         pinnedNotes={pinnedNotes} onOpenNotes={onOpenNotes} onUnpinNote={onUnpinNote}
