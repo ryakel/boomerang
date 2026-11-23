@@ -52,7 +52,7 @@
   padding: 10px 0; border-top: 1px solid var(--t2-div);
   font-size: 14.5px; color: var(--t2-text);
 }
-.al-time input[type="time"], .al-add input {
+.al-time input[type="time"], .al-time input[type="date"], .al-add input {
   font: 600 14.5px/1.2 var(--t2-sans); color: var(--t2-text);
   background: color-mix(in srgb, var(--t2-text) 6%, transparent);
   border: 0; border-radius: 9px; padding: 7px 10px;
@@ -85,3 +85,11 @@
 .al-address .al-input { margin: 0; flex: 1 1 auto; min-width: 0; }
 .al-note.al-flash { color: var(--bm-ember); font-weight: 600; }
 
+
+/* Block sheet (BOOM-57). It opens from the task editor, which is a modal at
+ * z-index 100 outside the shell, so the sheet must sit above it. */
+.bm-block-backdrop { z-index: 110; }
+.al-kv.is-picked { color: var(--bm-ember); font-weight: 600; }
+.al-kv.is-picked > svg { color: var(--bm-ember); }
+.al-time .al-add-row { flex-wrap: nowrap; gap: 6px; }
+.al-time .al-add-row input[type="date"] { min-width: 0; max-width: 150px; }

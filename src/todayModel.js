@@ -136,9 +136,13 @@ export function dayPhase(routines, settings, now = new Date()) {
 // Raw events are what GET /api/gcal/events returns. A task that was imported
 // from an event (gcal_event_id) already shows as a task, so its event is dropped
 // here rather than listed twice.
+// A block (BOOM-57) is the opposite: the task ASKED for that time, so its event
+// stays, claims the time like any appointment, and carries `blockTaskId` so
+// Today shows it as that task's focus time and opens the task on tap.
 export function normalizeEvents(raw, tasks = []) {
   if (!Array.isArray(raw)) return []
   const imported = new Set(tasks.map(t => t.gcal_event_id).filter(Boolean))
+  const blocks = new Map(tasks.filter(t => t.block_event_id).map(t => [t.block_event_id, t.id]))
   const out = []
   for (const e of raw) {
     if (!e || e.status === 'cancelled' || imported.has(e.id)) continue
@@ -163,6 +167,7 @@ export function normalizeEvents(raw, tasks = []) {
       // Free events (transparency: transparent) are on the calendar but don't
       // claim the time, so they never shorten the window for a recommendation.
       busy: timed && e.transparency !== 'transparent',
+      blockTaskId: blocks.get(e.id) || null,
     })
   }
   return out.sort((a, b) => (a.startMs ?? 0) - (b.startMs ?? 0))

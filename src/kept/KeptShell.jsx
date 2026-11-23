@@ -21,7 +21,7 @@ export default function KeptShell({
   tasks = [], routines = [], labels = [], weatherByDate = null,
   dailyStats = {},
   onCompleteTask, onOpenTask, onToggleHabit, onRescheduleTask, onDeleteTask,
-  onLogSession, onGmailKeep, onGmailDismiss, onReconcileYesterday, onReconcileKeep, onWhatNow, onToggleItem, onUnsnooze,
+  onLogSession, onGmailKeep, onGmailDismiss, onReconcileYesterday, onReconcileKeep, onWhatNow, onToggleItem, onUnsnooze, onUpdateTask,
   onCycleImpact, onStatusChange, onRestoreStatus,
   onThrow, onThrowNote, onOpenFullAdd, onScanSchedule, onEditLoop, onAddLoop, onSpawnNow, onSkipCycle, onMarkLoopDay, onUnmarkLoopDay, onSkipLoopDay, onPushLoopOut, onSetLoopAutopilot, onToggleLoopPause, onDeleteLoop, onTurnOffLoopReminder, onSetKeepToday, onUpdateLoop,
   onOpenQuokka, onOpenSettings, onOpenPackages, onOpenAnalytics,
@@ -74,6 +74,7 @@ export default function KeptShell({
         onDeleteTask={onDeleteTask} onEditLoop={onEditLoop}
         onLogSession={onLogSession} onGmailKeep={onGmailKeep} onGmailDismiss={onGmailDismiss}
         onReconcileYesterday={onReconcileYesterday} onReconcileKeep={onReconcileKeep}
+        onUpdateTask={onUpdateTask}
         onWhatNow={onWhatNow}
         onCycleImpact={onCycleImpact}
         pinnedNotes={pinnedNotes} onOpenNotes={onOpenNotes} onUnpinNote={onUnpinNote}

@@ -1,5 +1,9 @@
 # Work status and authorization
 
+## Week, blocks and a big release (2026-11-23)
+
+Built on `dev` (D023): the Friday weekly review with week priorities (BOOM-59), calendar blocks (BOOM-57), and retiring the calendar push (BOOM-58). The owner asked to "get this into dev and make one massive push to prod". The release PR goes to `main` only after the dev deploy is checked and he gives the go-ahead. Since v2.65.0 the release also carries the alarm fixes (BOOM-53..56), which stay off outside dev. Alarm fixes since 2026-11-21 are confirmed on the phone: re-arm after Turn off works (BOOM-56 closed).
+
 ## Production release v2.65.0 (2026-11-21)
 
 Keep on Today is in production. So is the alarm interface code, which stays off outside dev (D015). Deploys now run on Ubuntu 26 with Tailscale action v4. D021 has the detail.

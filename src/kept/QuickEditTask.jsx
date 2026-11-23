@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Trash2, Plus, Check, ChevronDown, Sliders, Sparkles, Monitor, Users, MapPin, Flame, Palette, Dumbbell, Zap, BookOpenText, Pin } from 'lucide-react'
+import { Trash2, Plus, Check, ChevronDown, Sliders, Sparkles, Monitor, Users, MapPin, Flame, Palette, Dumbbell, Zap, BookOpenText, Pin, CalendarClock } from 'lucide-react'
+import BlockSheet from './BlockSheet'
+import { blockLabel } from '../blockModel'
 import ModalShell from '../components/ModalShell'
 import AutosaveIndicator from '../components/AutosaveIndicator'
 import DateField from '../components/DateField'
@@ -45,7 +47,7 @@ const DRAIN = [{ v: 1, label: 'Low' }, { v: 2, label: 'Medium' }, { v: 3, label:
 // segmented pills. Reuses useTaskForm + the same partial-save contract as
 // EditTaskModal (updateTask merges, so the advanced fields it doesn't manage
 // are preserved). Heavy/rare config lives behind "More options" → full editor.
-export default function WallabyEditTask({ task, onSave, onClose, onDelete, onStatusChange, onOpenFull, onConvertToLoop }) {
+export default function WallabyEditTask({ task, onSave, onClose, onDelete, onStatusChange, onOpenFull, onConvertToLoop, onUpdateTask }) {
   const form = useTaskForm({
     title: task.title, notes: task.notes, tags: task.tags || [],
     dueDate: task.due_date || '', size: task.size, size_inferred: task.size_inferred,
@@ -127,6 +129,9 @@ export default function WallabyEditTask({ task, onSave, onClose, onDelete, onSta
   // task on Today until it's done, unticked or due. Projects pin elsewhere.
   const isProjectTask = task.status === 'project'
   const [keepToday, setKeepToday] = useState(!!task.pinned_to_today)
+  // A block on the calendar (BOOM-57). Saved by its own sheet, not the autosave.
+  const [blockOpen, setBlockOpen] = useState(false)
+  const blockText = blockLabel(task, Date.now())
 
   // ── autosave (mirrors EditTaskModal; subset of fields — partial merge) ──────
   const savePayload = useMemo(() => ({
@@ -340,6 +345,13 @@ export default function WallabyEditTask({ task, onSave, onClose, onDelete, onSta
             <span className="wb-edit-chip-val">{keepToday ? 'Yes' : 'No'}</span>
           </button>
         )}
+        {!isProjectTask && onUpdateTask && status !== 'done' && (
+          <button className={`wb-edit-chip wb-edit-chip-keep${blockText ? ' wb-edit-chip-high' : ''}`} onClick={() => setBlockOpen(true)}>
+            <CalendarClock size={13} strokeWidth={2.25} aria-hidden="true" />
+            <span className="wb-edit-chip-key">Block</span>
+            <span className="wb-edit-chip-val">{blockText || 'None'}</span>
+          </button>
+        )}
         {chip('remind', 'Remind', remindLabel)}
         {onConvertToLoop && chip('repeats', 'Repeats', alreadyLoop ? 'Loop' : 'No')}
         {chip('priority', 'Priority', priorityLabel, form.highPriority ? 'high' : null)}
@@ -480,6 +492,7 @@ export default function WallabyEditTask({ task, onSave, onClose, onDelete, onSta
           <Trash2 size={15} strokeWidth={2} /> Delete
         </button>
       </div>
+      {blockOpen && <BlockSheet task={task} updateTask={onUpdateTask} onClose={() => setBlockOpen(false)} />}
     </ModalShell>
   )
 }

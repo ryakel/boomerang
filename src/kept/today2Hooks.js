@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { CALENDAR_CHANGED } from '../blockModel'
 import { gcalListCalendars, gcalListEvents, gcalStatus, notNowGet, notNowPost } from '../api'
 import { loadSettings, safeSetItem } from '../store'
 import { recordNotNow } from '../todayModel'
@@ -128,7 +129,9 @@ export function useCalendarEvents(todayKey) {
     const timer = setInterval(load, EVENTS_TTL_MS)
     const onVisible = () => { if (document.visibilityState === 'visible') load() }
     document.addEventListener('visibilitychange', onVisible)
-    return () => { cancelled = true; clearInterval(timer); document.removeEventListener('visibilitychange', onVisible) }
+    // A block was added, moved or removed (BOOM-57): show it now, not in ten minutes.
+    window.addEventListener(CALENDAR_CHANGED, load)
+    return () => { cancelled = true; clearInterval(timer); document.removeEventListener('visibilitychange', onVisible); window.removeEventListener(CALENDAR_CHANGED, load) }
   }, [todayKey])
   return raw
 }
