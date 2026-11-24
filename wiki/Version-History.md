@@ -6,6 +6,9 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-11-24
 
+- docs(wiki): record the v2.67.0 production release [XS]
+  - Release #1073 is live; relink #1074 keeps `dev..main` at 0.
+
 - feat(ios): alarms in production, and a Today widget for the Lock and Home Screens [M]
   - Owner: "I want those two environments equal right now… I need something beyond just notifications. I am forgetting to open" (D024).
   - **Alarms (BOOM-60):** both production App configurations compile the AlarmKit and location code and inject the web flag. Alarm copy no longer says "Boomerang Dev".
