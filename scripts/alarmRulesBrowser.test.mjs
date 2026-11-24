@@ -19,7 +19,7 @@ test('alarm card sets up, arms and acknowledges a loop alarm; saving never arms'
   const device='11111111-1111-1111-1111-111111111111'
   let data, src
   const api=express();api.use(express.json())
-  registerAlarmRuleRoutes(api,{get:()=>data&&structuredClone(data),set:s=>{data=structuredClone(s)},flush:()=>{},source:(kind,id)=>kind==='routine'&&id==='r-1'?src:null,isDev:()=>true})
+  registerAlarmRuleRoutes(api,{get:()=>data&&structuredClone(data),set:s=>{data=structuredClone(s)},flush:()=>{},source:(kind,id)=>kind==='routine'&&id==='r-1'?src:null,enabled:()=>true})
   const css=['/src/index.css','/src/AppV2.css','/src/components/SettingsModal.css','/src/kept/palette.css','/src/kept/shell.css','/src/kept/today2.css','/src/kept/loops2.css'].map(x=>`import '${x}';`).join('')
   const html=`<html data-ui="v2" data-theme="kept-light"><head><link rel="icon" href="data:,"></head><body><div id="root" class="v2-app"></div><script type="module">${css}import React from 'react';import{createRoot}from'react-dom/client';
     import AlarmCard from '/src/kept/AlarmCard.jsx';import TodayAlarm from '/src/kept/TodayAlarm.jsx';import Panel from '/src/components/AlarmRulesPanel.jsx';

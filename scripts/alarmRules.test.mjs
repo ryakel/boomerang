@@ -35,7 +35,7 @@ test('malformed policies do not silently become scheduling defaults',()=>{
 })
 function fixture() {
   let state;let flushes=0;let parent={title:'Source',status:'doing'}
-  const deps={get:()=>state&&structuredClone(state),set:s=>{state=structuredClone(s)},flush:()=>{flushes++},source:()=>parent,now:()=>now,isDev:()=>true}
+  const deps={get:()=>state&&structuredClone(state),set:s=>{state=structuredClone(s)},flush:()=>{flushes++},source:()=>parent,now:()=>now,enabled:()=>true}
   return {store:createAlarmRuleStore(deps),deps,setParent:p=>{parent=p},flushes:()=>flushes}
 }
 test('CAS writes, phone binding and source uniqueness protect saved rules',()=>{
@@ -56,9 +56,9 @@ test('missing, completed and ordinary-reminder sources are held, not duplicated'
   const f=fixture(),r=rule();f.store.save(r.id,r,0,crypto.randomUUID())
   for(const parent of [null,{status:'done'},{status:'doing',remind:true},{paused:true},{spawn_mode:'autopilot'}]){f.setParent(parent);assert.equal(f.store.snapshot().plans[0].occurrences.length,0)}
 })
-test('production rejects the dev API and the API persists through the dedicated store',async t=>{
+test('a switched-off server refuses the API, and the API persists through the dedicated store',async t=>{
   const f=fixture(),app=express();let dev=false
-  app.use(express.json());registerAlarmRuleRoutes(app,{...f.deps,isDev:()=>dev})
+  app.use(express.json());registerAlarmRuleRoutes(app,{...f.deps,enabled:()=>dev})
   const server=app.listen(0,'127.0.0.1');t.after(()=>server.close());await new Promise(r=>server.once('listening',r))
   const base=`http://127.0.0.1:${server.address().port}/api/alarm-rules`
   assert.equal((await fetch(base)).status,403);dev=true
