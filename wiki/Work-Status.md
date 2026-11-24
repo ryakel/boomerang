@@ -1,5 +1,9 @@
 # Work status and authorization
 
+## Production release v2.67.0 (2026-11-24)
+
+Release #1073 deployed and passed the health check (run 45397510415): alarm rules are served in production, and the Today widget's web half is live. Relink #1074 keeps `dev..main` at 0. The native half (production alarm code, the widget) arrives when the owner runs the compile check and rebuilds the production app.
+
 ## Alarms in production and a Today widget (2026-11-24)
 
 The owner asked for both: prod equal to dev, and a widget because he forgets to open the app (D024: BOOM-60, BOOM-61). Built on `dev`. The release to `main` follows the owner's explicit ask. He then rebuilds the production app; the first build may need one interactive Xcode build for the widget's App Group.
