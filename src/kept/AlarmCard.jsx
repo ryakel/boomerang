@@ -77,7 +77,7 @@ export default function AlarmCard({ kind = 'routine', sourceId, reminderOn = fal
   const save = (patch) => {
     let rearmed = false
     return run(async () => {
-      if (!native?.deviceId) throw Error('Open Boomerang Dev on this phone to set alarms.')
+      if (!native?.deviceId) throw Error('Open Boomerang on this phone to set alarms.')
       const base = rule || blankAlarmRule(kind, sourceId, deviceZone())
       const id = rule?.id || crypto.randomUUID()
       await alarmRuleApi.save(id, { ...base, ...patch }, rule?.revision || 0, native.deviceId)
@@ -118,7 +118,7 @@ export default function AlarmCard({ kind = 'routine', sourceId, reminderOn = fal
   const arrivalNote = {
     'needs-always': 'Arrival needs “Always” location to work while Boomerang is closed. The alarm works either way.',
     denied: 'Location is off for Boomerang, so arriving can’t be detected. The alarm still works.',
-    unavailable: location?.needsRebuild ? 'Arriving as done needs the updated Dev app (one rebuild). The alarm still works.' : 'This phone can’t watch places right now. The alarm still works.',
+    unavailable: location?.needsRebuild ? 'Arriving as done needs the updated Boomerang app. The alarm still works.' : 'This phone can’t watch places right now. The alarm still works.',
   }[arrival] || null
 
   let note = null, primary = null, secondary = null
@@ -225,7 +225,7 @@ export default function AlarmCard({ kind = 'routine', sourceId, reminderOn = fal
           <button className="t2-chip al-inline" onClick={allow} disabled={busy}>Allow alarms</button></p>
       )}
       {primary?.needsAuth && native?.authorization === 'denied' && (
-        <p className="al-note al-left" role="alert">Alarm permission is off. Turn it on in iOS Settings, Boomerang Dev, then come back.</p>
+        <p className="al-note al-left" role="alert">Alarm permission is off. Turn it on in iOS Settings, Boomerang, then come back.</p>
       )}
 
       {(primary || secondary) && (
@@ -422,7 +422,7 @@ function ArrivalSheet({ arrival, location, busy, onClose, onSave, onLocationChan
     <Sheet title="Done when I arrive"
       sub={`Arriving here stops the rest of that day’s alarms, marks the loop done and sends a quiet notification. It only counts from ${ARRIVAL_WINDOW_MINUTES} minutes before to ${ARRIVAL_WINDOW_MINUTES} minutes after the alarm.`}
       onClose={onClose}>
-      {blocked && <p className="al-note al-left" role="alert">This needs the updated Dev app (one rebuild).</p>}
+      {blocked && <p className="al-note al-left" role="alert">This needs the updated Boomerang app.</p>}
       <p className="al-sec">The place</p>
       {place
         ? <p className="al-place"><MapPin size={14} strokeWidth={2.2} aria-hidden="true" /> {name.trim() || 'Saved place'}</p>

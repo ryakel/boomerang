@@ -34,6 +34,12 @@ export default function KeptDesktop({
   syncStatus = 'synced', queueLength = 0,
 }) {
   const [tab, setTab] = useState('today')
+  // The Today widget's tap (BOOM-61) lands on Today whatever tab was open.
+  useEffect(() => {
+    const open = () => setTab('today')
+    window.addEventListener('boom-open-today', open)
+    return () => window.removeEventListener('boom-open-today', open)
+  }, [])
   const syncVisualState = useSyncBounce(syncStatus, queueLength)
   const [throwOpen, setThrowOpen] = useState(false)
   const [sheetHost, setSheetHost] = useState(null)

@@ -42,7 +42,7 @@ public class BoomerangAlarmRules: CAPPlugin, CAPBridgedPlugin {
             return
         }
         #endif
-        call.resolve(["available": false, "error": "Use the updated Boomerang Dev app on iOS 26.1+."])
+        call.resolve(["available": false, "error": "Update Boomerang on this iPhone (iOS 26.1+) to use alarms."])
     }
     private func run(_ call: CAPPluginCall, _ action: String) {
         #if BOOMERANG_ALARM_PROBE && canImport(AlarmKit)
@@ -54,7 +54,7 @@ public class BoomerangAlarmRules: CAPPlugin, CAPBridgedPlugin {
             return
         }
         #endif
-        call.resolve(["available": false, "error": "Use the updated Boomerang Dev app on iOS 26.1+."])
+        call.resolve(["available": false, "error": "Update Boomerang on this iPhone (iOS 26.1+) to use alarms."])
     }
 }
 

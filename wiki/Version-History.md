@@ -6,6 +6,18 @@ Commit-level changelog for Boomerang, grouped by date. Sizes: `[XS]` trivial, `[
 
 ## 2026-11-24
 
+- feat(ios): alarms in production, and a Today widget for the Lock and Home Screens [M]
+  - Owner: "I want those two environments equal right now… I need something beyond just notifications. I am forgetting to open" (D024).
+  - **Alarms (BOOM-60):** both production App configurations compile the AlarmKit and location code and inject the web flag. Alarm copy no longer says "Boomerang Dev".
+  - **Widget (BOOM-61):**
+    - Lock Screen (rectangular, circular, inline) and Home Screen (small, medium);
+    - shows the number on Today, the first items, and the week's priorities when Today is clear;
+    - tap opens Today;
+    - reads an App Group snapshot the app writes on every change and when it goes to the background, never the network;
+    - recomputes across midnights from the snapshot's dates and says when it last updated.
+  - **Tests:** `scripts/widgetSnapshot.test.mjs`, 4 cases.
+  - Native: one production iOS rebuild, possibly one interactive Xcode build for the widget's new App Group capability. The Swift has not been compiled here.
+
 - feat(server): serve alarm rules in every environment, with a kill switch [XS]
   - Owner: "The alarms feature needs to be enabled in prod. I want those two environments equal right now" (BOOM-60).
   - `/api/alarm-rules` no longer answers 403 off dev. `ALARM_RULES_ENABLED=0` switches it off on a server without touching stored rules.

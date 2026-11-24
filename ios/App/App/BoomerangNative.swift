@@ -1,6 +1,7 @@
 import Foundation
 import Capacitor
 import BoomerangKit
+import WidgetKit
 
 // Bridges connection credentials from the WebView's JS into native shared
 // storage, so Swift-side surfaces that run OUTSIDE the WebView process — the
@@ -29,7 +30,8 @@ public class BoomerangNative: CAPPlugin, CAPBridgedPlugin {
         CAPPluginMethod(name: "setDeviceTokens", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "getDeviceTokens", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "clearDeviceTokens", returnType: CAPPluginReturnPromise),
-        CAPPluginMethod(name: "runAppAttest", returnType: CAPPluginReturnPromise)
+        CAPPluginMethod(name: "runAppAttest", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "setWidgetSnapshot", returnType: CAPPluginReturnPromise)
     ]
 
     @objc func setSharedConfig(_ call: CAPPluginCall) {
@@ -87,6 +89,29 @@ public class BoomerangNative: CAPPlugin, CAPBridgedPlugin {
     @objc func clearDeviceTokens(_ call: CAPPluginCall) {
         SharedCredentials.clearDevicePair()
         call.resolve(["cleared": true])
+    }
+
+    // The Today widget's snapshot (BOOM-61). JS builds it (src/widgetSnapshot.js)
+    // and hands it over as a JSON string; this writes it into the App Group
+    // container, where the widget extension reads it, then asks WidgetKit to
+    // redraw. No credentials, no network: the widget only ever reads this file.
+    @objc func setWidgetSnapshot(_ call: CAPPluginCall) {
+        guard let json = call.getString("json"), let data = json.data(using: .utf8),
+              (try? JSONSerialization.jsonObject(with: data)) != nil else {
+            call.reject("Widget snapshot must be a JSON string.")
+            return
+        }
+        guard let dir = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: BoomerangShared.appGroupId) else {
+            call.reject("App Group container unavailable.")
+            return
+        }
+        do {
+            try data.write(to: dir.appendingPathComponent("widget-today.json"), options: .atomic)
+            WidgetCenter.shared.reloadAllTimelines()
+            call.resolve(["stored": true])
+        } catch {
+            call.reject("Could not save the widget snapshot: \(error.localizedDescription)")
+        }
     }
 
     // Phase B native half: run the DCAppAttest flow against the server. With
