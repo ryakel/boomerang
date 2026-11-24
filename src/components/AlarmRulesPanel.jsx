@@ -17,7 +17,7 @@ export default function AlarmRulesPanel() {
   if (!available) {
     return (
       <SettingsGroup caption="Alarms">
-        <div className="v2-settings-row alarm-overview"><p>Alarms need the Boomerang Dev app on your phone.</p></div>
+        <div className="v2-settings-row alarm-overview"><p>Alarms need the Boomerang app on your iPhone (iOS 26.1+).</p></div>
       </SettingsGroup>
     )
   }

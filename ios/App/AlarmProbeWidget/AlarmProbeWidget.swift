@@ -5,7 +5,10 @@ import WidgetKit
 
 @main
 struct AlarmProbeWidgetBundle: WidgetBundle {
-    var body: some Widget { AlarmProbeActivity() }
+    var body: some Widget {
+        TodayWidget()
+        AlarmProbeActivity()
+    }
 }
 
 struct AlarmProbeActivity: Widget {

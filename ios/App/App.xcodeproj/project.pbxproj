@@ -38,6 +38,7 @@
 		ABC0A1A00000000000000003 /* AlarmProbeMetadata.swift in Sources (App) */ = {isa = PBXBuildFile; fileRef = ABC0A1A00000000000000004; };
 		ABC0A1A00000000000000005 /* AlarmProbeMetadata.swift in Sources (Widget) */ = {isa = PBXBuildFile; fileRef = ABC0A1A00000000000000004; };
 		ABC0A1A00000000000000006 /* AlarmProbeWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = ABC0A1A00000000000000007; };
+		ABC0A1A000000000000000B1 /* TodayWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = ABC0A1A000000000000000B2; };
 		ABC0A1A00000000000000008 /* AlarmProbeWidget.appex in Embed App Extensions */ = {isa = PBXBuildFile; fileRef = ABC0A1A00000000000000009; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 /* End PBXBuildFile section */
 
@@ -75,6 +76,8 @@
 		ABC0A1A00000000000000002 /* BoomerangAlarmProbe.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BoomerangAlarmProbe.swift; sourceTree = "<group>"; };
 		ABC0A1A00000000000000004 /* AlarmProbeMetadata.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AlarmProbeMetadata.swift; sourceTree = "<group>"; };
 		ABC0A1A00000000000000007 /* AlarmProbeWidget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AlarmProbeWidget.swift; sourceTree = "<group>"; };
+		ABC0A1A000000000000000B2 /* TodayWidget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TodayWidget.swift; sourceTree = "<group>"; };
+		ABC0A1A000000000000000B3 /* AlarmProbeWidget.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = AlarmProbeWidget.entitlements; sourceTree = "<group>"; };
 		ABC0A1A0000000000000000A /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		ABC0A1A00000000000000009 /* AlarmProbeWidget.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = AlarmProbeWidget.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
@@ -190,7 +193,7 @@
 		};
 		ABC0A1A0000000000000000B /* AlarmProbeWidget */ = {
 			isa = PBXGroup;
-			children = (ABC0A1A00000000000000007 /* AlarmProbeWidget.swift */, ABC0A1A0000000000000000A /* Info.plist */, );
+			children = (ABC0A1A00000000000000007 /* AlarmProbeWidget.swift */, ABC0A1A000000000000000B2 /* TodayWidget.swift */, ABC0A1A000000000000000B3 /* AlarmProbeWidget.entitlements */, ABC0A1A0000000000000000A /* Info.plist */, );
 			path = AlarmProbeWidget;
 			sourceTree = "<group>";
 		};
@@ -449,7 +452,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		ABC0A1A0000000000000000C /* Sources */ = {isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (ABC0A1A00000000000000005, ABC0A1A00000000000000006, ); runOnlyForDeploymentPostprocessing = 0; };
+		ABC0A1A0000000000000000C /* Sources */ = {isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (ABC0A1A00000000000000005, ABC0A1A00000000000000006, ABC0A1A000000000000000B1, ); runOnlyForDeploymentPostprocessing = 0; };
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXVariantGroup section */
@@ -603,7 +606,7 @@
 				OTHER_SWIFT_FLAGS = "$(inherited) \"-D\" \"COCOAPODS\" \"-DDEBUG\"";
 				PRODUCT_BUNDLE_IDENTIFIER = ryakel.boomerang.app;
 				PRODUCT_NAME = "$(TARGET_NAME)";
-				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG BOOMERANG_ALARM_PROBE";
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
 			};
@@ -629,7 +632,7 @@
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = ryakel.boomerang.app;
 				PRODUCT_NAME = "$(TARGET_NAME)";
-				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "";
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = BOOMERANG_ALARM_PROBE;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
 			};
@@ -1017,6 +1020,9 @@
 		ABC0A1A00000000000000014 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				BOOMERANG_APP_GROUP = group.ryakel.boomerang;
+				BOOMERANG_URL_SCHEME = boomerang;
+				CODE_SIGN_ENTITLEMENTS = AlarmProbeWidget/AlarmProbeWidget.entitlements;
 				APPLICATION_EXTENSION_API_ONLY = YES;
 				CLANG_ENABLE_MODULES = YES;
 				CODE_SIGN_STYLE = Automatic;
@@ -1039,6 +1045,9 @@
 		ABC0A1A00000000000000015 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				BOOMERANG_APP_GROUP = group.ryakel.boomerang;
+				BOOMERANG_URL_SCHEME = boomerang;
+				CODE_SIGN_ENTITLEMENTS = AlarmProbeWidget/AlarmProbeWidget.entitlements;
 				APPLICATION_EXTENSION_API_ONLY = YES;
 				CLANG_ENABLE_MODULES = YES;
 				CODE_SIGN_STYLE = Automatic;
@@ -1061,6 +1070,9 @@
 		ABC0A1A00000000000000016 /* Debug-Dev */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				BOOMERANG_APP_GROUP = group.ryakel.boomerang.dev;
+				BOOMERANG_URL_SCHEME = "boomerang-dev";
+				CODE_SIGN_ENTITLEMENTS = AlarmProbeWidget/AlarmProbeWidget.entitlements;
 				APPLICATION_EXTENSION_API_ONLY = YES;
 				CLANG_ENABLE_MODULES = YES;
 				CODE_SIGN_STYLE = Automatic;
@@ -1083,6 +1095,9 @@
 		ABC0A1A00000000000000017 /* Release-Dev */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				BOOMERANG_APP_GROUP = group.ryakel.boomerang.dev;
+				BOOMERANG_URL_SCHEME = "boomerang-dev";
+				CODE_SIGN_ENTITLEMENTS = AlarmProbeWidget/AlarmProbeWidget.entitlements;
 				APPLICATION_EXTENSION_API_ONLY = YES;
 				CLANG_ENABLE_MODULES = YES;
 				CODE_SIGN_STYLE = Automatic;

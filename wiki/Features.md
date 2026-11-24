@@ -476,6 +476,7 @@ GOOGLE_CLIENT_SECRET=your_client_secret
 ### Features
 
 - **Blocks** — give a task one block of focus time on your calendar. Open the task, then **Block**: choose 30, 60 or 90 minutes and a free slot Boomerang finds on today's calendar (or tomorrow's), or pick any date and time. Moving a block moves that one event, and removing it deletes only that event. Finishing the task leaves the block there as a record. Today shows a block in the day's schedule as that task's focus time. This is the only way Boomerang adds anything to your calendar: tasks with due dates are no longer pushed there automatically.
+- **Today widget (iPhone)** — a Lock Screen or Home Screen widget shows how many things are on Today and the first few, plus the week's priorities when Today is clear. Tap it to open Today. If you haven't opened the app since an earlier day, it works out today's list from the dates it knows and says when it last updated.
 - **Weekly review** — on Friday, Today offers fifteen minutes. The offer stays through the weekend; there's no notification and nothing counts it.
   - **Clear the inbox:** Keep or Dismiss each suggestion.
   - **Look ahead:** see what's due next week.

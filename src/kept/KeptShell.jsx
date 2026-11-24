@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import KeptHeader from './KeptHeader'
 import KeptNav from './KeptNav'
 import PullToRefresh from './PullToRefresh'
@@ -34,6 +34,12 @@ export default function KeptShell({
   syncStatus = 'synced', queueLength = 0,
 }) {
   const [tab, setTab] = useState('today')
+  // The Today widget's tap (BOOM-61) lands on Today whatever tab was open.
+  useEffect(() => {
+    const open = () => setTab('today')
+    window.addEventListener('boom-open-today', open)
+    return () => window.removeEventListener('boom-open-today', open)
+  }, [])
   const [throwOpen, setThrowOpen] = useState(false)
   // Sheets opened inside a surface portal to the shell root (SheetPortal.jsx).
   const [sheetHost, setSheetHost] = useState(null)

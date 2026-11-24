@@ -45,8 +45,10 @@ export function createAlarmRuleStore({get, set, flush, source, now=()=>Date.now(
 }
 export function registerAlarmRuleRoutes(app, deps) {
   const store=createAlarmRuleStore(deps)
-  // Explicit dev trial. Promotion alone must not activate a production alarm API.
-  app.use('/api/alarm-rules', (req,res,next)=>deps.isDev() ? next() : res.status(403).json({error:'Alarm rules are available on dev only.'}))
+  // On in every environment since BOOM-60 (owner, 2026-11-24: "I want those
+  // two environments equal"). `enabled` is the kill switch: ALARM_RULES_ENABLED=0
+  // on a server answers 403 without touching stored rules.
+  app.use('/api/alarm-rules', (req,res,next)=>deps.enabled() ? next() : res.status(403).json({error:'Alarm rules are switched off on this server.'}))
   app.get('/api/alarm-rules',(req,res)=>{try{res.set('Cache-Control','no-store').json(store.snapshot())}catch(e){res.status(409).json({error:e.message})}})
   app.put('/api/alarm-rules/:id',(req,res)=>{try{res.json(store.save(req.params.id,req.body.rule,req.body.revision,req.body.deviceId))}catch(e){res.status(409).json({error:e.message})}})
   app.post('/api/alarm-rules/:id/ack',(req,res)=>{try{res.json(store.acknowledge(req.params.id,req.body.date,req.body.deviceId,req.body.label,req.body.recordedAt))}catch(e){res.status(409).json({error:e.message})}})

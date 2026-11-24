@@ -3728,7 +3728,8 @@ app.post('/api/pushover/test-emergency', async (req, res) => {
 registerAlarmRuleRoutes(app, {
   get: getAlarmRuleState, set: setAlarmRuleState, flush: flushNow,
   source: (kind, id) => kind === 'task' ? getTask(id) : getRoutine(id),
-  isDev: () => isDevEnv,
+  // Was dev-only (D015) until BOOM-60. ALARM_RULES_ENABLED=0 switches it off.
+  enabled: () => process.env.ALARM_RULES_ENABLED !== '0',
 })
 
 // Pushover link mode — whether deep links use the native boomerang:// scheme.

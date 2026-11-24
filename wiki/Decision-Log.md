@@ -402,3 +402,17 @@ below predate those decisions and are historical recommendations, not authority.
   - **Weekly review.** Today offers it Friday through Sunday, with no notification and no count. It covers the inbox, next week's dates, and picking two or three priorities, never more than three. The priorities sit at the top of Today all week, each with its block. Skipping hides the offer for that weekend on that device.
 - Merge authority: D017 (standing, `dev` only). Production promotion requested by the owner ("one massive push to prod"); the release PR still waits on his go-ahead.
 
+## D024 — Alarms on in production; a Today widget
+
+- Date/status: 2026-11-24, **accepted and built** (BOOM-60, BOOM-61). Supersedes D015's "feature kept Dev-only".
+- Source: owner: "The alarms feature needs to be enabled in prod. I want those two environments equal right now. Additionally I want a widget for iOS that will pull me into the app… the routine 7a alert isn't enough to pull me in."
+- Decisions:
+  - **Alarms in production.** The server serves alarm rules everywhere, with `ALARM_RULES_ENABLED=0` as a kill switch. The production iOS configurations compile the AlarmKit and location code (`BOOMERANG_ALARM_PROBE`) and inject the web flag, exactly as the Dev build does.
+    - Dev and prod keep separate databases and separate apps, so each holds its own alarms.
+    - An alarm set in the Dev app still rings from the Dev app. Turn those off once the same loop is armed in production.
+  - **Today widget.** Lock Screen (rectangular, circular, inline) and Home Screen (small, medium) widgets show what's on Today and open Today on tap.
+    - **No network or credentials.** The widget reads a snapshot the app writes into the App Group when Today changes and when it goes to the background.
+    - **Stale days.** Across days with the app unopened it recomputes Today from the snapshot's dates and says when the picture is from.
+    - **Copy.** No score or streak copy.
+- Merge authority: D017 (`dev`); this production release is its own approval, and the owner asked for it.
+
