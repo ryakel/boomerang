@@ -1,3 +1,4 @@
+import { scheduleWidgetSnapshot, flushWidgetSnapshot } from './widgetSync'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { ListChecks } from 'lucide-react'
 import { App as CapacitorApp } from '@capacitor/app'
@@ -251,6 +252,14 @@ export default function AppV2() {
   // notifications, AI inference, external (Trello/Notion) outbound sync,
   // package polling + delivery notifications.
   useExternalSync(tasks, updateTask)
+  // The iOS Today widget (BOOM-61): keep its snapshot in step with Today, and
+  // write it at once when the app goes to the background.
+  useEffect(() => { scheduleWidgetSnapshot({ tasks, routines }) }, [tasks, routines])
+  useEffect(() => {
+    const onHide = () => { if (document.visibilityState === 'hidden') flushWidgetSnapshot() }
+    document.addEventListener('visibilitychange', onHide)
+    return () => document.removeEventListener('visibilitychange', onHide)
+  }, [])
   useSizeAutoInfer(tasks, updateTask, labels)
   // Critical triage auto-breakdown — same background-net pattern as the
   // sizer: any task that lands with the critical label and no triage pass
@@ -372,6 +381,8 @@ export default function AppV2() {
     const taskId = params.get('task')
     const wantSuggestions = params.get('suggestions') === '1'
     const wantAdviser = params.has('adviser')
+    // The Today widget opens boomerang://?open=today (BOOM-61).
+    if (params.get('open') === 'today') window.dispatchEvent(new Event('boom-open-today'))
     if (!taskId && !wantSuggestions && !wantAdviser) return
     // Strip the query from the visible URL so a reload doesn't re-trigger
     // (web only; the native WebView URL is capacitor://localhost and unaffected).

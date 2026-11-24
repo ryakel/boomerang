@@ -1167,3 +1167,13 @@ source-linked and server-durable; explicit reviewed arming owns UUIDs on one pho
 Launch/resume performs read/cancel/outbox sync only, never automatic scheduling.
 The same standard-Xcode check script builds both schemes. Dev installation still
 uses npm run ios:dev; no audible test is initiated by build/install or the agent.
+
+## Today widget (BOOM-61, 2026-11-24)
+
+These widgets sit in the existing WidgetKit extension (`ios/App/AlarmProbeWidget/`), next to the alarm Live Activity. Its display name is now "Boomerang".
+- **Families.** `TodayWidget.swift` defines kind `BoomerangToday` for small, medium, Lock Screen rectangular, circular and inline.
+- **Data.** The app writes `widget-today.json` into the App Group through `BoomerangNative.setWidgetSnapshot`. The snapshot is built by `src/widgetSnapshot.js` and written by `src/widgetSync.js`: debounced on every task change and immediately when the app goes to the background. The widget reads only that file: no network, no tokens.
+- **Timeline.** It runs now plus the next three midnights, so the list moves to a new day without the app.
+- **Tap.** Opens `<scheme>://?open=today`, and the app switches to Today.
+- **Signing.** The extension now has an entitlements file (`AlarmProbeWidget.entitlements`) with the App Group, plus `BOOMERANG_APP_GROUP` and `BOOMERANG_URL_SCHEME` build settings per configuration. The first build after this may need one interactive Xcode build to register the App Group on the extension's App ID, as `ios-deploy.sh` warns.
+- **Adding it.** Long-press the Lock Screen → Customize → Lock Screen → add Boomerang "Today". For the Home Screen: long-press → Edit → Add Widget → Boomerang.

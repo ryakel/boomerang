@@ -3,7 +3,7 @@
 export function createAlarmProbeClient({ native, plugin }) {
   let busy = false
   const invoke = async (method) => {
-    if (!native) return { ok: false, error: 'Open the rebuilt Boomerang Dev iOS app to test alarms.' }
+    if (!native) return { ok: false, error: 'Open the updated Boomerang iOS app to test alarms.' }
     if (busy) return { ok: false, error: 'Another alarm test operation is still running.' }
     busy = true
     try {

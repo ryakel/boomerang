@@ -33,7 +33,7 @@ public class BoomerangAlarmProbe: CAPPlugin, CAPBridgedPlugin {
         }
         call.resolve(["available": false, "error": "The alarm test needs iOS 26.1 or newer."])
         #else
-        call.resolve(["available": false, "error": "Install the Boomerang Dev native alarm test build."])
+        call.resolve(["available": false, "error": "Update Boomerang on this iPhone (iOS 26.1+) to use alarms."])
         #endif
     }
 }

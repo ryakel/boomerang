@@ -209,3 +209,7 @@ The warning cue's presentation carried a `Countdown` while its configuration had
 The warning is now built with `AlarmPresentation(alert:)`. Any future alarm shape must match presentation to configuration: a countdown screen only when `countdownDuration` is set.
 
 The retry, the reclaim and the count stay. Error 0 is still also the limit error.
+
+## In production (BOOM-60, 2026-11-24)
+
+D024 supersedes D015. Every App configuration compiles the alarm code, and the server serves `/api/alarm-rules` unless `ALARM_RULES_ENABLED=0`. User-facing copy no longer says "Boomerang Dev". The production app has its own phone identity, store and server, so its alarms are set up fresh.

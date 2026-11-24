@@ -1,5 +1,9 @@
 # Work status and authorization
 
+## Alarms in production and a Today widget (2026-11-24)
+
+The owner asked for both: prod equal to dev, and a widget because he forgets to open the app (D024: BOOM-60, BOOM-61). Built on `dev`. The release to `main` follows the owner's explicit ask. He then rebuilds the production app; the first build may need one interactive Xcode build for the widget's App Group.
+
 ## Production release v2.66.0 (2026-11-23)
 
 The owner said "Go" on release #1069, and it deployed and passed the health check (run 45224619165). It includes the weekly review, calendar blocks, the end of calendar push and the loop mode sheets. Alarm and arrival code ships but stays off outside dev (D015). Turning that on in prod is an open question to the owner: it needs a server change, a web change and a production iOS rebuild. Relink #1070 keeps `dev..main` at 0.

@@ -31,7 +31,7 @@ export async function alarmRuleStatus() {
   return Native.getStatus()
 }
 export async function applyAlarmRulePlan(state,status) {
-  if(!enabled()) throw Error('Use the updated Boomerang Dev app.')
+  if(!enabled()) throw Error('Update Boomerang on this iPhone to use alarms.')
   const latest=await alarmRuleApi.load()
   if(JSON.stringify(latest)!==JSON.stringify(state)) throw Error('The schedule or source changed. Refresh and review before arming.')
   // The phone holds at most 16 occurrences and cancels anything a plan leaves
